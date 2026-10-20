@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MINERVA — Mines & Concessions Master (Database Explorer)</title>
+  <meta name="description" content="Master database explorer and geospatial intelligence system for Indian mineral resources, active mines, and concessions.">
+  <meta name="theme-color" content="#F7F4EE">
+
+  <!-- Favicon & Touch Icon -->
+  <link rel="icon" type="image/png" href="minerva-logo.png">
+  <link rel="apple-touch-icon" href="minerva-logo.png">
+
+  <!-- Typography: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Leaflet Geospatial CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="minerva-body">
+
+  <!-- =========================================================================
+       1. TOP NAVIGATION BAR (Persistent Full Width Header)
+       ========================================================================= -->
+  <header class="top-nav-bar" role="banner">
+    <!-- Brand Info -->
+    <div class="nav-brand-group">
+      <div class="nav-logo-badge" aria-hidden="true" title="MINERVA National Mineral Geospatial Intelligence">
+        <img src="minerva-logo.png" alt="MINERVA Logo" class="nav-logo-img">
+      </div>
+      <div class="nav-title-group">
+        <h1 class="nav-title">MINERVA</h1>
+        <span class="nav-subtitle">NATIONAL MINERAL GEOSPATIAL INTELLIGENCE</span>
+      </div>
+    </div>
+
+    <!-- Center/Right Search Bar -->
+    <div class="nav-search-wrapper">
+      <div class="search-pill">
+        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7A7269" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input 
+          type="search" 
+          id="globalSearchInput" 
+          class="search-input" 
+          placeholder="Search mineral, deposit, district, or lease ID... (Ctrl + K)" 
+          aria-label="Search mineral, deposit, district, or lease ID"
+        />
+        <kbd class="search-kbd-badge" title="Press Ctrl + K to search">Ctrl + K</kbd>
+      </div>
+    </div>
+
+    <!-- Telemetry Latency Badge -->
+    <div class="nav-right-actions">
+      <div class="nav-latency-badge" id="navLatencyBadge" title="Real-time DBMS Telemetry Round-Trip Latency">
+        <span class="latency-dot" id="latencyDot"></span>
+        <span class="latency-label">DBMS SYNC</span>
+        <span class="latency-val" id="latencyDisplay">24ms</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- =========================================================================
+       2. LEFT VERTICAL ICON DOCK (Floating Cylindrical Dock)
+       ========================================================================= -->
+  <aside class="left-vertical-dock" aria-label="System Navigation Dock">
+    <div class="dock-container">
+      <!-- 1: Home / GIS Map icon -->
+      <button type="button" class="dock-btn" id="dockBtnMap" title="Geospatial Map View" aria-label="Map View">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+          <polyline points="9 22 9 12 15 12 15 22"></polyline>
+        </svg>
+      </button>
+
+      <!-- 2: Database Stack icon -->
+      <button type="button" class="dock-btn active" id="dockBtnDatabase" title="Mines & Concessions Master (Database Explorer)" aria-label="Database Explorer">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+          <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+          <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+        </svg>
+      </button>
+
+      <!-- 3: Reports / Archival Document with folded corner icon -->
+      <button type="button" class="dock-btn" id="dockBtnReports" title="Archival Publications & Past Reports" aria-label="Archival Reports">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+      </button>
+
+      <!-- 4: User Profile / Security Settings icon -->
+      <button type="button" class="dock-btn" id="dockBtnAuth" title="Authentication & Officer Security Clearance" aria-label="Security Settings">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          <circle cx="12" cy="11" r="3"></circle>
+        </svg>
+      </button>
+    </div>
+  </aside>
+
+  <!-- =========================================================================
+       3. VIEW 1: MINES & CONCESSIONS MASTER (DATABASE EXPLORER)
+          Strictly adhering to media_1792515683588.png
+       ========================================================================= -->
+  <main id="databaseExplorerView" class="app-view active" role="main">
+    <div class="db-explorer-container">
+      
+      <!-- =====================================================================
+           LEFT/CENTER MASTER PANEL (~68% Width)
+           ===================================================================== -->
+      <section class="db-master-panel" aria-label="Mines Master Grid">
+        
+        <!-- Header Bar: Title, Active Records Pill, and Right Actions -->
+        <div class="db-title-row">
+          <div class="db-title-group">
+            <h2 class="db-main-title">Mines & Concessions Master</h2>
+            <span class="db-records-pill" id="masterRecordsPill">1,420 Active Records</span>
+          </div>
+
+          <div class="db-actions-group">
+            <button type="button" class="btn-action-pill" id="btnExportCsv" title="Export master records to CSV file">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>Export CSV</span>
+            </button>
+
+            <button type="button" class="btn-icon-square" id="btnToggleSqlConsole" title="Open SQL Query Terminal" aria-label="SQL Console">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1E7B44" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="4 17 10 11 4 5"></polyline>
+                <line x1="12" y1="19" x2="20" y2="19"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Segmented Entity Switcher Tabs -->
+        <nav class="entity-tabs-row" aria-label="Database Entities">
+          <!-- Tab 1: Mines Master (Active) -->
+          <button type="button" class="entity-tab-btn active" data-tab="mines">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <span>Mines Master</span>
+            <span class="tab-active-chip">ACTIVE</span>
+          </button>
+
+          <!-- Tab 2: Minerals & Ores -->
+          <button type="button" class="entity-tab-btn" data-tab="minerals">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="12 2 2 12 12 22 22 12 12 2"></polygon>
+            </svg>
+            <span>Minerals & Ores</span>
+          </button>
+
+          <!-- Tab 3: State & District Hub -->
+          <button type="button" class="entity-tab-btn" data-tab="locations">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
+              <line x1="8" y1="2" x2="8" y2="18"></line>
+              <line x1="16" y1="6" x2="16" y2="22"></line>
+            </svg>
+            <span>State & District Hub</span>
+          </button>
+
+          <!-- Tab 4: Mining Companies -->
+          <button type="button" class="entity-tab-btn" data-tab="companies">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="2" width="16" height="20" rx="2"></rect>
+              <line x1="9" y1="6" x2="15" y2="6"></line>
+              <line x1="9" y1="10" x2="15" y2="10"></line>
+              <line x1="9" y1="14" x2="15" y2="14"></line>
+              <line x1="9" y1="18" x2="15" y2="18"></line>
+            </svg>
+            <span>Mining Companies</span>
+          </button>
+
+          <!-- Tab 5: Leases -->
+          <button type="button" class="entity-tab-btn" data-tab="leases">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+            </svg>
+            <span>Leases</span>
+          </button>
+
+          <!-- Tab 6: Production Logs -->
+          <button type="button" class="entity-tab-btn" data-tab="production">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="20" x2="18" y2="10"></line>
+              <line x1="12" y1="20" x2="12" y2="4"></line>
+              <line x1="6" y1="20" x2="6" y2="14"></line>
+            </svg>
+            <span>Production Logs</span>
+          </button>
+        </nav>
+
+        <!-- High-Density Master Data Table Container -->
+        <div class="db-table-card">
+          <div class="table-responsive">
+            <table class="db-master-table" id="masterGridTable">
+              <thead>
+                <tr>
+                  <th class="th-mono">MINE ID</th>
+                  <th>MINE NAME</th>
+                  <th>PRIMARY MINERAL</th>
+                  <th>STATE & DISTRICT</th>
+                  <th>OPERATING LESSEE</th>
+                  <th class="th-mono">LEASE VALIDITY</th>
+                  <th>STATUS</th>
+                  <th class="th-actions">ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody id="masterTableTbody">
+                <!-- Injected via JavaScript from /api/mines or relational master -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- =====================================================================
+           RIGHT INSPECTION PANEL: DETAIL DOSSIER (~32% Width)
+           ===================================================================== -->
+      <aside class="db-dossier-panel" id="dossierPanel" aria-label="Mine Detail Dossier">
+        
+        <!-- Dossier Header -->
+        <div class="dossier-header">
+          <div class="dossier-tag-row">
+            <span class="dossier-dot-green"></span>
+            <span class="dossier-tag-text">DETAIL DOSSIER</span>
+          </div>
+          <h3 class="dossier-title" id="dossierTitle">Keonjhar North Block (MN-0182)</h3>
+        </div>
+
+        <!-- Dossier Body Cards -->
+        <div class="dossier-cards-stack">
+          
+          <!-- CARD 1: Mineral Reserve Grade & Assay -->
+          <div class="dossier-card">
+            <div class="dossier-card-label">MINERAL RESERVE GRADE & ASSAY</div>
+            <div class="assay-metrics-grid">
+              <div class="assay-metric-box">
+                <span class="assay-key">Fe</span>
+                <span class="assay-val" id="assayFe">64.8%</span>
+              </div>
+              <div class="assay-metric-box">
+                <span class="assay-key">SiO2</span>
+                <span class="assay-val" id="assaySio2">2.1%</span>
+              </div>
+              <div class="assay-metric-box">
+                <span class="assay-key">Al2O3</span>
+                <span class="assay-val" id="assayAl2o3">1.8%</span>
+              </div>
+            </div>
+            <div class="assay-footer-row">
+              <span id="assayPhosphorus">Phosphorus Content: <strong>0.04%</strong></span>
+              <span id="assayMoisture">Moisture: <strong>3.2%</strong></span>
+            </div>
+          </div>
+
+          <!-- CARD 2: Linked Lease Concession Metrics -->
+          <div class="dossier-card">
+            <div class="dossier-card-label">LINKED LEASE CONCESSION METRICS</div>
+            <div class="lease-kv-list">
+              <div class="lease-kv-row">
+                <span class="kv-label">Lease ID:</span>
+                <span class="kv-val mono" id="leaseIdVal">OR-KJ-2004-981</span>
+              </div>
+              <div class="lease-kv-row">
+                <span class="kv-label">Executed:</span>
+                <span class="kv-val" id="leaseExecutedVal">14 Oct 2004</span>
+              </div>
+              <div class="lease-kv-row">
+                <span class="kv-label">Valid Till:</span>
+                <span class="kv-val" id="leaseValidTillVal">13 Oct 2044</span>
+              </div>
+              <div class="lease-kv-row">
+                <span class="kv-label">Royalty Rate:</span>
+                <span class="kv-val" id="leaseRoyaltyVal">15% ASP</span>
+              </div>
+              <div class="lease-kv-row">
+                <span class="kv-label">Area:</span>
+                <span class="kv-val" id="leaseAreaVal">1,482.40 Hectares</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- CARD 3: Annual Production (MT) -->
+          <div class="dossier-card">
+            <div class="prod-card-header">
+              <span class="dossier-card-label">ANNUAL PRODUCTION (MT)</span>
+              <span class="prod-ytd-val" id="prodYtdVal">6.4 MT (2024 YTD)</span>
+            </div>
+            <div class="sparkline-chart" id="sparklineChart">
+              <!-- Rendered via JS -->
+              <div class="sparkline-bar-group">
+                <div class="sparkline-bar" style="height: 52%;" title="2021: 4.8 MT"></div>
+                <span class="sparkline-year">'21</span>
+              </div>
+              <div class="sparkline-bar-group">
+                <div class="sparkline-bar" style="height: 68%;" title="2022: 5.4 MT"></div>
+                <span class="sparkline-year">'22</span>
+              </div>
+              <div class="sparkline-bar-group">
+                <div class="sparkline-bar" style="height: 82%;" title="2023: 5.9 MT"></div>
+                <span class="sparkline-year">'23</span>
+              </div>
+              <div class="sparkline-bar-group">
+                <div class="sparkline-bar highlight" style="height: 100%;" title="2024: 6.4 MT"></div>
+                <span class="sparkline-year">'24</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- CARD 4: Forest Clearance Stage-II (Environmental & Regulatory) -->
+          <div class="dossier-card clearance-card" id="clearanceCard">
+            <div class="clearance-icon-circle">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1B7A43" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path>
+                <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path>
+              </svg>
+            </div>
+            <div class="clearance-text-col">
+              <h4 class="clearance-title" id="clearanceTitle">Forest Clearance Stage-II</h4>
+              <p class="clearance-sub" id="clearanceSub">Approved &bull; CTO Valid till 2028</p>
+            </div>
+            <div class="clearance-status-badge" id="clearanceBadge">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1B7A43" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="9 12 12 15 16 10"></polyline>
+              </svg>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Bottom Dossier Actions -->
+        <div class="dossier-actions-bottom">
+          <button type="button" class="btn-dossier-locate" id="btnDossierLocate">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+              <circle cx="12" cy="10" r="3"></circle>
+            </svg>
+            <span>Locate on Map</span>
+          </button>
+
+          <button type="button" class="btn-dossier-download" id="btnDossierDownload">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>Download Complete Dossier</span>
+          </button>
+        </div>
+
+      </aside>
+
+    </div>
+  </main>
+  <!-- =========================================================================
+       VIEW 3: ARCHIVAL PUBLICATIONS & PAST REPORTS
+       Strictly adhering to user reference screenshot
+       ========================================================================= -->
+  <main id="reportsView" class="app-view reports-view-wrapper hidden" role="main" aria-label="Archival Publications & Reports">
+    <div class="reports-container">
+      
+      <!-- Header Section -->
+      <header class="reports-header">
+        <h1 class="reports-title">Archival Publications</h1>
+        <p class="reports-subtitle">Official mineral production ledgers, lease lifecycle audits, and verified state records.</p>
+      </header>
+
+      <!-- Publications List -->
+      <div class="reports-list" id="reportsListContainer">
+        
+        <!-- Row 1 -->
+        <article class="report-row" data-id="PUB-2026-01">
+          <div class="report-left-col">
+            <h2 class="report-item-title">Annual Iron Ore Production &amp; Dispatch Ledger</h2>
+            <div class="report-item-meta">
+              <span>Odisha (Keonjhar)</span>
+              <span class="meta-separator">&bull;</span>
+              <span>FY 2025–26</span>
+            </div>
+          </div>
+          <div class="report-right-col">
+            <span class="badge-verified">VERIFIED</span>
+            <button type="button" class="btn-download-pdf" aria-label="Download Annual Iron Ore Production & Dispatch Ledger PDF">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>PDF</span>
+            </button>
+          </div>
+        </article>
+
+        <!-- Row 2 -->
+        <article class="report-row" data-id="PUB-2026-02">
+          <div class="report-left-col">
+            <h2 class="report-item-title">Concession Validity &amp; Expiry Timeline Review</h2>
+            <div class="report-item-meta">
+              <span>Pan-India</span>
+              <span class="meta-separator">&bull;</span>
+              <span>Q2 2026</span>
+            </div>
+          </div>
+          <div class="report-right-col">
+            <span class="badge-verified">VERIFIED</span>
+            <button type="button" class="btn-download-pdf" aria-label="Download Concession Validity & Expiry Timeline Review PDF">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>PDF</span>
+            </button>
+          </div>
+        </article>
+
+        <!-- Row 3 -->
+        <article class="report-row" data-id="PUB-2025-03">
+          <div class="report-left-col">
+            <h2 class="report-item-title">Copper &amp; Multi-Metal Reserve Extraction Index</h2>
+            <div class="report-item-meta">
+              <span>Rajasthan (Khetri)</span>
+              <span class="meta-separator">&bull;</span>
+              <span>Bi-Annual 2025</span>
+            </div>
+          </div>
+          <div class="report-right-col">
+            <span class="badge-verified">VERIFIED</span>
+            <button type="button" class="btn-download-pdf" aria-label="Download Copper & Multi-Metal Reserve Extraction Index PDF">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>PDF</span>
+            </button>
+          </div>
+        </article>
+
+        <!-- Row 4 -->
+        <article class="report-row" data-id="PUB-2025-04">
+          <div class="report-left-col">
+            <h2 class="report-item-title">Bauxite Lease Boundary &amp; Buffer Overlap Report</h2>
+            <div class="report-item-meta">
+              <span>Odisha (Koraput)</span>
+              <span class="meta-separator">&bull;</span>
+              <span>Annual 2025</span>
+            </div>
+          </div>
+          <div class="report-right-col">
+            <span class="badge-verified">VERIFIED</span>
+            <button type="button" class="btn-download-pdf" aria-label="Download Bauxite Lease Boundary & Buffer Overlap Report PDF">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>PDF</span>
+            </button>
+          </div>
+        </article>
+
+        <!-- Row 5 -->
+        <article class="report-row" data-id="PUB-2025-05">
+          <div class="report-left-col">
+            <h2 class="report-item-title">Cross-State Mineral Royalty Collection Reconciliation</h2>
+            <div class="report-item-meta">
+              <span>Karnataka &amp; Chhattisgarh</span>
+              <span class="meta-separator">&bull;</span>
+              <span>FY 2024–25</span>
+            </div>
+          </div>
+          <div class="report-right-col">
+            <span class="badge-verified">VERIFIED</span>
+            <button type="button" class="btn-download-pdf" aria-label="Download Cross-State Mineral Royalty Collection Reconciliation PDF">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>PDF</span>
+            </button>
+          </div>
+        </article>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- =========================================================================
+       4. VIEW 2: GEOSPATIAL SATELLITE MAP VIEW (Synthesized from Image 1 & 2)
+       ========================================================================= -->
+  <section id="mapView" class="app-view map-view-wrapper hidden" aria-label="Geospatial Map Workspace">
+    <div id="map" class="geospatial-map"></div>
+    <div class="map-vignette-overlay" aria-hidden="true"></div>
+
+    <!-- Top-Left Floating Intelligence Card -->
+    <section class="intel-card" id="intelCard" aria-label="Strategic Intelligence Hub">
+      <div class="intel-header">
+        <div class="intel-badge-title">
+          <img src="minerva-logo.png" alt="" class="intel-logo-tiny" aria-hidden="true">
+          <span>STRATEGIC INTELLIGENCE HUB</span>
+        </div>
+        <div class="intel-badge-realtime">
+          <span>REAL-TIME</span>
+        </div>
+      </div>
+
+      <h2 class="intel-title">Pan-India Mineral Grid</h2>
+      <p class="intel-subtitle">Automated telemetry & lease compliance matrix</p>
+
+      <div class="intel-metrics-grid">
+        <div class="intel-metric-item">
+          <div class="metric-head">Active Mines Plotted</div>
+          <div class="metric-body">
+            <span class="metric-value">1,248</span>
+            <span class="metric-growth-chip">+12%</span>
+          </div>
+        </div>
+        <div class="intel-metric-item">
+          <div class="metric-head">Tracked Belts</div>
+          <div class="metric-body">
+            <span class="metric-value">64</span>
+            <span class="metric-unit">Cratons</span>
+          </div>
+        </div>
+        <div class="intel-metric-item">
+          <div class="metric-head">Active Concessions</div>
+          <div class="metric-body">
+            <span class="metric-value">842</span>
+            <span class="metric-unit">99.4% IBM</span>
+          </div>
+        </div>
+        <div class="intel-metric-item">
+          <div class="metric-head">Annual Ore Yield</div>
+          <div class="metric-body">
+            <span class="metric-value">1.28B</span>
+            <span class="metric-unit">MT</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="intel-craton-tag" id="primeBeltTag" title="Focus on Prime Ore Zone">
+        <img src="minerva-logo.png" alt="" class="craton-logo-tiny" aria-hidden="true">
+        <span class="craton-name">Odisha-Jharkhand Iron Belt</span>
+        <span class="craton-badge">PRIME</span>
+      </div>
+
+      <button type="button" class="btn-intel-database" id="btnOpenDatabaseModal">
+        <span>View Detailed Database</span>
+        <span class="btn-arrow">&rarr;</span>
+      </button>
+    </section>
+
+    <!-- Top-Right Floating Map Controls -->
+    <aside class="map-controls-dock" aria-label="Map Navigation Controls">
+      <button type="button" class="map-ctrl-btn" id="ctrlZoomIn" title="Zoom In (+)" aria-label="Zoom In">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+      </button>
+      <button type="button" class="map-ctrl-btn" id="ctrlZoomOut" title="Zoom Out (—)" aria-label="Zoom Out">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+      </button>
+      <button type="button" class="map-ctrl-btn" id="ctrlRecenter" title="Reset Camera to Pan-India" aria-label="Reset Camera">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>
+      </button>
+      <button type="button" class="map-ctrl-btn" id="ctrlLayerToggle" title="Toggle Satellite / Hybrid Basemap" aria-label="Toggle Layer">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+      </button>
+    </aside>
+
+    <!-- Bottom Cascading Filter Dock -->
+    <nav class="bottom-filter-dock" id="bottomFilterDock" aria-label="Cascading Geospatial Filters">
+      <div class="filter-dropdowns-row">
+        <div class="filter-select-group">
+          <label for="filterMineralSelect" class="filter-mini-label">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="12 2 2 12 12 22 22 12 12 2"></polygon></svg>
+            <span>MINERAL / ORE</span>
+          </label>
+          <div class="custom-select-wrapper">
+            <select id="filterMineralSelect" class="filter-select">
+              <option value="ALL">All Metals (38)</option>
+              <option value="Iron Ore">Iron Ore (Hematite / Magnetite)</option>
+              <option value="Bauxite">Bauxite (Alumina Ore)</option>
+              <option value="Copper Ore">Copper Ore (Chalcopyrite)</option>
+              <option value="Limestone">Limestone (Industrial Grade)</option>
+              <option value="Lead Zinc Ore">Lead & Zinc Ore</option>
+              <option value="Chromite">Chromite (Metallurgical)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="filter-divider" aria-hidden="true"></div>
+
+        <div class="filter-select-group">
+          <label for="filterStateSelect" class="filter-mini-label">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+            <span>STATE GRID</span>
+          </label>
+          <div class="custom-select-wrapper">
+            <select id="filterStateSelect" class="filter-select">
+              <option value="ALL">National Grid (All States)</option>
+              <option value="Karnataka">Karnataka (Bellary / Sandur)</option>
+              <option value="Odisha">Odisha (Keonjhar / Koraput)</option>
+              <option value="Jharkhand">Jharkhand (Singhbhum / Gumla)</option>
+              <option value="Chhattisgarh">Chhattisgarh (Bailadila / Bilaspur)</option>
+              <option value="Rajasthan">Rajasthan (Khetri / Ajmer / Gotan)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="filter-divider" aria-hidden="true"></div>
+
+        <div class="filter-select-group">
+          <label for="filterDistrictSelect" class="filter-mini-label">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            <span>DISTRICT HUB</span>
+          </label>
+          <div class="custom-select-wrapper">
+            <select id="filterDistrictSelect" class="filter-select">
+              <option value="ALL">All Districts</option>
+              <option value="Keonjhar">Keonjhar (Odisha)</option>
+              <option value="West Singhbhum">West Singhbhum (Jharkhand)</option>
+              <option value="Koraput">Koraput (Odisha)</option>
+              <option value="Bellary">Bellary (Karnataka)</option>
+              <option value="Dantewada">Dantewada / Bastar (Chhattisgarh)</option>
+              <option value="Jhunjhunu">Jhunjhunu / Khetri (Rajasthan)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="filter-actions-row">
+        <div class="action-chips-group">
+          <button type="button" class="chip-toggle active" id="toggleMinesChip" data-layer="mines">
+            <span class="chip-dot dot-brown"></span>
+            <span>Mines</span>
+          </button>
+          <button type="button" class="chip-toggle active" id="toggleHotspotsChip" data-layer="hotspots">
+            <span class="chip-dot dot-gold"></span>
+            <span>Hotspots</span>
+          </button>
+          <button type="button" class="chip-toggle active" id="toggleLeasesChip" data-layer="leases">
+            <span class="chip-dot dot-green"></span>
+            <span>Leases</span>
+          </button>
+        </div>
+
+        <button type="button" class="btn-filter-reset" id="btnFilterReset" title="Reset all camera and layer filters">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+          </svg>
+          <span>Reset</span>
+        </button>
+      </div>
+    </nav>
+  </section>
+
+  <!-- =========================================================================
+       5. BOTTOM FOOTER STATUS BAR (Fixed at bottom)
+       ========================================================================= -->
+  <footer class="bottom-status-footer" role="contentinfo">
+    <div class="footer-left" id="footerLeftContent">
+      <span class="footer-dot-green" id="footerDot"></span>
+      <span id="footerLeftText">Coordinate System: <strong>WGS84</strong> &bull; Source: <strong>IBM / Ministry of Mines Registry</strong></span>
+    </div>
+    <div class="footer-right" id="footerRightContent">
+      <span id="footerRightText">Total Plotted Records: <strong id="totalPlottedDisplay">1,420</strong> &bull; Real-time DB Sync Active</span>
+      <svg class="footer-sync-icon" id="footerSyncIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" stroke-width="2.2" stroke-linecap="round">
+        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+      </svg>
+    </div>
+  </footer>
+
+  <!-- =========================================================================
+       6. SQL CONSOLE MODAL
+       ========================================================================= -->
+  <dialog id="sqlConsoleModal" class="custom-dialog-sql" aria-label="SQL Query Console">
+    <div class="sql-modal-card">
+      <div class="sql-modal-header">
+        <div class="sql-badge-brand">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1B7A43" stroke-width="2">
+            <polyline points="4 17 10 11 4 5"></polyline>
+            <line x1="12" y1="19" x2="20" y2="19"></line>
+          </svg>
+          <h4>MINERVA Relational SQL Console</h4>
+        </div>
+        <button type="button" class="btn-close-modal" id="btnCloseSqlModal">&times;</button>
+      </div>
+
+      <div class="sql-modal-body">
+        <p class="sql-helper-text">Execute read-only SQL queries against <code>MineralResourceDB</code> (3NF Schema):</p>
+        <div class="sql-editor-wrapper">
+          <textarea id="sqlInput" class="sql-textarea" rows="3">SELECT m.mine_id, m.mine_name, min.mineral_name, l.state_name, c.company_name FROM Mine m JOIN Mineral min ON m.mine_id = min.mineral_id JOIN Location l ON m.location_id = l.location_id JOIN MiningCompany c ON m.company_id = c.company_id LIMIT 5;</textarea>
+        </div>
+        <div class="sql-actions-bar">
+          <button type="button" class="btn-run-sql" id="btnRunSql">Execute Query &rarr;</button>
+          <span class="sql-schema-note">Tables: <code>Mine</code>, <code>Mineral</code>, <code>Location</code>, <code>MiningCompany</code>, <code>Lease</code>, <code>Production</code></span>
+        </div>
+        <div id="sqlResultsBox" class="sql-results-box">
+          <div class="sql-results-placeholder">Ready to execute query.</div>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- =========================================================================
+       7. OFFICIAL PDF REPORT INSPECTOR MODAL
+       ========================================================================= -->
+  <dialog id="pdfPreviewModal" class="custom-dialog-pdf" aria-label="Official Publication Document Ledger">
+    <div class="pdf-modal-card">
+      <div class="pdf-modal-header">
+        <div class="pdf-header-brand">
+          <div class="pdf-seal-badge">
+            <img src="minerva-logo.png" alt="Emblem" class="pdf-seal-img">
+          </div>
+          <div class="pdf-header-titles">
+            <span class="pdf-gov-heading">MINISTRY OF MINES &bull; INDIAN BUREAU OF MINES</span>
+            <h3 class="pdf-doc-title" id="pdfDocTitle">Annual Iron Ore Production &amp; Dispatch Ledger</h3>
+            <span class="pdf-doc-meta" id="pdfDocMeta">Registry: IBM/PUB/2026/041 &bull; Odisha (Keonjhar) &bull; FY 2025–26</span>
+          </div>
+        </div>
+        <button type="button" class="btn-close-modal" id="btnClosePdfModal" aria-label="Close">&times;</button>
+      </div>
+
+      <div class="pdf-modal-body">
+        <div class="pdf-security-banner">
+          <div class="pdf-security-left">
+            <span class="pdf-verified-shield">&#10003;</span>
+            <div>
+              <strong>VERIFIED ARCHIVAL LEDGER &bull; TAMPER-EVIDENT</strong>
+              <div class="pdf-hash-code" id="pdfHashCode">SHA-256: 8f4c2e11d08b3a76295e87a2741d4c9f182e0b55291a45778b4097f4c519d08e</div>
+            </div>
+          </div>
+          <span class="pdf-stamp-mono">IBM AUDITED</span>
+        </div>
+
+        <div class="pdf-abstract-box">
+          <label class="pdf-section-label">EXECUTIVE SUMMARY &amp; STATUTORY FINDINGS</label>
+          <p id="pdfDocSummary">Audited gross production, grade distribution (64.2% Fe Hematite), environmental dispatch permits, and royalty remittances for the Keonjhar Iron Ore Sector.</p>
+        </div>
+
+        <div class="pdf-metrics-grid" id="pdfMetricsGrid">
+          <!-- Populated dynamically -->
+        </div>
+
+        <div class="pdf-watermark-note">
+          <span>Official National Mineral Intelligence Document &bull; Issued under MMDR Act Sec. 8A &bull; WGS84 Georeferenced</span>
+        </div>
+      </div>
+
+      <div class="pdf-modal-footer">
+        <div class="pdf-footer-info">
+          <span id="pdfPageInfo">42 Pages &bull; 4.8 MB &bull; Digitally Certified</span>
+        </div>
+        <div class="pdf-footer-actions">
+          <button type="button" class="btn-action-pill" id="btnPrintPdfDoc">Print Official Ledger</button>
+          <button type="button" class="btn-action-pill btn-primary-dark" id="btnDownloadPdfDoc">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span id="btnDownloadPdfText">Download Verified PDF</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- =========================================================================
+       7. AUTHENTICATION & SECURITY MODAL (Dock Icon 4)
+       ========================================================================= -->
+  <dialog id="authModal" class="custom-dialog-auth" aria-label="Minerva Authentication Portal">
+    <div class="auth-modal-card">
+      <div class="auth-modal-header">
+        <div class="auth-modal-brand">
+          <div class="modal-logo-icon">
+            <img src="minerva-logo.png" alt="MINERVA Logo" class="modal-logo-img">
+          </div>
+          <div>
+            <h4>MINERVA Security Portal</h4>
+            <p>Workstation Authentication Session</p>
+          </div>
+        </div>
+        <button type="button" class="btn-close-modal" id="btnCloseAuthModal">&times;</button>
+      </div>
+
+      <div class="auth-modal-body">
+        <div class="session-status-box">
+          <div class="session-avatar">JG</div>
+          <div class="session-info">
+            <span class="session-name">Joel George</span>
+            <span class="session-role">Database Administrator &bull; USR-1024</span>
+            <span class="session-clearance">Level 4 Security Clearance (IBM / MoM)</span>
+          </div>
+        </div>
+
+        <div class="auth-specs-list">
+          <div class="spec-item">
+            <span>Authentication Protocol</span>
+            <strong>AES-256 TLS 1.3 Federated</strong>
+          </div>
+          <div class="spec-item">
+            <span>Session Persistence</span>
+            <strong>Workstation (localStorage)</strong>
+          </div>
+          <div class="spec-item">
+            <span>SSO Gateway</span>
+            <strong>Jan Parichay &bull; DigiLocker Active</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="auth-modal-footer">
+        <button type="button" class="btn-auth-switch" id="btnSwitchAccount">Switch Account</button>
+        <button type="button" class="btn-auth-lock" id="btnLockWorkstation">Lock Session</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- TOAST CONTAINER -->
+  <div id="toastContainer" class="toast-container" aria-live="assertive" aria-atomic="true"></div>
+
+  <!-- LEAFLET CDN JAVASCRIPT -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- APPLICATION LOGIC -->
+  <script type="module" src="app.js"></script>
+</body>
+</html>

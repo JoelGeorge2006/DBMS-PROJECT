@@ -1,0 +1,20 @@
+{
+  "name": "minerva-indian-mineral-database",
+  "version": "1.0.0",
+  "description": "MINERVA — Indian Mineral Resource Management Database Authentication & Control Panel",
+  "main": "index.html",
+  "scripts": {
+    "dev": "vite --port 3000 --host",
+    "start": "vite --port 3000 --host",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0 || ^6.0.0"
+  },
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "cors": "^2.8.6",
+    "express": "^5.3.0",
+    "leaflet": "^1.9.4"
+  }
+}

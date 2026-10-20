@@ -1,0 +1,1362 @@
+/* ==========================================================================
+   MINERVA — National Mineral Geospatial Intelligence Grid
+   Synthesized Design: Image 1 (MINERVA UI System) & Image 2 (LUMINA Basemap)
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Design Tokens & Color Palette
+   -------------------------------------------------------------------------- */
+:root {
+  /* Warm Earthy MINERVA Palette (Image 1) */
+  --bg-parchment: #F4F1EA;
+  --bg-card: rgba(250, 248, 244, 0.92);
+  --bg-card-hover: rgba(255, 255, 255, 0.96);
+  --border-glass: rgba(190, 181, 169, 0.6);
+  --border-light: rgba(216, 209, 199, 0.8);
+  
+  /* Primary Terracotta / Copper Tokens */
+  --copper-primary: #B07D53;
+  --copper-dark: #8C6546;
+  --copper-pill: #A78D78;
+  --copper-hover: #965B32;
+  --copper-glow: rgba(176, 125, 83, 0.28);
+
+  /* Typography */
+  --text-dark: #1E1A16;
+  --text-sub: #5C5248;
+  --text-muted: #7A7269;
+  --text-subtle: #948B80;
+
+  /* Indicators & Accents */
+  --accent-green: #2E7D32;
+  --bg-mint: #E8F5E9;
+  --accent-amber: #D9822B;
+  --accent-ochre: #B87333;
+
+  /* Node Clusters (Image 2) */
+  --node-bg: #1A1613;
+  --node-border: rgba(255, 255, 255, 0.9);
+  --node-glow: rgba(176, 125, 83, 0.35);
+
+  /* Font Families */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', Consolas, monospace;
+}
+
+/* --------------------------------------------------------------------------
+   2. Fullscreen Geospatial Base
+   -------------------------------------------------------------------------- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body.geospatial-body {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+  font-family: var(--font-sans);
+  color: var(--text-dark);
+  background-color: #0E0D0B;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Fullscreen Leaflet Container */
+.geospatial-map {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  background-color: #0C1217;
+}
+
+/* Subtle Warm-Grade Filter on Satellite Imagery (Section 1 Specification) */
+.leaflet-tile {
+  filter: saturate(0.88) sepia(0.12) contrast(1.06) brightness(0.96);
+  transition: filter 0.3s ease;
+}
+
+/* Night Tactical Mode filter */
+.dark-tactical .leaflet-tile {
+  filter: saturate(0.7) brightness(0.75) contrast(1.2) hue-rotate(185deg);
+}
+
+/* Vignette overlay for atmospheric depth */
+.map-vignette-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+  box-shadow: inset 0 0 100px rgba(18, 15, 13, 0.55), inset 0 0 40px rgba(0, 0, 0, 0.4);
+}
+
+/* --------------------------------------------------------------------------
+   3. Top Navigation Bar (Reference: Image 1)
+   -------------------------------------------------------------------------- */
+.top-nav-bar {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  right: 16px;
+  height: 58px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px;
+  background: var(--bg-card);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1.5px solid var(--border-glass);
+  border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  gap: 16px;
+}
+
+.nav-brand-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.nav-logo-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background-color: var(--copper-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(140, 101, 70, 0.35);
+  transition: transform 0.2s ease;
+}
+
+.nav-logo-badge:hover {
+  transform: scale(1.04);
+}
+
+.nav-title-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: var(--text-dark);
+  line-height: 1.1;
+}
+
+.nav-subtitle {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+/* Center Search Pill */
+.nav-search-wrapper {
+  flex: 1;
+  max-width: 580px;
+  margin: 0 auto;
+}
+
+.search-pill {
+  width: 100%;
+  height: 40px;
+  background: #FFFFFF;
+  border: 1.5px solid var(--border-light);
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  gap: 10px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+}
+
+.search-pill:focus-within {
+  border-color: var(--copper-primary);
+  box-shadow: 0 0 0 3px var(--copper-glow);
+}
+
+.search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: var(--text-dark);
+}
+
+.search-input::placeholder {
+  color: #9E968D;
+  font-size: 0.82rem;
+}
+
+.search-kbd-badge {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: #EFEBE4;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* Telemetry Latency Badge */
+.nav-telemetry-group {
+  flex-shrink: 0;
+}
+
+.telemetry-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1.5px solid var(--border-light);
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  color: var(--text-sub);
+}
+
+.telemetry-dot-pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--accent-green);
+  box-shadow: 0 0 0 2px rgba(46, 125, 50, 0.2);
+  animation: pulseGreen 2.2s infinite ease-in-out;
+}
+
+@keyframes pulseGreen {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.3); opacity: 0.8; }
+}
+
+.sync-on {
+  font-weight: 700;
+  color: var(--accent-green);
+}
+
+/* --------------------------------------------------------------------------
+   4. Left Vertical Dock (Reference: Image 1)
+   -------------------------------------------------------------------------- */
+.left-vertical-dock {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1000;
+}
+
+.dock-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  background: var(--bg-card);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1.5px solid var(--border-glass);
+  border-radius: 24px;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.15);
+}
+
+.dock-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-sub);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dock-btn:hover {
+  background: rgba(176, 125, 83, 0.15);
+  color: var(--text-dark);
+  transform: scale(1.05);
+}
+
+.dock-btn.active {
+  background-color: var(--copper-pill);
+  color: #FFFFFF;
+  box-shadow: 0 4px 12px rgba(167, 141, 120, 0.35);
+}
+
+/* --------------------------------------------------------------------------
+   5. Top-Left Floating Intelligence Card (Reference: Image 1)
+   -------------------------------------------------------------------------- */
+.intel-card {
+  position: absolute;
+  top: 86px;
+  left: 78px;
+  width: 326px;
+  z-index: 1000;
+  background: var(--bg-card);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1.5px solid var(--border-glass);
+  border-radius: 20px;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.16);
+  padding: 22px;
+  animation: slideFadeIn 0.35s ease-out forwards;
+}
+
+@keyframes slideFadeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.intel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.intel-badge-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  color: var(--text-dark);
+}
+
+.badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--accent-green);
+}
+
+.intel-badge-realtime {
+  background: var(--bg-mint);
+  color: var(--accent-green);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+
+.intel-title {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-dark);
+  line-height: 1.2;
+}
+
+.intel-subtitle {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 3px;
+  margin-bottom: 18px;
+}
+
+/* 2x2 Key Metrics Grid */
+.intel-metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.intel-metric-item {
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(190, 181, 169, 0.45);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.metric-head {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.metric-body {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.metric-value {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-dark);
+  line-height: 1;
+}
+
+.metric-growth-chip {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--accent-green);
+  background: var(--bg-mint);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.metric-unit {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-sub);
+}
+
+/* Prime Craton Tag */
+.intel-craton-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1.5px solid var(--border-light);
+  border-radius: 10px;
+  margin-bottom: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.intel-craton-tag:hover {
+  border-color: var(--copper-primary);
+  background: #FFFFFF;
+  transform: translateX(2px);
+}
+
+.craton-icon {
+  color: var(--copper-primary);
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.craton-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  flex: 1;
+}
+
+.craton-badge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  background: #3B2E24;
+  color: #FFFFFF;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+}
+
+/* Intelligence Database Button */
+.btn-intel-database {
+  width: 100%;
+  height: 42px;
+  border: 1.5px solid var(--border-light);
+  border-radius: 12px;
+  background: #FFFFFF;
+  color: var(--text-dark);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+}
+
+.btn-intel-database:hover {
+  background: var(--copper-primary);
+  border-color: var(--copper-primary);
+  color: #FFFFFF;
+  box-shadow: 0 4px 12px rgba(176, 125, 83, 0.28);
+}
+
+.btn-intel-database:hover .btn-arrow {
+  transform: translateX(3px);
+}
+
+.btn-arrow {
+  transition: transform 0.2s ease;
+}
+
+/* --------------------------------------------------------------------------
+   6. Top-Right Floating Map Controls
+   -------------------------------------------------------------------------- */
+.map-controls-dock {
+  position: absolute;
+  top: 88px;
+  right: 16px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--bg-card);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1.5px solid var(--border-glass);
+  border-radius: 16px;
+  padding: 6px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+}
+
+.map-ctrl-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: none;
+  background: #FFFFFF;
+  color: var(--text-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.04);
+}
+
+.map-ctrl-btn:hover {
+  background: var(--copper-primary);
+  color: #FFFFFF;
+}
+
+/* --------------------------------------------------------------------------
+   7. Bottom Floating Cascading Filter Dock (Reference: Image 1)
+   -------------------------------------------------------------------------- */
+.bottom-filter-dock {
+  position: absolute;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  width: auto;
+  min-width: 680px;
+  background: var(--bg-card);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1.5px solid var(--border-glass);
+  border-radius: 20px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.18);
+  padding: 12px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: slideUpFade 0.4s ease-out forwards;
+}
+
+@keyframes slideUpFade {
+  from { opacity: 0; transform: translate(-50%, 12px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.filter-dropdowns-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.filter-select-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.filter-mini-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.custom-select-wrapper {
+  position: relative;
+}
+
+.filter-select {
+  width: 100%;
+  height: 38px;
+  padding: 0 28px 0 10px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border-light);
+  background: #FFFFFF;
+  color: var(--text-dark);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237A7269' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 14px;
+}
+
+.filter-select:hover {
+  border-color: var(--copper-primary);
+}
+
+.filter-select:focus {
+  border-color: var(--copper-primary);
+  box-shadow: 0 0 0 3px var(--copper-glow);
+}
+
+.filter-divider {
+  width: 1px;
+  height: 36px;
+  background-color: var(--border-glass);
+}
+
+/* Action Chips & Reset Row */
+.filter-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 4px;
+  border-top: 1px solid rgba(190, 181, 169, 0.35);
+}
+
+.action-chips-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chip-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  border: 1px solid var(--border-light);
+  background: #FFFFFF;
+  color: var(--text-dark);
+  font-family: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.chip-toggle:hover {
+  background: #F8F5F0;
+  border-color: var(--copper-primary);
+}
+
+.chip-toggle.active {
+  background: #EDE6DC;
+  border-color: #D1C7BA;
+}
+
+.chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.dot-brown { background-color: var(--copper-primary); }
+.dot-gold { background-color: var(--accent-amber); }
+.dot-green { background-color: var(--accent-green); }
+
+.btn-filter-reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  border: 1px solid var(--border-light);
+  background: #FFFFFF;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.btn-filter-reset:hover {
+  background: #F8F5F0;
+  color: var(--copper-primary);
+  border-color: var(--copper-primary);
+}
+
+/* --------------------------------------------------------------------------
+   8. Bottom Status Footer (Reference: Image 1)
+   -------------------------------------------------------------------------- */
+.bottom-status-footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 26px;
+  z-index: 999;
+  background: rgba(22, 19, 17, 0.75);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px;
+  font-size: 0.72rem;
+  color: #D1C7BA;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.footer-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.footer-dot-green {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--accent-green);
+}
+
+.footer-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.footer-sync-icon {
+  animation: spinSlow 8s linear infinite;
+}
+
+@keyframes spinSlow {
+  100% { transform: rotate(360deg); }
+}
+
+/* --------------------------------------------------------------------------
+   9. Tactical Telemetry Nodes & Clusters (Reference: Image 2)
+   -------------------------------------------------------------------------- */
+.tactical-node-marker {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.node-halo {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(176, 125, 83, 0.35) 0%, transparent 70%);
+  animation: pulseHalo 3s infinite ease-in-out;
+  pointer-events: none;
+}
+
+@keyframes pulseHalo {
+  0%, 100% { transform: scale(0.9); opacity: 0.6; }
+  50% { transform: scale(1.3); opacity: 1; }
+}
+
+.node-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: var(--node-bg);
+  border: 1.8px solid var(--node-border);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5), inset 0 1px 2px rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  transition: all 0.2s ease;
+  z-index: 2;
+}
+
+.tactical-node-marker:hover .node-circle {
+  background-color: var(--copper-primary);
+  transform: scale(1.15);
+  box-shadow: 0 6px 16px rgba(176, 125, 83, 0.5);
+}
+
+.node-circle.node-copper {
+  background-color: #2D4C3A; /* Green for Copper / Bauxite */
+  border-color: #A3D9B5;
+}
+
+.node-circle.node-amber {
+  background-color: #613C24; /* Warm brown/amber for Iron Ore */
+  border-color: #F0C49E;
+}
+
+/* Label Pill below node */
+.node-label-pill {
+  margin-top: 5px;
+  padding: 2px 7px;
+  background: rgba(22, 19, 17, 0.88);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  color: #FFFFFF;
+  font-size: 9.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  z-index: 3;
+}
+
+/* Concession Polygon Lease Label */
+.concession-lease-badge {
+  background: rgba(244, 241, 234, 0.92);
+  border: 1px dashed var(--copper-primary);
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 700;
+  color: #4A3A2C;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+}
+
+/* --------------------------------------------------------------------------
+   10. Node Telemetry Inspector Card (Glassmorphic Popover)
+   -------------------------------------------------------------------------- */
+.node-inspector-card {
+  position: absolute;
+  top: 96px;
+  right: 68px;
+  width: 320px;
+  z-index: 1100;
+  background: var(--bg-card);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1.5px solid var(--border-glass);
+  border-radius: 20px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.22);
+  padding: 20px;
+  animation: fadeInInspect 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeInInspect {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.inspect-header {
+  border-bottom: 1px solid rgba(190, 181, 169, 0.35);
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+}
+
+.inspect-badge-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.inspect-type-chip {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  background: #3B2E24;
+  color: #FFFFFF;
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+
+.btn-close-inspect {
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  line-height: 1;
+}
+
+.btn-close-inspect:hover {
+  color: var(--text-dark);
+}
+
+.inspect-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-dark);
+  line-height: 1.2;
+}
+
+.inspect-sub {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.inspect-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.inspect-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.8rem;
+}
+
+.stat-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+}
+
+.stat-val {
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.stat-val.highlight {
+  color: var(--copper-primary);
+}
+
+.stat-val.mono {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.stat-val.online {
+  color: var(--accent-green);
+}
+
+.inspect-footer {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-inspect-action {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border-light);
+  background: #FFFFFF;
+  color: var(--text-dark);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-inspect-action:hover {
+  background: #F4F1EA;
+}
+
+.btn-inspect-action.primary {
+  background: var(--copper-primary);
+  border-color: var(--copper-primary);
+  color: #FFFFFF;
+}
+
+.btn-inspect-action.primary:hover {
+  background: var(--copper-hover);
+}
+
+/* --------------------------------------------------------------------------
+   11. Slide-Over Drawer: Database Explorer
+   -------------------------------------------------------------------------- */
+.database-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 580px;
+  max-width: 90vw;
+  height: 100vh;
+  z-index: 1200;
+  background: #FFFFFF;
+  box-shadow: -15px 0 50px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  animation: slideDrawer 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideDrawer {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.drawer-header {
+  padding: 24px;
+  background: #181512;
+  color: #FFFFFF;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.drawer-badge {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  background: var(--copper-primary);
+  color: #FFFFFF;
+  padding: 2px 7px;
+  border-radius: 6px;
+  display: inline-block;
+  margin-bottom: 6px;
+}
+
+.drawer-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.drawer-subtitle {
+  font-size: 0.75rem;
+  color: #ADA69E;
+}
+
+.btn-close-drawer {
+  background: none;
+  border: none;
+  font-size: 1.8rem;
+  color: #FFFFFF;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.drawer-content {
+  flex: 1;
+  padding: 20px 24px;
+  background: #FAF8F5;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.drawer-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.drawer-search {
+  flex: 1;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-light);
+  font-family: inherit;
+  font-size: 0.84rem;
+  outline: none;
+}
+
+.drawer-record-count {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: #EFEBE4;
+  padding: 4px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+.drawer-table-wrapper {
+  background: #FFFFFF;
+  border-radius: 14px;
+  border: 1px solid var(--border-light);
+  overflow-x: auto;
+}
+
+.drawer-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.drawer-table th {
+  background: #FDFBF8;
+  padding: 10px 14px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.drawer-table td {
+  padding: 12px 14px;
+  font-size: 0.8rem;
+  color: var(--text-dark);
+  border-bottom: 1px solid #F4F1EA;
+}
+
+.drawer-table tr:hover td {
+  background-color: #FAF8F4;
+}
+
+/* --------------------------------------------------------------------------
+   12. Authentication & Security Modal (Dock Item 4)
+   -------------------------------------------------------------------------- */
+.custom-dialog-auth {
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: auto;
+  max-width: 440px;
+  width: 90%;
+}
+
+.custom-dialog-auth::backdrop {
+  background: rgba(15, 12, 10, 0.65);
+  backdrop-filter: blur(8px);
+}
+
+.auth-modal-card {
+  background: #FFFFFF;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.4);
+}
+
+.auth-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.auth-modal-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.modal-logo-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--copper-primary);
+  color: #FFFFFF;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-modal-brand h4 {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text-dark);
+}
+
+.auth-modal-brand p {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.session-status-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #F8F5F0;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border-light);
+  margin-bottom: 18px;
+}
+
+.session-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--copper-dark);
+  color: #FFFFFF;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+}
+
+.session-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-dark);
+  display: block;
+}
+
+.session-role {
+  font-size: 0.78rem;
+  color: var(--text-sub);
+  display: block;
+}
+
+.session-clearance {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--accent-green);
+  display: block;
+  margin-top: 2px;
+}
+
+.auth-specs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.spec-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  padding: 6px 0;
+  border-bottom: 1px solid #F0ECE4;
+}
+
+.spec-item span {
+  color: var(--text-muted);
+}
+
+.spec-item strong {
+  color: var(--text-dark);
+}
+
+.auth-modal-footer {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-auth-switch {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border-light);
+  background: #FFFFFF;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.btn-auth-lock {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  border: none;
+  background: #C94A29;
+  color: #FFFFFF;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+/* --------------------------------------------------------------------------
+   13. Toast Notifications & Helpers
+   -------------------------------------------------------------------------- */
+.toast-container {
+  position: fixed;
+  top: 86px;
+  right: 24px;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  border-radius: 12px;
+  background: rgba(22, 19, 17, 0.95);
+  backdrop-filter: blur(10px);
+  color: #FFFFFF;
+  font-size: 0.84rem;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  animation: slideToast 0.25s ease-out forwards;
+}
+
+@keyframes slideToast {
+  from { opacity: 0; transform: translateX(30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.toast.toast-success { border-left: 4px solid var(--accent-green); }
+.toast.toast-error { border-left: 4px solid #C94A29; }
+.toast.toast-info { border-left: 4px solid var(--copper-primary); }
+
+.hidden {
+  display: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   14. Responsive Rules
+   -------------------------------------------------------------------------- */
+@media (max-width: 1024px) {
+  .intel-card {
+    width: 290px;
+    padding: 16px;
+  }
+  .bottom-filter-dock {
+    min-width: 90vw;
+  }
+}
+
+@media (max-width: 768px) {
+  .intel-card {
+    display: none; /* Collapsed for clean mobile map inspection */
+  }
+  .top-nav-bar {
+    padding: 0 12px;
+  }
+  .nav-subtitle, .search-kbd-badge, .nav-telemetry-group {
+    display: none;
+  }
+  .bottom-filter-dock {
+    bottom: 30px;
+    padding: 10px 14px;
+  }
+  .filter-dropdowns-row {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .filter-divider {
+    display: none;
+  }
+}
