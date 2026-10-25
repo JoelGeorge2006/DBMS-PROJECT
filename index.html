@@ -84,7 +84,14 @@
           <span class="nav-alerts-count hidden" id="navAlertsCount">0</span>
         </button>
         <div class="nav-alerts-panel hidden" id="navAlertsPanel" role="menu">
-          <div class="nav-alerts-head">Alerts</div>
+          <div class="nav-alerts-head">
+            <span>Notifications</span>
+            <span class="nav-alerts-tools">
+              <button type="button" class="nav-alerts-tab active" data-filter="all">All</button>
+              <button type="button" class="nav-alerts-tab" data-filter="unread">Unread</button>
+              <button type="button" class="btn-link-inline" id="navAlertsReadAll">Mark all read</button>
+            </span>
+          </div>
           <ul class="nav-alerts-list" id="navAlertsList"></ul>
         </div>
       </div>

@@ -12,6 +12,7 @@ import { fileURLToPath } from 'url';
 import { BinarySearchTree } from './dsa/BinarySearchTree.js';
 import { migrate } from './db/migrate.js';
 import { buildSearchIndex, suggest } from './lib/search.js';
+import { createNotifications } from './lib/notifications.js';
 import { createAuth, readCookie, sessionCookie, clearedCookie, clientIp, SESSION_COOKIE, ROLES } from './lib/auth.js';
 import { buildNearestNeighbourGraph, buildCompleteGraph, dijkstra } from './dsa/Dijkstra.js';
 import { primMST, kruskalMST } from './dsa/MST.js';
@@ -104,8 +105,24 @@ function requirePermission(permission) {
 
 
 
-// Phase 4 turns this into a notification; for now it is recorded in the audit log only
-function onNewSignInAddress() {}
+// ============================================================================
+// Notifications (rules over the data, see lib/notifications.js)
+// ============================================================================
+const notifications = createNotifications(db);
+
+function onNewSignInAddress(user, ip) {
+  notifications.newSignInAddress(user, ip);
+}
+
+app.get('/api/notifications', (req, res) => {
+  res.json({ success: true, ...notifications.list(req.user.id) });
+});
+
+app.post('/api/notifications/read', (req, res) => {
+  const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(Number.isInteger).slice(0, 500) : [];
+  notifications.markRead(req.user.id, ids);
+  res.json({ success: true, ...notifications.list(req.user.id) });
+});
 
 // ============================================================================
 // 3. REST API ENDPOINTS

@@ -70,7 +70,7 @@ export const DSA_CONCEPTS = [
     group: 'Heaps',
     file: 'Queue.js',
     symbol: 'PriorityQueue',
-    usedIn: 'Alerts: CRITICAL shown before WARNING before INFO; Dijkstra and Prim frontiers',
+    usedIn: 'Toasts: CRITICAL before WARNING before INFO; the notification scheduler (rules keyed by next check time, lib/notifications.js); Dijkstra and Prim frontiers',
     summary:
       'A binary min-heap stored in an array: the parent of index i is at (i - 1) / 2, and every parent is more urgent than its children. ' +
       'The most urgent item is always at index 0. Equal priorities are broken by arrival order, so alerts of the same level stay first-come, first-served.',

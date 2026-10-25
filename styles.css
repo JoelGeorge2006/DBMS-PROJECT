@@ -570,6 +570,50 @@ tr.search-empty td {
   border-bottom: 1px solid var(--border-light);
 }
 
+.nav-alerts-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-alerts-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.nav-alerts-tab {
+  padding: 2px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.72rem;
+  color: var(--text-sub);
+  cursor: pointer;
+}
+
+.nav-alerts-tab.active {
+  background: var(--sand-pill-bg);
+  color: var(--text-dark);
+  font-weight: 600;
+}
+
+.nav-alert-item {
+  cursor: pointer;
+}
+
+.nav-alert-item:hover {
+  background: #FAF7F2;
+}
+
+.nav-alert-item.read .nav-alert-msg {
+  color: var(--text-muted);
+}
+
 .nav-alerts-list {
   list-style: none;
   margin: 0;

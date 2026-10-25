@@ -32,13 +32,14 @@ function showToast(message, type = 'info') {
   alertQueue.add(message, TOAST_PRIORITY[type] ?? AlertPriority.INFO, { type });
 }
 
+// Server notifications (lib/notifications.js); new ones also arrive as toasts
+const notificationState = { items: [], unread: 0, filter: 'all', seen: new Set(), timer: null };
+
 function initAlerts() {
   const container = document.getElementById('toastContainer');
   const btn = document.getElementById('navAlertsBtn');
   const panel = document.getElementById('navAlertsPanel');
   const list = document.getElementById('navAlertsList');
-  const count = document.getElementById('navAlertsCount');
-  let unread = 0;
 
   alertQueue.setDisplayHandlers(
     (alert) => {
@@ -51,32 +52,31 @@ function initAlerts() {
     },
     () => {
       if (container) container.replaceChildren();
-      unread++;
     }
   );
 
-  const renderPanel = () => {
-    if (count) {
-      count.textContent = unread;
-      count.classList.toggle('hidden', unread === 0);
-    }
-    if (!list) return;
-    if (alertQueue.log.isEmpty()) {
-      list.innerHTML = '<li class="nav-alerts-empty">No alerts yet</li>';
-      return;
-    }
-    list.innerHTML = alertQueue.recent()
-      .map((a) => {
-        const time = new Date(a.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        return `<li class="nav-alert-item"><span class="nav-alert-level level-${a.label.toLowerCase()}">${a.label}</span><span class="nav-alert-msg">${escapeHtml(a.message)}</span><span class="nav-alert-time">${time}</span></li>`;
-      })
-      .join('');
-  };
-  alertQueue.onChange(() => {
-    if (alertQueue.log.isEmpty() && !alertQueue.current) unread = 0;
-    renderPanel();
+  panel?.querySelectorAll('.nav-alerts-tab').forEach((tab) => {
+    tab.addEventListener('click', (e) => {
+      e.stopPropagation();
+      notificationState.filter = tab.dataset.filter;
+      panel.querySelectorAll('.nav-alerts-tab').forEach((t) => t.classList.toggle('active', t === tab));
+      renderNotifications();
+    });
   });
-  renderPanel();
+  document.getElementById('navAlertsReadAll')?.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const ids = notificationState.items.filter((n) => !n.read).map((n) => n.id);
+    if (ids.length) applyNotifications(await apiService.markNotificationsRead(ids));
+  });
+  list?.addEventListener('click', async (e) => {
+    const item = e.target.closest('[data-notification]');
+    if (!item) return;
+    const n = notificationState.items.find((x) => x.id === Number(item.dataset.notification));
+    if (!n) return;
+    closeNavPanels();
+    if (!n.read) applyNotifications(await apiService.markNotificationsRead([n.id]));
+    if (n.mineId) openMineInDatabase(n.mineId);
+  });
 
   if (btn && panel) {
     const close = () => setOpen(false);
@@ -84,10 +84,7 @@ function initAlerts() {
       if (open) closeNavPanels(close);
       panel.classList.toggle('hidden', !open);
       btn.setAttribute('aria-expanded', String(open));
-      if (open) {
-        unread = 0;
-        renderPanel();
-      }
+      if (open) renderNotifications();
     };
     navPanelClosers.push(close);
     openAlertsPanel = () => setOpen(true);
@@ -96,32 +93,75 @@ function initAlerts() {
       setOpen(panel.classList.contains('hidden'));
     });
     document.addEventListener('click', (e) => {
-      if (!panel.contains(e.target)) {
-        panel.classList.add('hidden');
-        btn.setAttribute('aria-expanded', 'false');
-      }
+      if (!panel.contains(e.target)) setOpen(false);
     });
   }
+  renderNotifications();
+}
+
+const PRIORITY_TOAST = { CRITICAL: 'error', WARNING: 'warning', INFO: 'info' };
+
+function applyNotifications(res) {
+  const fresh = res.data.filter((n) => !n.read && !notificationState.seen.has(n.id));
+  res.data.forEach((n) => notificationState.seen.add(n.id));
+  notificationState.items = res.data;
+  notificationState.unread = res.unread;
+  renderNotifications();
+  return fresh;
+}
+
+/** Fetch now and every 30 s while signed in; unread ones not seen before become toasts */
+async function pollNotifications() {
+  clearTimeout(notificationState.timer);
+  if (!currentUser) return;
+  try {
+    const fresh = applyNotifications(await apiService.notifications());
+    // Toasts go through the priority queue: CRITICAL before WARNING before INFO
+    fresh.slice(0, 5).forEach((n) => showToast(n.message, PRIORITY_TOAST[n.priority]));
+  } catch {
+    // A 401 is handled globally; other failures just wait for the next poll
+  }
+  notificationState.timer = setTimeout(pollNotifications, 30000);
+}
+
+function stopNotifications() {
+  clearTimeout(notificationState.timer);
+  notificationState.items = [];
+  notificationState.unread = 0;
+  notificationState.seen.clear();
+  renderNotifications();
+}
+
+function renderNotifications() {
+  const count = document.getElementById('navAlertsCount');
+  const list = document.getElementById('navAlertsList');
+  if (count) {
+    count.textContent = notificationState.unread;
+    count.classList.toggle('hidden', notificationState.unread === 0);
+  }
+  if (!list) return;
+  const shown = notificationState.items.filter((n) => notificationState.filter === 'all' || !n.read);
+  if (!shown.length) {
+    list.innerHTML = `<li class="nav-alerts-empty">${notificationState.filter === 'unread' ? 'No unread notifications' : 'No notifications'}</li>`;
+    return;
+  }
+  list.innerHTML = shown
+    .map((n) => {
+      const when = new Date(n.createdAt).toLocaleDateString([], { day: 'numeric', month: 'short' });
+      return `<li class="nav-alert-item${n.read ? ' read' : ''}" data-notification="${n.id}" role="menuitem" tabindex="0">
+        <span class="nav-alert-level level-${n.priority.toLowerCase()}">${n.priority}</span>
+        <span class="nav-alert-msg">${escapeHtml(n.message)}</span>
+        <span class="nav-alert-time">${when}</span></li>`;
+    })
+    .join('');
 }
 
 let mineAlertsQueued = false;
 
 /** Raise alerts for mines whose status needs attention (from the MINE table) */
-async function queueMineAlerts() {
-  if (mineAlertsQueued) return;
-  mineAlertsQueued = true;
-  try {
-    const res = await apiService.getMines();
-    (res.data || []).forEach((m) => {
-      if (m.status === 'Expiring') {
-        alertQueue.critical(`${m.mineId} ${m.mineName}: lease is expiring`, { type: 'error' });
-      } else if (m.status === 'Under Maintenance') {
-        alertQueue.warning(`${m.mineId} ${m.mineName}: under maintenance, production halted`, { type: 'warning' });
-      }
-    });
-  } catch {
-    mineAlertsQueued = false;
-  }
+/** Kept as the session hook: notifications now come from the server */
+function queueMineAlerts() {
+  pollNotifications();
 }
 
 // ============================================================================
@@ -320,6 +360,7 @@ function endSession(message, keepRoute = false) {
   mineAlertsQueued = false;
   // Nothing from the previous user stays on screen or in memory
   alertQueue.clear();
+  stopNotifications();
   sqlHistory.history.clear();
   sqlHistory.redo.clear();
   document.querySelectorAll('dialog[open]').forEach((d) => d.close());

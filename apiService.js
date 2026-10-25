@@ -125,6 +125,14 @@ export const apiService = {
     return request(`/api/dsa/source/${encodeURIComponent(file)}`);
   },
 
+  async notifications() {
+    return apiGet('/api/notifications');
+  },
+
+  async markNotificationsRead(ids) {
+    return request('/api/notifications/read', { method: 'POST', body: { ids } });
+  },
+
   /** Grouped search suggestions (Trie on the server) */
   async searchSuggest(q, limit = 6) {
     return apiGet('/api/search/suggest', { q, limit });

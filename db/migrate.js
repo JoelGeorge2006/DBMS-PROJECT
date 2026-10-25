@@ -14,7 +14,7 @@ const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SCHEMA_PATH = path.join(ROOT, 'schema.sql');
 const SEED_MARKER = '-- 7. SEED DATA';
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 /** The users/sessions block of schema.sql (v3), all CREATE ... IF NOT EXISTS */
 /** A marked block of schema.sql (e.g. AUTH, SEARCH), all CREATE ... IF NOT EXISTS */
@@ -30,6 +30,13 @@ function migrateV3toV4(db) {
   db.transaction(() => {
     db.exec(ddlBlock('SEARCH'));
     db.pragma('user_version = 4');
+  })();
+}
+
+function migrateV4toV5(db) {
+  db.transaction(() => {
+    db.exec(ddlBlock('NOTIFY'));
+    db.pragma('user_version = 5');
   })();
 }
 
@@ -96,7 +103,7 @@ function migrateV1toV2(db) {
 
       const broken = db.pragma('foreign_key_check');
       if (broken.length) throw new Error(`Foreign key check failed after migration: ${JSON.stringify(broken.slice(0, 3))}`);
-      db.pragma('user_version = 4');
+      db.pragma('user_version = 5');
     })();
   } finally {
     db.pragma('foreign_keys = ON');
@@ -147,5 +154,6 @@ function migrateSchema(db) {
   if (version <= 1) migrateV1toV2(db);
   else if (version === 2) migrateV2toV3(db);
   else if (version === 3) migrateV3toV4(db);
+  if (db.pragma('user_version', { simple: true }) === 4) migrateV4toV5(db);
   return `migrated v${version} -> v${SCHEMA_VERSION}`;
 }
