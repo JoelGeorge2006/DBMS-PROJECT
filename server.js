@@ -10,6 +10,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { BinarySearchTree } from './dsa/BinarySearchTree.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -619,6 +620,41 @@ app.get('/api/leases', (req, res) => {
 app.get('/api/production', (req, res) => {
   const rows = db.prepare('SELECT * FROM PRODUCTION ORDER BY fiscal_year DESC, quantity_mt DESC').all();
   res.json({ success: true, count: rows.length, data: rows });
+});
+
+// DSA: BST range search over mineral assay values
+const BST_ATTRIBUTES = { fe_pct: 'Fe', sio2_pct: 'SiO2', al2o3_pct: 'Al2O3' };
+
+app.get('/api/dsa/bst/range', (req, res) => {
+  const attr = BST_ATTRIBUTES[req.query.attr] ? req.query.attr : 'fe_pct';
+  const min = Number(req.query.min ?? 0);
+  const max = Number(req.query.max ?? 100);
+  if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) {
+    return res.status(400).json({ success: false, error: 'min and max must be numbers with min <= max.' });
+  }
+
+  // Insert in primary-key order, as rows come out of the table
+  const minerals = db.prepare('SELECT * FROM MINERAL ORDER BY mineral_id').all();
+  const tree = new BinarySearchTree();
+  minerals.forEach((m) => tree.insert(m[attr] ?? 0, m));
+
+  const { results, visited } = tree.rangeQuery(min, max);
+  const linear = BinarySearchTree.linearRangeSearch(minerals, min, max, (m) => m[attr] ?? 0);
+
+  res.json({
+    success: true,
+    attribute: attr,
+    attributeLabel: BST_ATTRIBUTES[attr],
+    min,
+    max,
+    size: tree.size(),
+    height: tree.height(),
+    tree: tree.toJSON((n) => n.data.mineral_name),
+    visited,
+    matches: results.map((n) => ({ id: n.id, key: n.key, mineral: n.data })),
+    bstComparisons: visited.length,
+    linearComparisons: linear.comparisons
+  });
 });
 
 // 9. Analytical Aggregation Routes

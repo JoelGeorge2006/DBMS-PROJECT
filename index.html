@@ -221,6 +221,33 @@
           </button>
         </nav>
 
+        <!-- Assay range search (binary search tree), shown on the Minerals tab -->
+        <section class="bst-panel hidden" id="bstPanel" aria-label="Assay range search">
+          <form class="bst-query" id="bstQueryForm">
+            <label class="bst-field">
+              <span>Assay</span>
+              <select id="bstAttr">
+                <option value="fe_pct">Fe %</option>
+                <option value="sio2_pct">SiO2 %</option>
+                <option value="al2o3_pct">Al2O3 %</option>
+              </select>
+            </label>
+            <label class="bst-field">
+              <span>From</span>
+              <input type="number" id="bstMin" value="50" min="0" max="100" step="0.1">
+            </label>
+            <label class="bst-field">
+              <span>To</span>
+              <input type="number" id="bstMax" value="70" min="0" max="100" step="0.1">
+            </label>
+            <button type="submit" class="btn-bst-search">Search</button>
+            <p class="bst-stats" id="bstStats"></p>
+          </form>
+          <div class="bst-tree-wrap">
+            <svg class="bst-tree" id="bstTreeSvg" role="img" aria-label="Binary search tree of minerals"></svg>
+          </div>
+        </section>
+
         <!-- High-Density Master Data Table Container -->
         <div class="db-table-card">
           <div class="table-responsive">

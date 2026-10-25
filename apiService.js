@@ -130,6 +130,11 @@ export const apiService = {
     return apiGet('/api/analytics/lease-compliance');
   },
 
+  /** BST range search over a mineral assay column */
+  async getBstRange(attr, min, max) {
+    return apiGet('/api/dsa/bst/range', { attr, min, max });
+  },
+
   /**
    * 10. Interactive Read-Only SQL Terminal
    * @param {string} sqlQuery

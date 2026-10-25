@@ -444,6 +444,10 @@ html, body.minerva-body {
   gap: 16px;
 }
 
+.db-master-panel > * {
+  flex-shrink: 0;
+}
+
 .db-title-row {
   display: flex;
   justify-content: space-between;
@@ -576,6 +580,136 @@ html, body.minerva-body {
   border: 1.5px solid var(--border-light);
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.02);
   overflow: hidden;
+}
+
+/* Assay range search (BST) */
+.bst-panel {
+  background: #FFFFFF;
+  border: 1.5px solid var(--border-light);
+  border-radius: 18px;
+  padding: 16px 18px 10px;
+}
+
+.bst-query {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.bst-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-label);
+}
+
+.bst-field select,
+.bst-field input {
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: #FFFFFF;
+  font-family: inherit;
+  font-size: 0.84rem;
+  color: var(--text-dark);
+}
+
+.bst-field input {
+  width: 84px;
+}
+
+.btn-bst-search {
+  height: 34px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 8px;
+  background: var(--espresso-dark);
+  color: #FFFFFF;
+  font-family: inherit;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-bst-search:hover {
+  background: var(--espresso-hover);
+}
+
+.bst-stats {
+  flex: 1 1 260px;
+  margin: 0;
+  align-self: center;
+  font-size: 0.78rem;
+  color: var(--text-sub);
+}
+
+.bst-tree-wrap {
+  overflow-x: auto;
+  margin-top: 6px;
+}
+
+.bst-tree {
+  display: block;
+  margin: 0 auto;
+}
+
+.bst-edge {
+  stroke: var(--border-light);
+  stroke-width: 1.5;
+}
+
+.bst-edge.on {
+  stroke: var(--text-muted);
+}
+
+.bst-node circle {
+  fill: #FFFFFF;
+  stroke: var(--border-pill);
+  stroke-width: 1.5;
+}
+
+.bst-node.visited circle {
+  stroke: var(--text-sub);
+}
+
+.bst-node.match circle {
+  fill: var(--espresso-dark);
+  stroke: var(--espresso-dark);
+}
+
+.bst-node.skipped {
+  opacity: 0.45;
+}
+
+.bst-key {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-anchor: middle;
+  fill: var(--text-dark);
+}
+
+.bst-node.match .bst-key {
+  fill: #FFFFFF;
+}
+
+.bst-label {
+  font-size: 10px;
+  text-anchor: middle;
+  fill: var(--text-sub);
+}
+
+.db-master-table tr.row-match td {
+  background: #F8F3EC;
+}
+
+.db-master-table tr.row-match td:first-child {
+  box-shadow: inset 3px 0 0 var(--espresso-dark);
 }
 
 .table-responsive {

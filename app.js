@@ -1811,9 +1811,16 @@ function initDatabaseExplorer() {
       activeChip.textContent = 'ACTIVE';
       btn.appendChild(activeChip);
 
-      renderEntityView(targetTab);
+      const bstPanel = document.getElementById('bstPanel');
+      if (bstPanel) bstPanel.classList.toggle('hidden', targetTab !== 'minerals');
+
+      renderEntityView(targetTab).then(() => {
+        if (targetTab === 'minerals') runBstSearch();
+      });
     });
   });
+
+  initBstSearch();
 
   // Export CSV Action
   if (btnExportCsv) {
@@ -2230,7 +2237,7 @@ async function renderEntityView(tabName) {
         </tr>
       `;
       tbody.innerHTML = data.map((m) => `
-        <tr>
+        <tr data-mineral-id="${escapeHtml(m.mineral_id)}">
           <td class="td-mine-id">${escapeHtml(m.mineral_id)}</td>
           <td><strong>${escapeHtml(m.mineral_name)}</strong></td>
           <td><span style="color: var(--copper-primary); font-weight: 600;">${escapeHtml(m.mineral_type)}</span></td>
@@ -2330,6 +2337,99 @@ async function renderEntityView(tabName) {
     console.warn(`Failed to fetch 3NF table ${tabName}:`, err);
     tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 24px; color: #B92520;">Error loading ${tabName} table from database.</td></tr>`;
   }
+}
+
+// Assay range search: the server builds a BST over the chosen assay column
+function initBstSearch() {
+  const form = document.getElementById('bstQueryForm');
+  if (!form) return;
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    runBstSearch();
+  });
+  const attr = document.getElementById('bstAttr');
+  if (attr) attr.addEventListener('change', runBstSearch);
+}
+
+async function runBstSearch() {
+  const attr = document.getElementById('bstAttr')?.value || 'fe_pct';
+  const min = Number(document.getElementById('bstMin')?.value);
+  const max = Number(document.getElementById('bstMax')?.value);
+  const stats = document.getElementById('bstStats');
+
+  if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) {
+    if (stats) stats.textContent = 'Enter a range where From is not greater than To.';
+    return;
+  }
+
+  try {
+    const res = await apiService.getBstRange(attr, min, max);
+    const matchIds = new Set(res.matches.map((m) => m.id));
+    const matchMinerals = new Set(res.matches.map((m) => String(m.mineral.mineral_id)));
+
+    drawBst(document.getElementById('bstTreeSvg'), res.tree, new Set(res.visited), matchIds);
+
+    document.querySelectorAll('#masterTableTbody tr[data-mineral-id]').forEach((row) => {
+      row.classList.toggle('row-match', matchMinerals.has(row.dataset.mineralId));
+    });
+
+    if (stats) {
+      const n = res.matches.length;
+      stats.textContent = `${n} mineral${n === 1 ? '' : 's'} with ${res.attributeLabel} ${min}–${max}% · BST checked ${res.bstComparisons} of ${res.size} nodes (linear scan: ${res.linearComparisons}) · height ${res.height}`;
+    }
+  } catch (err) {
+    if (stats) stats.textContent = `Search failed: ${err.message}`;
+  }
+}
+
+/** Lay out nodes by in-order position (x) and depth (y), then draw as SVG */
+function drawBst(svg, root, visited, matches) {
+  if (!svg) return;
+  const nodes = [];
+  let order = 0;
+  const layout = (node, depth) => {
+    if (!node) return;
+    layout(node.left, depth + 1);
+    node.x = order++;
+    node.depth = depth;
+    nodes.push(node);
+    layout(node.right, depth + 1);
+  };
+  layout(root, 0);
+
+  const colW = 104;
+  const rowH = 52;
+  const pad = 22;
+  const maxDepth = Math.max(0, ...nodes.map((n) => n.depth));
+  const width = Math.max(1, nodes.length) * colW;
+  const height = (maxDepth + 1) * rowH + pad;
+  const px = (n) => n.x * colW + colW / 2;
+  const py = (n) => n.depth * rowH + pad;
+
+  const edges = nodes
+    .flatMap((n) => [n.left, n.right].filter(Boolean).map((c) => {
+      const on = visited.has(n.id) && visited.has(c.id);
+      return `<line x1="${px(n)}" y1="${py(n)}" x2="${px(c)}" y2="${py(c)}" class="bst-edge${on ? ' on' : ''}"/>`;
+    }))
+    .join('');
+
+  const shortName = (label) => label.replace(/\s*\(.*\)\s*/, '').split(' ').slice(0, 2).join(' ');
+  const circles = nodes
+    .map((n) => {
+      const cls = matches.has(n.id) ? 'match' : visited.has(n.id) ? 'visited' : 'skipped';
+      return `<g class="bst-node ${cls}">
+        <title>${escapeHtml(n.label)}: ${n.key}%</title>
+        <circle cx="${px(n)}" cy="${py(n)}" r="17"/>
+        <text x="${px(n)}" y="${py(n) + 4}" class="bst-key">${n.key}</text>
+        <text x="${px(n)}" y="${py(n) + 32}" class="bst-label">${escapeHtml(shortName(n.label))}</text>
+      </g>`;
+    })
+    .join('');
+
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  svg.setAttribute('width', width);
+  svg.setAttribute('height', height);
+  svg.innerHTML = edges + circles;
 }
 
 // SQL console history: two stacks give undo / redo over executed queries
