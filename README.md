@@ -60,12 +60,13 @@ Demo accounts (PINs are stored as scrypt hashes, never sent to the page):
 Sessions are httpOnly cookies checked by the server on every `/api` call. Five wrong PINs for one account from one address lock that pair for 15 minutes. "Forgot PIN?" is a demo: no e-mail is sent, so the code is shown on screen, and it is refused for administrator accounts; reset those with `npm run reset-pin -- USR-1024 'new-pin'`.
 
 ### Views
-- **Map**: the mines from the `MINE` table on a satellite basemap. Click a mine for its details. The transport network card finds the shortest route between two mines and builds the minimum network that connects them all.
-- **Database**: mines, minerals, locations, companies, leases and production tables; mine dossier; CSV export (respects the search box); read-only SQL console.
-- **Lease expiry** (`#leases`, old `#reports` links redirect): leases indexed by end date in an AVL tree. Summary of leases expired or ending within 1, 5 and 10 years, year-range search, add/remove a lease to see rotations. Click a lease to open its mine.
-- **DSA** (`#dsa`): every data structure and algorithm in the project, with where it is used, a "Try it" button that opens that feature, a step-by-step demo, live numbers from the session and the source excerpt. Content comes from `dsa/registry.js`.
+- **Map**: every mine from the `MINE` table on a satellite basemap. Below zoom 9 nearby mines group into numbered clusters coloured by their main mineral; hover a cluster to outline it, click to zoom in. Click a mine for its details. The transport network card finds the shortest route between two mines and builds the minimum network that connects them all.
+- **Database**: mines, minerals, locations, companies, leases and production tables; mine dossier with source and location precision; CSV export (respects the search box); read-only SQL console (administrators only).
+- **Lease expiry** (`#leases`): leases indexed by end date in an AVL tree, with expiry summary, year-range search and add/remove to see rotations. Click a lease to open its mine.
+- **DSA** (`#dsa`): every data structure and algorithm in the project, with where it is used, a "Try it" button, a step-by-step demo, live numbers and the source excerpt. Content comes from `dsa/registry.js`.
+- **Notifications** (bell): raised by rules over the data (leases ending, consent to operate expired or ending, mine status, production drops, sign-ins from a new address). All/Unread, mark read, click to open the mine.
 
-The search bar searches whatever view is open (the label at its left says what). `/` or Ctrl/⌘K focuses it, Esc clears it, and on the map it suggests matching mines.
+The search bar suggests mines, minerals, places, companies and leases as you type (a Trie on the server, with typo correction), and shows your recent searches when empty. In the database, lease and DSA views it also filters the open table; the label at its left switches between "this view" and "everything". `/` or Ctrl/⌘K focuses it, Esc clears it.
 
 ### Data structures and algorithms (`dsa/`)
 | Module | Where it is used |
@@ -78,6 +79,8 @@ The search bar searches whatever view is open (the label at its left says what).
 | `MST.js`: Prim's, Kruskal's, union-find | Map → Minimum network (`GET /api/dsa/mst`) |
 | `LRUCache.js`: hash map + doubly linked list | Session lookups on every API request |
 | `SlidingWindow.js`: queue per key | Sign-in lockout and PIN-reset limits |
+| `Trie.js`: trie with top-k heaps, Levenshtein distance | Search suggestions and typo correction (`GET /api/search/suggest`) |
+| `ConvexHull.js`: grid clustering, monotone-chain hull | Map clusters and their outlines |
 | `registry.js` | Content of the DSA tab (`GET /api/dsa/source/:file` serves the excerpts, `GET /api/dsa/stats` the live numbers) |
 
 Distances are straight-line (great-circle) kilometres between mine coordinates, not road or rail distances.

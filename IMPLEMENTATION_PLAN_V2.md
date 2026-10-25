@@ -1,5 +1,9 @@
 # MINERVA v2 — Implementation Plan
 
+> **Status (2026-10-26)**
+> - Done: Phase 0 (lease view, DSA tab, search bar, logo), Phase 1 (468 mines from OSM/Wikidata, schema v2, R*Tree), Phase 2 (server-side auth, LRU sessions, sliding-window lockout, roles), Phase 3 (Trie search, typo correction, recent searches), Phase 4 (notification rules, heap scheduler, read state; delivered by 30 s polling instead of SSE), clusters from Phase 6 (grid clustering + convex hull on the existing Leaflet map), orphaned pages removed (Phase 8).
+> - Not done: Phase 5 (MapLibre migration, komoot-style sidebar, QuadTree k-NN), DBSCAN mining belts (rest of Phase 6), Phase 7 (3D terrain, deck.gl layers, elevation profile), moving the browser tests into the repo (Phase 8).
+
 National mine coverage, a komoot-style map, real authentication, live search and notifications, and a 3D map, each built on a data structure or algorithm.
 
 ---
