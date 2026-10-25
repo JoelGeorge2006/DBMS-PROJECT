@@ -56,7 +56,6 @@
       </div>
     </div>
 
-    <!-- Telemetry Latency Badge -->
     <div class="nav-right-actions">
       <div class="nav-alerts">
         <button type="button" class="nav-alerts-btn" id="navAlertsBtn" aria-haspopup="true" aria-expanded="false" title="Alerts">
@@ -67,12 +66,6 @@
           <div class="nav-alerts-head">Alerts</div>
           <ul class="nav-alerts-list" id="navAlertsList"></ul>
         </div>
-      </div>
-      <div class="nav-latency-badge" id="navLatencyBadge" title="Real-time DBMS Telemetry Round-Trip Latency">
-        <span class="latency-dot" id="latencyDot"></span>
-        <span class="latency-label">Telemetry Latency:</span>
-        <span class="latency-val" id="latencyDisplay">109ms</span>
-        <span class="sync-on-badge">&bull; SYNC ON</span>
       </div>
     </div>
   </header>
@@ -110,11 +103,12 @@
         </svg>
       </button>
 
-      <!-- 4: User Profile / Security Settings icon -->
-      <button type="button" class="dock-btn" id="dockBtnAuth" title="Authentication & Officer Security Clearance" aria-label="Security Settings">
+      <!-- 4: Sign out -->
+      <button type="button" class="dock-btn" id="dockBtnAuth" title="Sign out" aria-label="Sign out">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-          <circle cx="12" cy="11" r="3"></circle>
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+          <polyline points="16 17 21 12 16 7"></polyline>
+          <line x1="21" y1="12" x2="9" y2="12"></line>
         </svg>
       </button>
     </div>
@@ -136,7 +130,7 @@
         <div class="db-title-row">
           <div class="db-title-group">
             <h2 class="db-main-title">Mines & Concessions Master</h2>
-            <span class="db-records-pill" id="masterRecordsPill">1,420 Active Records</span>
+            <span class="db-records-pill" id="masterRecordsPill"></span>
           </div>
 
           <div class="db-actions-group">
@@ -166,7 +160,6 @@
               <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
             </svg>
             <span>Mines Master</span>
-            <span class="tab-active-chip">ACTIVE</span>
           </button>
 
           <!-- Tab 2: Minerals & Ores -->
@@ -281,7 +274,6 @@
         <!-- Dossier Header -->
         <div class="dossier-header">
           <div class="dossier-tag-row">
-            <span class="dossier-dot-green"></span>
             <span class="dossier-tag-text">DETAIL DOSSIER</span>
           </div>
           <h3 class="dossier-title" id="dossierTitle">Keonjhar North Block (MN-0182)</h3>
@@ -441,7 +433,6 @@
             </div>
           </div>
           <div class="report-right-col">
-            <span class="badge-verified">VERIFIED</span>
             <button type="button" class="btn-download-pdf" aria-label="Download Annual Iron Ore Production & Dispatch Ledger PDF">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -464,7 +455,6 @@
             </div>
           </div>
           <div class="report-right-col">
-            <span class="badge-verified">VERIFIED</span>
             <button type="button" class="btn-download-pdf" aria-label="Download Concession Validity & Expiry Timeline Review PDF">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -487,7 +477,6 @@
             </div>
           </div>
           <div class="report-right-col">
-            <span class="badge-verified">VERIFIED</span>
             <button type="button" class="btn-download-pdf" aria-label="Download Copper & Multi-Metal Reserve Extraction Index PDF">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -510,7 +499,6 @@
             </div>
           </div>
           <div class="report-right-col">
-            <span class="badge-verified">VERIFIED</span>
             <button type="button" class="btn-download-pdf" aria-label="Download Bauxite Lease Boundary & Buffer Overlap Report PDF">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -533,7 +521,6 @@
             </div>
           </div>
           <div class="report-right-col">
-            <span class="badge-verified">VERIFIED</span>
             <button type="button" class="btn-download-pdf" aria-label="Download Cross-State Mineral Royalty Collection Reconciliation PDF">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -586,7 +573,6 @@
        ========================================================================= -->
   <main id="mapView" class="app-view map-view-wrapper active" role="main" aria-label="Geospatial Map Workspace">
     <div id="map" class="geospatial-map"></div>
-    <div class="map-vignette-overlay" aria-hidden="true"></div>
 
     <!-- Top-left: mine transport network (graph algorithms) -->
     <section class="intel-card net-card" id="networkCard" aria-labelledby="networkTitle">
@@ -657,92 +643,6 @@
       </button>
     </aside>
 
-    <!-- Bottom Cascading Filter Dock -->
-    <nav class="bottom-filter-dock" id="bottomFilterDock" aria-label="Cascading Geospatial Filters">
-      <div class="filter-dropdowns-row">
-        <div class="filter-select-group">
-          <label for="filterMineralSelect" class="filter-mini-label">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="12 2 2 12 12 22 22 12 12 2"></polygon></svg>
-            <span>MINERAL / ORE</span>
-          </label>
-          <div class="custom-select-wrapper">
-            <select id="filterMineralSelect" class="filter-select">
-              <option value="ALL">All Metals (38)</option>
-              <option value="Iron Ore">Iron Ore (Hematite / Magnetite)</option>
-              <option value="Bauxite">Bauxite (Alumina Ore)</option>
-              <option value="Copper Ore">Copper Ore (Chalcopyrite)</option>
-              <option value="Limestone">Limestone (Industrial Grade)</option>
-              <option value="Lead Zinc Ore">Lead & Zinc Ore</option>
-              <option value="Chromite">Chromite (Metallurgical)</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="filter-divider" aria-hidden="true"></div>
-
-        <div class="filter-select-group">
-          <label for="filterStateSelect" class="filter-mini-label">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
-            <span>STATE GRID</span>
-          </label>
-          <div class="custom-select-wrapper">
-            <select id="filterStateSelect" class="filter-select">
-              <option value="ALL">National Grid (All States)</option>
-              <option value="Karnataka">Karnataka (Bellary / Sandur)</option>
-              <option value="Odisha">Odisha (Keonjhar / Koraput)</option>
-              <option value="Jharkhand">Jharkhand (Singhbhum / Gumla)</option>
-              <option value="Chhattisgarh">Chhattisgarh (Bailadila / Bilaspur)</option>
-              <option value="Rajasthan">Rajasthan (Khetri / Ajmer / Gotan)</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="filter-divider" aria-hidden="true"></div>
-
-        <div class="filter-select-group">
-          <label for="filterDistrictSelect" class="filter-mini-label">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-            <span>DISTRICT HUB</span>
-          </label>
-          <div class="custom-select-wrapper">
-            <select id="filterDistrictSelect" class="filter-select">
-              <option value="ALL">All Districts</option>
-              <option value="Keonjhar">Keonjhar (Odisha)</option>
-              <option value="West Singhbhum">West Singhbhum (Jharkhand)</option>
-              <option value="Koraput">Koraput (Odisha)</option>
-              <option value="Bellary">Bellary (Karnataka)</option>
-              <option value="Dantewada">Dantewada / Bastar (Chhattisgarh)</option>
-              <option value="Jhunjhunu">Jhunjhunu / Khetri (Rajasthan)</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <div class="filter-actions-row">
-        <div class="action-chips-group">
-          <button type="button" class="chip-toggle active" id="toggleMinesChip" data-layer="mines">
-            <span class="chip-dot dot-brown"></span>
-            <span>Mines</span>
-          </button>
-          <button type="button" class="chip-toggle active" id="toggleHotspotsChip" data-layer="hotspots">
-            <span class="chip-dot dot-gold"></span>
-            <span>Hotspots</span>
-          </button>
-          <button type="button" class="chip-toggle active" id="toggleLeasesChip" data-layer="leases">
-            <span class="chip-dot dot-green"></span>
-            <span>Leases</span>
-          </button>
-        </div>
-
-        <button type="button" class="btn-filter-reset" id="btnFilterReset" title="Reset all camera and layer filters">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="23 4 23 10 17 10"></polyline>
-            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-          </svg>
-          <span>Reset</span>
-        </button>
-      </div>
-    </nav>
 
     <!-- Floating Node Telemetry Inspector Card (Triggered by Clicking Any Node) -->
     <div id="nodeInspectorCard" class="node-inspector-card hidden" role="dialog" aria-modal="true" aria-labelledby="inspectTitle">
@@ -769,18 +669,14 @@
           <span class="stat-val mono" id="inspectLease">LEASE: 04-OR-2004</span>
         </div>
         <div class="inspect-stat-row">
-          <span class="stat-label">ANNUAL YIELD RECORD</span>
+          <span class="stat-label">LATEST PRODUCTION</span>
           <span class="stat-val" id="inspectYield">18.4 Million MT/Year</span>
-        </div>
-        <div class="inspect-stat-row">
-          <span class="stat-label">TELEMETRY SENSORS</span>
-          <span class="stat-val online">&bull; 48 Telemetry Probes Online</span>
         </div>
       </div>
 
       <div class="inspect-footer">
-        <button type="button" class="btn-inspect-action" id="btnInspectZoom">Isolate Craton</button>
-        <button type="button" class="btn-inspect-action primary" id="btnInspectDb">Inspect DB Record</button>
+        <button type="button" class="btn-inspect-action" id="btnInspectZoom">Zoom in</button>
+        <button type="button" class="btn-inspect-action primary" id="btnInspectDb">Open in database</button>
       </div>
     </div>
   </main>
@@ -892,17 +788,8 @@
        5. BOTTOM FOOTER STATUS BAR (Fixed at bottom)
        ========================================================================= -->
   <footer class="bottom-status-footer" role="contentinfo">
-    <div class="footer-left" id="footerLeftContent">
-      <img src="minerva-logo.png" alt="" id="footerLogo" class="footer-logo-tiny" style="width:14px;height:14px;display:inline-block;vertical-align:middle;margin-right:6px;" aria-hidden="true">
-      <span class="footer-dot-green" id="footerDot"></span>
-      <span id="footerLeftText">Coordinate System: <strong>WGS84</strong> &bull; Source: <strong>IBM / Ministry of Mines Registry</strong></span>
-    </div>
-    <div class="footer-right" id="footerRightContent">
-      <span id="footerRightText">Total Plotted Records: <strong id="totalPlottedDisplay">1,420</strong> &bull; Real-time DB Sync Active</span>
-      <svg class="footer-sync-icon" id="footerSyncIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" stroke-width="2.2" stroke-linecap="round">
-        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
-      </svg>
-    </div>
+    <div class="footer-left">MINERVA &bull; Indian Mineral Resource Management Database</div>
+    <div class="footer-right">SQLite &bull; minerva.db</div>
   </footer>
 
   <!-- =========================================================================
@@ -971,100 +858,35 @@ LIMIT 5;</textarea>
       </div>
 
       <div class="pdf-modal-body">
-        <div class="pdf-security-banner">
-          <div class="pdf-security-left">
-            <span class="pdf-verified-shield">&#10003;</span>
-            <div>
-              <strong>VERIFIED ARCHIVAL LEDGER &bull; TAMPER-EVIDENT</strong>
-              <div class="pdf-hash-code" id="pdfHashCode">SHA-256: 8f4c2e11d08b3a76295e87a2741d4c9f182e0b55291a45778b4097f4c519d08e</div>
-            </div>
-          </div>
-          <span class="pdf-stamp-mono">IBM AUDITED</span>
-        </div>
-
         <div class="pdf-abstract-box">
-          <label class="pdf-section-label">EXECUTIVE SUMMARY &amp; STATUTORY FINDINGS</label>
+          <label class="pdf-section-label">SUMMARY</label>
           <p id="pdfDocSummary">Audited gross production, grade distribution (64.2% Fe Hematite), environmental dispatch permits, and royalty remittances for the Keonjhar Iron Ore Sector.</p>
         </div>
 
         <div class="pdf-metrics-grid" id="pdfMetricsGrid">
           <!-- Populated dynamically -->
         </div>
-
-        <div class="pdf-watermark-note">
-          <span>Official National Mineral Intelligence Document &bull; Issued under MMDR Act Sec. 8A &bull; WGS84 Georeferenced</span>
-        </div>
       </div>
 
       <div class="pdf-modal-footer">
         <div class="pdf-footer-info">
-          <span id="pdfPageInfo">42 Pages &bull; 4.8 MB &bull; Digitally Certified</span>
+          <span id="pdfPageInfo">Plain-text summary</span>
         </div>
         <div class="pdf-footer-actions">
-          <button type="button" class="btn-action-pill" id="btnPrintPdfDoc">Print Official Ledger</button>
+          <button type="button" class="btn-action-pill" id="btnPrintPdfDoc">Print</button>
           <button type="button" class="btn-action-pill btn-primary-dark" id="btnDownloadPdfDoc">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
               <polyline points="7 10 12 15 17 10"></polyline>
               <line x1="12" y1="15" x2="12" y2="3"></line>
             </svg>
-            <span id="btnDownloadPdfText">Download Verified PDF</span>
+            <span id="btnDownloadPdfText">Download</span>
           </button>
         </div>
       </div>
     </div>
   </dialog>
 
-  <!-- =========================================================================
-       7. AUTHENTICATION & SECURITY MODAL (Dock Icon 4)
-       ========================================================================= -->
-  <dialog id="authModal" class="custom-dialog-auth" aria-label="Minerva Authentication Portal">
-    <div class="auth-modal-card">
-      <div class="auth-modal-header">
-        <div class="auth-modal-brand">
-          <div class="modal-logo-icon">
-            <img src="minerva-logo.png" alt="MINERVA Logo" class="modal-logo-img">
-          </div>
-          <div>
-            <h4>MINERVA Security Portal</h4>
-            <p>Workstation Authentication Session</p>
-          </div>
-        </div>
-        <button type="button" class="btn-close-modal" id="btnCloseAuthModal">&times;</button>
-      </div>
-
-      <div class="auth-modal-body">
-        <div class="session-status-box">
-          <div class="session-avatar">JG</div>
-          <div class="session-info">
-            <span class="session-name">Joel George</span>
-            <span class="session-role">Database Administrator &bull; USR-1024</span>
-            <span class="session-clearance">Level 4 Security Clearance (IBM / MoM)</span>
-          </div>
-        </div>
-
-        <div class="auth-specs-list">
-          <div class="spec-item">
-            <span>Authentication Protocol</span>
-            <strong>AES-256 TLS 1.3 Federated</strong>
-          </div>
-          <div class="spec-item">
-            <span>Session Persistence</span>
-            <strong>Workstation (localStorage)</strong>
-          </div>
-          <div class="spec-item">
-            <span>SSO Gateway</span>
-            <strong>Jan Parichay &bull; DigiLocker Active</strong>
-          </div>
-        </div>
-      </div>
-
-      <div class="auth-modal-footer">
-        <button type="button" class="btn-auth-switch" id="btnSwitchAccount">Switch Account</button>
-        <button type="button" class="btn-auth-lock" id="btnLockWorkstation">Lock Session</button>
-      </div>
-    </div>
-  </dialog>
 
   <!-- MODAL: Forgot PIN Recovery -->
   <dialog id="forgotPinModal" class="custom-dialog" aria-labelledby="forgotPinTitle" aria-modal="true">
@@ -1078,18 +900,17 @@ LIMIT 5;</textarea>
           </svg>
         </div>
         <div>
-          <h3 id="forgotPinTitle" class="modal-title">Security PIN Recovery</h3>
-          <p class="modal-sub">MINERVA Cryptographic Credential Reset</p>
+          <h3 id="forgotPinTitle" class="modal-title">Reset PIN</h3>
         </div>
         <button type="button" class="btn-close-modal" id="closeForgotPinBtn" aria-label="Close dialog">&times;</button>
       </div>
 
       <div class="modal-body">
         <p class="modal-instructions">
-          To reset your PIN, verify your authorized government/officer user identifier. An OTP will be dispatched to your registered device.
+          Enter your user identifier to get a one-time code. This is a demo, so no message is sent: the code is shown here.
         </p>
         <div class="form-group">
-          <label class="form-label" for="resetIdentifierInput">CONFIRM USER IDENTIFIER</label>
+          <label class="form-label" for="resetIdentifierInput">USER IDENTIFIER</label>
           <div class="input-wrapper">
             <input type="text" id="resetIdentifierInput" class="form-input" value="USR-1024" />
           </div>
@@ -1097,110 +918,32 @@ LIMIT 5;</textarea>
 
         <div id="otpStep" class="hidden">
           <div class="form-group">
-            <label class="form-label" for="resetOtpInput">ONE-TIME PASSCODE (OTP)</label>
+            <label class="form-label" for="resetOtpInput">ONE-TIME CODE</label>
             <div class="input-wrapper">
-              <input type="text" id="resetOtpInput" class="form-input" placeholder="Enter 6-digit OTP (e.g. 849201)" maxlength="6" />
+              <input type="text" id="resetOtpInput" class="form-input" placeholder="6-digit code" maxlength="6" inputmode="numeric" />
             </div>
-            <span class="field-hint">Simulated OTP: Use <strong>849201</strong></span>
+            <span class="field-hint" id="resetOtpHint"></span>
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="newPinInput">NEW 6-DIGIT PASSCODE / PIN</label>
+            <label class="form-label" for="newPinInput">NEW PIN (AT LEAST 6 CHARACTERS)</label>
             <div class="input-wrapper">
-              <input type="password" id="newPinInput" class="form-input" placeholder="New Passcode" />
+              <input type="password" id="newPinInput" class="form-input" placeholder="New PIN" />
             </div>
           </div>
         </div>
+        <p class="field-error-msg hidden" id="resetError"></p>
       </div>
 
       <div class="modal-footer">
         <button type="button" class="btn-secondary" id="cancelForgotPinBtn">Cancel</button>
-        <button type="button" class="btn-primary-small" id="sendOtpBtn">Dispatch OTP</button>
-        <button type="button" class="btn-primary-small hidden" id="confirmResetBtn">Save & Apply New PIN</button>
+        <button type="button" class="btn-primary-small" id="sendOtpBtn">Send code</button>
+        <button type="button" class="btn-primary-small hidden" id="confirmResetBtn">Save new PIN</button>
       </div>
     </div>
   </dialog>
 
-  <!-- MODAL: Google Identity SSO Simulation -->
-  <dialog id="googleModal" class="custom-dialog" aria-labelledby="googleModalTitle" aria-modal="true">
-    <div class="modal-card google-modal-card">
-      <div class="modal-header">
-        <svg width="24" height="24" viewBox="0 0 24 24">
-          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-        </svg>
-        <div>
-          <h3 id="googleModalTitle" class="modal-title">Sign in with Google</h3>
-          <p class="modal-sub">to continue to <strong>MINERVA Database</strong></p>
-        </div>
-        <button type="button" class="btn-close-modal" id="closeGoogleBtn">&times;</button>
-      </div>
 
-      <div class="modal-body">
-        <p class="modal-instructions">Select an authorized organizational account:</p>
-        <div class="google-accounts-list">
-          <button type="button" class="google-account-btn" data-email="joel.george@mines.gov.in" data-name="Joel George" data-role="Database Administrator">
-            <div class="g-avatar">JG</div>
-            <div class="g-info">
-              <span class="g-name">Joel George</span>
-              <span class="g-email">joel.george@mines.gov.in</span>
-            </div>
-            <span class="g-tag">Authorized Officer</span>
-          </button>
-          <button type="button" class="google-account-btn" data-email="mines.inspector@gov.in" data-name="Inspector General" data-role="Mining Lease Inspector">
-            <div class="g-avatar">IG</div>
-            <div class="g-info">
-              <span class="g-name">Mining Inspector General</span>
-              <span class="g-email">mines.inspector@gov.in</span>
-            </div>
-            <span class="g-tag">Operations</span>
-          </button>
-        </div>
-      </div>
-
-      <div class="modal-footer">
-        <button type="button" class="btn-secondary" id="cancelGoogleBtn">Cancel</button>
-      </div>
-    </div>
-  </dialog>
-
-  <!-- MODAL: Government ID (Jan Parichay / MeriPehchaan) SSO -->
-  <dialog id="govModal" class="custom-dialog" aria-labelledby="govModalTitle" aria-modal="true">
-    <div class="modal-card gov-modal-card">
-      <div class="modal-header">
-        <div class="gov-emblem" aria-hidden="true">&#9776;</div>
-        <div>
-          <h3 id="govModalTitle" class="modal-title">Jan Parichay &bull; MeriPehchaan</h3>
-          <p class="modal-sub">National Single Sign-On (NSSO) Portal &bull; Govt of India</p>
-        </div>
-        <button type="button" class="btn-close-modal" id="closeGovBtn">&times;</button>
-      </div>
-
-      <div class="modal-body">
-        <div class="gov-badge-banner">
-          <span class="gov-seal-icon">&#9878;</span>
-          <span>Connecting to National e-Governance Division (NeGD) Gateway...</span>
-        </div>
-        <p class="modal-instructions">
-          Your credentials will be authenticated using Aadhaar / DigiLocker / Parichay Federated Identity.
-        </p>
-
-        <div class="gov-progress-box">
-          <div class="gov-progress-bar">
-            <div class="gov-progress-fill" id="govProgressFill"></div>
-          </div>
-          <span class="gov-progress-text" id="govProgressText">Establishing TLS 1.3 Handshake...</span>
-        </div>
-      </div>
-
-      <div class="modal-footer">
-        <button type="button" class="btn-secondary" id="cancelGovBtn">Cancel</button>
-        <button type="button" class="btn-primary-small" id="govInstantAuthBtn">Authenticate with DigiLocker</button>
-      </div>
-    </div>
-  </dialog>
 
   <!-- TOAST CONTAINER -->
   <div id="toastContainer" class="toast-container" aria-live="assertive" aria-atomic="true"></div>

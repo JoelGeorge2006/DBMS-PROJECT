@@ -174,16 +174,10 @@ app.get('/api/kpi/metrics', (req, res) => {
     res.json({
       success: true,
       data: {
-        activeMinesPlotted: 1248, // Aggregated nationwide telemetry count
-        activeMinesSampled: activeMinesRow.count,
-        growthPct: '+12%',
-        trackedBeltsCratons: 64,
-        activeConcessions: 842,
-        ibmCompliancePct: '99.4%',
-        annualOreYieldFormatted: '1.28B MT',
-        totalSampledProduction2024MT: annualYieldRow.total,
-        totalArchivedPublications: 348,
-        realtimeSync: true
+        activeMines: activeMinesRow.count,
+        cratonRegions: cratonsRow.count,
+        activeLeases: concessionsRow.count,
+        production2024MT: annualYieldRow.total
       }
     });
   } catch (err) {
@@ -291,6 +285,24 @@ app.get('/api/gis/nodes', (req, res) => {
 });
 
 // 3. GET /api/mines (Master Grid with Query Filters & Search)
+// Yearly output of a mine's primary mineral from the PRODUCTION table
+const productionHistoryStmt = db.prepare(`
+  SELECT p.fiscal_year, p.quantity_mt
+  FROM PRODUCTION p
+  JOIN MINE_MINERAL mm ON mm.mine_id = p.mine_id AND mm.mineral_id = p.mineral_id AND mm.is_primary = 1
+  WHERE p.mine_id = ?
+  ORDER BY p.fiscal_year
+`);
+
+function productionSummary(mineId) {
+  const rows = productionHistoryStmt.all(mineId);
+  const latest = rows[rows.length - 1];
+  return {
+    currentOutput: latest ? `${latest.quantity_mt} MT (${latest.fiscal_year})` : 'No records',
+    history: rows.map((row) => ({ year: `'${String(row.fiscal_year).slice(2)}`, mt: row.quantity_mt }))
+  };
+}
+
 app.get('/api/mines', (req, res) => {
   try {
     const { search, state, mineral, status, limit = 50, offset = 0 } = req.query;
@@ -374,15 +386,7 @@ app.get('/api/mines', (req, res) => {
             royaltyRate: r.royalty_rate,
             area: r.area_formatted
           },
-          production: {
-            currentOutput: r.current_output_formatted || '6.4 MT (2024 YTD)',
-            history: [
-              { year: "'21", mt: 4.8 },
-              { year: "'22", mt: 5.4 },
-              { year: "'23", mt: 5.9 },
-              { year: "'24", mt: r.current_production_mt || 6.4 }
-            ]
-          },
+          production: productionSummary(r.mine_id),
           clearance: {
             title: r.forest_clearance_stage,
             subtitle: `Approved • CTO Valid till ${r.cto_valid_till.substring(0, 4)}`,
@@ -511,7 +515,6 @@ app.get('/api/reports', (req, res) => {
   res.json({
     success: true,
     count: ARCHIVAL_PUBLICATIONS.length,
-    totalArchived: 348,
     data: ARCHIVAL_PUBLICATIONS
   });
 });

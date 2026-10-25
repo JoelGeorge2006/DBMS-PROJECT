@@ -108,538 +108,14 @@ async function queueMineAlerts() {
 }
 
 // ============================================================================
-// 1. Geospatial Telemetry Dataset (From DBMS Schema & Real Cratons)
-// ============================================================================
-const TELEMETRY_NODES = [
-  // --- ODISHA / JHARKHAND IRON & BAUXITE CRATON (Image 1 Focus) ---
-  {
-    id: 'NODE-JH-01',
-    name: 'Noamundi Iron Mine',
-    state: 'Jharkhand',
-    district: 'West Singhbhum',
-    coords: [22.146, 85.524],
-    count: 48,
-    company: 'Tata Steel Ltd.',
-    mineral: 'Iron Ore (Hematite 64% Fe)',
-    mineralCategory: 'Iron Ore',
-    leaseId: 'LEASE: 04-JH-1998',
-    yield: '18.4M MT/Yr',
-    sensorsOnline: 48,
-    colorType: 'amber',
-    craton: 'Singhbhum Craton',
-    status: 'Active Concession'
-  },
-  {
-    id: 'NODE-OR-01',
-    name: 'Joda East Iron Mine',
-    state: 'Odisha',
-    district: 'Keonjhar',
-    coords: [22.016, 85.426],
-    count: 50,
-    company: 'Tata Steel Ltd.',
-    mineral: 'Iron Ore (Hematite 62% Fe)',
-    mineralCategory: 'Iron Ore',
-    leaseId: 'LEASE: 04-OR-2004',
-    yield: '16.2M MT/Yr',
-    sensorsOnline: 50,
-    colorType: 'amber',
-    craton: 'Keonjhar Sector',
-    status: 'Active Concession'
-  },
-  {
-    id: 'NODE-JH-02',
-    name: 'Kiriburu - Meghahatuburu Complex',
-    state: 'Jharkhand',
-    district: 'West Singhbhum',
-    coords: [22.067, 85.289],
-    count: 52,
-    company: 'Steel Authority of India Limited (SAIL)',
-    mineral: 'Iron Ore (High-Grade Lumps)',
-    mineralCategory: 'Iron Ore',
-    leaseId: 'LEASE: 02-JH-1988',
-    yield: '21.0M MT/Yr',
-    sensorsOnline: 52,
-    colorType: 'amber',
-    craton: 'Singhbhum Craton',
-    status: 'Active Concession'
-  },
-  {
-    id: 'NODE-OR-02',
-    name: 'Barsan Iron Concession',
-    state: 'Odisha',
-    district: 'Sundergarh',
-    coords: [21.845, 85.120],
-    count: 51,
-    company: 'Steel Authority of India Limited',
-    mineral: 'Iron Ore (High-Grade Fine)',
-    mineralCategory: 'Iron Ore',
-    leaseId: 'LEASE: 07-OR-2001',
-    yield: '12.5M MT/Yr',
-    sensorsOnline: 51,
-    colorType: 'amber',
-    craton: 'Keonjhar Sector',
-    status: 'Active Concession'
-  },
-  {
-    id: 'NODE-OR-03',
-    name: 'Panchpatmali Bauxite Mine',
-    state: 'Odisha',
-    district: 'Koraput',
-    coords: [18.825, 82.915],
-    count: 51,
-    company: 'National Aluminium Company Ltd (NALCO)',
-    mineral: 'Bauxite (Alumina Ore 46% Al2O3)',
-    mineralCategory: 'Bauxite',
-    leaseId: 'LEASE: 02-OR-1998',
-    yield: '7.3M MT/Yr',
-    sensorsOnline: 51,
-    colorType: 'copper',
-    craton: 'Eastern Ghats Bauxite Belt',
-    status: 'Active Concession'
-  },
-  {
-    id: 'NODE-JH-03',
-    name: 'Serengdag Bauxite Ridge',
-    state: 'Jharkhand',
-    district: 'Gumla',
-    coords: [23.235, 84.580],
-    count: 42,
-    company: 'Hindalco Industries Ltd.',
-    mineral: 'Bauxite (Metallurgical Grade)',
-    mineralCategory: 'Bauxite',
-    leaseId: 'LEASE: 03-JH-2006',
-    yield: '5.1M MT/Yr',
-    sensorsOnline: 42,
-    colorType: 'copper',
-    craton: 'Chotanagpur Plateau',
-    status: 'Active Concession'
-  },
-  {
-    id: 'NODE-JH-04',
-    name: 'Mosaboni Copper Complex',
-    state: 'Jharkhand',
-    district: 'East Singhbhum',
-    coords: [22.520, 86.455],
-    count: 38,
-    company: 'Hindustan Copper Limited (HCL)',
-    mineral: 'Copper Ore (Chalcopyrite)',
-    mineralCategory: 'Copper Ore',
-    leaseId: 'LEASE: 05-JH-1992',
-    yield: '2.4M MT/Yr',
-    sensorsOnline: 38,
-    colorType: 'copper',
-    craton: 'Singhbhum Copper Belt',
-    status: 'Active Concession'
-  },
-
-  // --- CHHATTISGARH MINERAL BELT ---
-  {
-    id: 'NODE-CG-01',
-    name: 'Bailadila Iron Ore Deposit (Sector 5 & 14)',
-    state: 'Chhattisgarh',
-    district: 'Dantewada',
-    coords: [18.705, 81.245],
-    count: 51,
-    company: 'NMDC Limited',
-    mineral: 'Iron Ore (67% Fe Super Blue Dust)',
-    mineralCategory: 'Iron Ore',
-    leaseId: 'LEASE: 06-CG-2008',
-    yield: '32.0M MT/Yr',
-    sensorsOnline: 51,
-    colorType: 'amber',
-    craton: 'Bailadila Range',
-    status: 'Active Concession'
-  },
-  {
-    id: 'NODE-CG-02',
-    name: 'Chilhati Limestone Quarry',
-    state: 'Chhattisgarh',
-    district: 'Bilaspur',
-    coords: [22.080, 82.150],
-    count: 40,
-    company: 'NUVaco Vista Corp Ltd.',
-    mineral: 'Limestone (Cement Grade)',
-    mineralCategory: 'Limestone',
-    leaseId: 'LEASE: 09-CG-2015',
-    yield: '4.2M MT/Yr',
-    sensorsOnline: 40,
-    colorType: 'default',
-    craton: 'Chhattisgarh Basin',
-    status: 'Active Concession'
-  },
-  {
-    id: 'NODE-CG-03',
-    name: 'Samri - Tatijhariya Bauxite Mines',
-    state: 'Chhattisgarh',
-    district: 'Balrampur',
-    coords: [23.410, 83.650],
-    count: 45,
-    company: 'Hindalco Industries Ltd.',
-    mineral: 'Bauxite (Gibbsite)',
-    mineralCategory: 'Bauxite',
-    leaseId: 'LEASE: 04-CG-2003',
-    yield: '3.8M MT/Yr',
-    sensorsOnline: 45,
-    colorType: 'copper',
-    craton: 'Mainpat Plateau',
-    status: 'Active Concession'
-  },
-
-  // --- KARNATAKA CRATON (Directly Replicating Image 2 Cluster) ---
-  {
-    id: 'NODE-KA-01',
-    name: 'Bellary - Sandur Iron Complex',
-    state: 'Karnataka',
-    district: 'Bellary',
-    coords: [15.085, 76.540],
-    count: 83,
-    company: 'NMDC / JSW Steel Limited',
-    mineral: 'Iron Ore (High Grade Hematite)',
-    mineralCategory: 'Iron Ore',
-    leaseId: 'LEASE: 08-KA-2012',
-    yield: '28.5M MT/Yr',
-    sensorsOnline: 83,
-    colorType: 'amber',
-    craton: 'Bellary Complex',
-    status: 'Active Concession'
-  },
-  {
-    id: 'NODE-KA-02',
-    name: 'Donimalai Extraction Shaft',
-    state: 'Karnataka',
-    district: 'Bellary',
-    coords: [15.050, 76.620],
-    count: 24,
-    company: 'NMDC Limited',
-    mineral: 'Iron Ore (Pellet Feed Grade)',
-    mineralCategory: 'Iron Ore',
-    leaseId: 'LEASE: 03-KA-2016',
-    yield: '7.0M MT/Yr',
-    sensorsOnline: 24,
-    colorType: 'amber',
-    craton: 'Bellary Complex',
-    status: 'Active Concession'
-  },
-  {
-    id: 'NODE-KA-03',
-    name: 'Kudremukh - Chikmagalur Reserve',
-    state: 'Karnataka',
-    district: 'Chikmagalur',
-    coords: [13.210, 75.250],
-    count: 37,
-    company: 'KIOCL Limited',
-    mineral: 'Iron Ore (Magnetite Beneficiation)',
-    mineralCategory: 'Iron Ore',
-    leaseId: 'LEASE: 01-KA-1990',
-    yield: '4.8M MT/Yr',
-    sensorsOnline: 37,
-    colorType: 'amber',
-    craton: 'Western Dharwar Craton',
-    status: 'Active Concession'
-  },
-  {
-    id: 'NODE-KA-04',
-    name: 'Chitradurga Polymetallic Hub',
-    state: 'Karnataka',
-    district: 'Chitradurga',
-    coords: [14.220, 76.400],
-    count: 47,
-    company: 'Hutti Gold Mines & Mineral Corp',
-    mineral: 'Copper Ore & Base Metals',
-    mineralCategory: 'Copper Ore',
-    leaseId: 'LEASE: 05-KA-2008',
-    yield: '1.2M MT/Yr',
-    sensorsOnline: 47,
-    colorType: 'copper',
-    craton: 'Chitradurga Schist Belt',
-    status: 'Active Concession'
-  },
-  {
-    id: 'NODE-KA-05',
-    name: 'Belgaum / Khanapur Craton Node',
-    state: 'Karnataka',
-    district: 'Belgaum',
-    coords: [15.850, 74.500],
-    count: 63,
-    company: 'Indal / Hindalco Smelting Feed',
-    mineral: 'Bauxite (Lateritic Alumina)',
-    mineralCategory: 'Bauxite',
-    leaseId: 'LEASE: 09-KA-2005',
-    yield: '2.9M MT/Yr',
-    sensorsOnline: 63,
-    colorType: 'copper',
-    craton: 'North Dharwar Belt',
-    status: 'Active Concession'
-  },
-  {
-    id: 'NODE-KA-06',
-    name: 'Kalaburagi Limestone Corridor',
-    state: 'Karnataka',
-    district: 'Kalaburagi',
-    coords: [17.330, 76.830],
-    count: 51,
-    company: 'The India Cements Limited',
-    mineral: 'Limestone (Sedimentary)',
-    mineralCategory: 'Limestone',
-    leaseId: 'LEASE: 02-KA-2011',
-    yield: '6.4M MT/Yr',
-    sensorsOnline: 51,
-    colorType: 'default',
-    craton: 'Bhima Basin',
-    status: 'Active Concession'
-  },
-  {
-    id: 'NODE-KA-07',
-    name: 'Dharwad Telemetry Station',
-    state: 'Karnataka',
-    district: 'Dharwad',
-    coords: [15.450, 75.010],
-    count: 54,
-    company: 'Karnataka State Minerals Dev Corp',
-    mineral: 'Manganese & Iron Ore',
-    mineralCategory: 'Iron Ore',
-    leaseId: 'LEASE: 11-KA-2014',
-    yield: '3.1M MT/Yr',
-    sensorsOnline: 54,
-    colorType: 'amber',
-    craton: 'Central Dharwar Hub',
-    status: 'Active Concession'
-  },
-  {
-    id: 'NODE-KA-08',
-    name: 'Uttara Kannada Coastal Station',
-    state: 'Karnataka',
-    district: 'Uttara Kannada',
-    coords: [14.800, 74.130],
-    count: 46,
-    company: 'Port Logistics & Mineral Terminal',
-    mineral: 'Iron Ore Export Terminal',
-    mineralCategory: 'Iron Ore',
-    leaseId: 'LEASE: 14-KA-2018',
-    yield: '11.2M MT/Yr',
-    sensorsOnline: 46,
-    colorType: 'default',
-    craton: 'Karwar Export Hub',
-    status: 'Active Concession'
-  },
-
-  // --- RAJASTHAN MINERAL BELT (Image 1 Focus) ---
-  {
-    id: 'NODE-RJ-01',
-    name: 'Khetri Copper Complex (Main Shaft)',
-    state: 'Rajasthan',
-    district: 'Jhunjhunu',
-    coords: [27.985, 75.795],
-    count: 51,
-    company: 'Hindustan Copper Limited (HCL)',
-    mineral: 'Copper Ore (Chalcopyrite & Bornite)',
-    mineralCategory: 'Copper Ore',
-    leaseId: 'LEASE: 01-RJ-1996',
-    yield: '4.8M MT/Yr',
-    sensorsOnline: 51,
-    colorType: 'copper',
-    craton: 'Khetri Copper Belt',
-    status: 'Active Concession'
-  },
-  {
-    id: 'NODE-RJ-02',
-    name: 'Khetri West Sector & Kolihan Shaft',
-    state: 'Rajasthan',
-    district: 'Jhunjhunu',
-    coords: [27.915, 75.720],
-    count: 46,
-    company: 'Hindustan Copper Limited',
-    mineral: 'Copper Ore (Sulfide Grade)',
-    mineralCategory: 'Copper Ore',
-    leaseId: 'LEASE: 01-RJ-1996',
-    yield: '3.2M MT/Yr',
-    sensorsOnline: 46,
-    colorType: 'copper',
-    craton: 'Khetri Copper Belt',
-    status: 'Active Concession'
-  },
-  {
-    id: 'NODE-RJ-03',
-    name: 'Kayad Lead-Zinc Deep Mine',
-    state: 'Rajasthan',
-    district: 'Ajmer',
-    coords: [26.530, 74.690],
-    count: 40,
-    company: 'Hindustan Zinc Ltd (HZL / Vedanta)',
-    mineral: 'Lead Zinc Ore (Sphalerite & Galena)',
-    mineralCategory: 'Lead Zinc Ore',
-    leaseId: 'LEASE: 10-RJ-2014',
-    yield: '1.4M MT/Yr',
-    sensorsOnline: 40,
-    colorType: 'amber',
-    craton: 'Aravalli Mineral Belt',
-    status: 'Active Concession'
-  },
-  {
-    id: 'NODE-RJ-04',
-    name: 'Gotan High-Purity Limestone',
-    state: 'Rajasthan',
-    district: 'Jodhpur',
-    coords: [26.650, 73.730],
-    count: 34,
-    company: 'Marwar Cement Ltd',
-    mineral: 'Limestone (Chemical & White Cement)',
-    mineralCategory: 'Limestone',
-    leaseId: 'LEASE: 12-RJ-2010',
-    yield: '2.9M MT/Yr',
-    sensorsOnline: 34,
-    colorType: 'default',
-    craton: 'Marwar Supergroup',
-    status: 'Active Concession'
-  },
-
-  // --- BIHAR & TELANGANA BELTS ---
-  {
-    id: 'NODE-BR-01',
-    name: 'Rohtas Quarry Basin',
-    state: 'Bihar',
-    district: 'Rohtas',
-    coords: [24.950, 84.020],
-    count: 28,
-    company: 'Dalmia Cement Bharat Limited',
-    mineral: 'Limestone (Flux & Portland Grade)',
-    mineralCategory: 'Limestone',
-    leaseId: 'LEASE: 05-BR-2007',
-    yield: '3.5M MT/Yr',
-    sensorsOnline: 28,
-    colorType: 'default',
-    craton: 'Vindhyan Basin',
-    status: 'Active Concession'
-  },
-  {
-    id: 'NODE-TS-01',
-    name: 'Godavari Mineral Corridor',
-    state: 'Telangana',
-    district: 'Mancherial',
-    coords: [18.870, 79.450],
-    count: 44,
-    company: 'Telangana State Mineral Dev Corp',
-    mineral: 'Limestone & Coal Strata',
-    mineralCategory: 'Limestone',
-    leaseId: 'LEASE: 06-TS-2015',
-    yield: '8.2M MT/Yr',
-    sensorsOnline: 44,
-    colorType: 'default',
-    craton: 'Pranhita-Godavari Valley',
-    status: 'Active Concession'
-  }
-];
-
-// Vector Concession Polygons (Image 1 & 2 Dash Outlines)
-const CONCESSION_POLYGONS = [
-  {
-    name: 'Khetri Copper Belt',
-    leaseCode: 'LEASE: 01-RJ-1996',
-    mineral: 'Copper Ore',
-    coords: [
-      [28.12, 75.60],
-      [28.18, 75.92],
-      [27.82, 76.05],
-      [27.75, 75.68]
-    ],
-    color: '#386641',
-    fillColor: 'rgba(56, 102, 65, 0.14)',
-    center: [27.95, 75.75]
-  },
-  {
-    name: 'Singhbhum Craton & Keonjhar Sector',
-    leaseCode: 'LEASE: 04-OR-2004',
-    mineral: 'Iron Ore',
-    coords: [
-      [22.35, 85.10],
-      [22.45, 85.75],
-      [21.65, 85.80],
-      [21.60, 85.05]
-    ],
-    color: '#B07D53',
-    fillColor: 'rgba(176, 125, 83, 0.15)',
-    center: [22.05, 85.45]
-  },
-  {
-    name: 'Bailadila Range Concession',
-    leaseCode: 'LEASE: 06-CG-2008',
-    mineral: 'Iron Ore',
-    coords: [
-      [18.95, 81.10],
-      [18.90, 81.45],
-      [18.45, 81.40],
-      [18.50, 81.05]
-    ],
-    color: '#B07D53',
-    fillColor: 'rgba(176, 125, 83, 0.14)',
-    center: [18.70, 81.25]
-  },
-  {
-    name: 'Bellary Complex (Sandur Basin)',
-    leaseCode: 'LEASE: 08-KA-2012',
-    mineral: 'Iron Ore',
-    coords: [
-      [15.35, 76.35],
-      [15.30, 76.85],
-      [14.85, 76.78],
-      [14.90, 76.28]
-    ],
-    color: '#B07D53',
-    fillColor: 'rgba(176, 125, 83, 0.16)',
-    center: [15.10, 76.55]
-  }
-];
-
-// Vector State Boundary Coordinates for Karnataka (Image 2 outline)
-const KARNATAKA_BOUNDARY = [
-  [18.45, 77.40], [17.80, 77.65], [17.30, 77.20], [16.50, 77.50],
-  [15.80, 76.90], [15.20, 77.30], [14.60, 77.10], [14.00, 77.50],
-  [13.80, 78.20], [13.20, 78.40], [12.70, 77.70], [11.60, 77.10],
-  [11.80, 76.20], [12.20, 75.80], [12.50, 75.00], [13.40, 74.70],
-  [14.20, 74.40], [14.90, 74.10], [15.80, 74.20], [16.20, 74.80],
-  [16.80, 75.50], [17.40, 76.20], [18.10, 76.90], [18.45, 77.40]
-];
-
-// Inter-Hub Dynamic Spline Connections
-const NETWORK_CONNECTIONS = [
-  // Rajasthan Copper to Gujarat/Sindh ports
-  [[27.985, 75.795], [26.530, 74.690]],
-  [[26.530, 74.690], [24.950, 84.020]],
-  // Central corridor: Singhbhum - Keonjhar - Bailadila
-  [[22.146, 85.524], [22.016, 85.426]],
-  [[22.016, 85.426], [21.845, 85.120]],
-  [[21.845, 85.120], [18.825, 82.915]],
-  [[18.825, 82.915], [18.705, 81.245]],
-  // Bailadila to Bellary Sandur Complex
-  [[18.705, 81.245], [15.085, 76.540]],
-  // Bellary internal hub to Kudremukh & Coastal Mangalore
-  [[15.085, 76.540], [15.050, 76.620]],
-  [[15.085, 76.540], [14.220, 76.400]],
-  [[14.220, 76.400], [13.210, 75.250]],
-  [[15.085, 76.540], [14.800, 74.130]],
-  [[15.850, 74.500], [15.450, 75.010]],
-  [[15.450, 75.010], [15.085, 76.540]],
-  [[15.085, 76.540], [17.330, 76.830]]
-];
-
-// ============================================================================
-// 2. State & Map Layer Management
+// 1. Map state
 // ============================================================================
 let map;
-let markerLayerGroup;
-let hotspotLayerGroup;
-let concessionLayerGroup;
 let networkLayerGroup;
-let boundaryLayerGroup;
 let currentBasemap = 'satellite';
+const DEFAULT_VIEW = { center: [22.0, 80.0], zoom: 5 };
 
 const appState = {
-  selectedMineral: 'ALL',
-  selectedState: 'ALL',
-  selectedDistrict: 'ALL',
-  showMines: true,
-  showHotspots: true,
-  showLeases: true,
   activeNode: null,
 };
 
@@ -649,38 +125,24 @@ const appState = {
 function initGeospatialMap() {
   // Center over Indian subcontinent
   map = L.map('map', {
-    center: [20.8, 80.0],
-    zoom: 5.4,
+    center: DEFAULT_VIEW.center,
+    zoom: DEFAULT_VIEW.zoom,
     minZoom: 4.5,
     maxZoom: 16,
     zoomControl: false, // We use custom Image 1 top-right floating controls
     attributionControl: false,
   });
 
-  // Layer Groups
-  hotspotLayerGroup = L.layerGroup().addTo(map);
-  concessionLayerGroup = L.layerGroup().addTo(map);
-  boundaryLayerGroup = L.layerGroup().addTo(map);
   networkLayerGroup = L.layerGroup().addTo(map);
-  markerLayerGroup = L.layerGroup().addTo(map);
 
   // Basemap Tiles: Esri High-Resolution World Imagery
   setBasemap('satellite');
 
-  // Draw GeoJSON-style vector state boundaries & concessions
-  renderBoundariesAndConcessions();
-
-  // Plot Tactical Nodes and Hotspots
-  updatePlottedLayers();
-
   // Setup DOM Event Listeners
   setupEventListeners();
 
-  // Mine transport network: corridors, shortest route
+  // Mines and transport network from the database
   initTransportNetwork();
-
-  // Real-time telemetry latency measurement
-  startRealTelemetryPing();
 }
 
 function setBasemap(type) {
@@ -709,113 +171,6 @@ function setBasemap(type) {
       attribution: 'Carto Voyager'
     }).addTo(map);
   }
-}
-
-// ============================================================================
-// 4. Vector Boundaries & Concession Outlines (Image 1 & 2 Synthesized)
-// ============================================================================
-function renderBoundariesAndConcessions() {
-  boundaryLayerGroup.clearLayers();
-  concessionLayerGroup.clearLayers();
-  hotspotLayerGroup.clearLayers();
-
-  // 1. Karnataka State Outline (Direct Reference: Image 2 Dashed White Vector)
-  const karnatakaPolygon = L.polygon(KARNATAKA_BOUNDARY, {
-    color: 'rgba(255, 255, 255, 0.85)',
-    weight: 1.6,
-    dashArray: '5, 5',
-    fillColor: 'transparent',
-    lineCap: 'round',
-    lineJoin: 'round',
-    interactive: false,
-  });
-  boundaryLayerGroup.addLayer(karnatakaPolygon);
-
-  // 2. Specific Concession Blocks & Hotspots (Direct Reference: Image 1)
-  CONCESSION_POLYGONS.forEach((c) => {
-    // Concession Dashed Polygon
-    const poly = L.polygon(c.coords, {
-      color: c.color,
-      weight: 1.5,
-      dashArray: '4, 4',
-      fillColor: c.fillColor,
-      fillOpacity: 1,
-      interactive: true,
-    });
-
-    // Concession tooltip
-    poly.bindTooltip(
-      `<div class="concession-lease-badge">${c.leaseCode}</div>`,
-      { permanent: true, direction: 'top', className: 'custom-leaflet-tooltip' }
-    );
-
-    poly.on('click', () => {
-      showToast(`Selected Concession: ${c.name} (${c.leaseCode})`, 'info');
-      map.flyToBounds(poly.getBounds(), { padding: [80, 80], duration: 1.2 });
-    });
-
-    concessionLayerGroup.addLayer(poly);
-
-    // ST-DBSCAN Style Soft Density Hotspot Radial Glow Overlay
-    const hotspotCircle = L.circle(c.center, {
-      radius: c.mineral === 'Copper Ore' ? 38000 : 54000,
-      color: 'transparent',
-      fillColor: c.color,
-      fillOpacity: 0.22,
-      interactive: false,
-    });
-    hotspotLayerGroup.addLayer(hotspotCircle);
-  });
-}
-
-// ============================================================================
-// 5. Dynamic Network Connector Splines (Image 2 Curved Links)
-// ============================================================================
-
-// ============================================================================
-// 6. Tactical Telemetry Nodes with Numerical Counts (Image 2 & 1)
-// ============================================================================
-function updatePlottedLayers() {
-  markerLayerGroup.clearLayers();
-
-  // Filter based on UI State
-  const filteredNodes = TELEMETRY_NODES.filter((n) => {
-    const matchMineral = appState.selectedMineral === 'ALL' || n.mineralCategory === appState.selectedMineral;
-    const matchState = appState.selectedState === 'ALL' || n.state === appState.selectedState;
-    const matchDistrict = appState.selectedDistrict === 'ALL' || n.district === appState.selectedDistrict;
-    return matchMineral && matchState && matchDistrict;
-  });
-
-  // Update Footer Count
-  document.getElementById('totalPlottedDisplay').textContent = (filteredNodes.length * 78 + 12).toLocaleString();
-
-  if (!appState.showMines) return;
-
-  filteredNodes.forEach((node) => {
-    // Tactical Node HTML Icon
-    const customIcon = L.divIcon({
-      className: 'tactical-div-icon',
-      html: `
-        <div class="tactical-node-marker">
-          <div class="node-halo"></div>
-          <div class="node-circle ${node.colorType === 'copper' ? 'node-copper' : node.colorType === 'amber' ? 'node-amber' : ''}">
-            ${node.count}
-          </div>
-          <div class="node-label-pill">${node.craton || node.name}</div>
-        </div>
-      `,
-      iconSize: [60, 60],
-      iconAnchor: [30, 30],
-    });
-
-    const marker = L.marker(node.coords, { icon: customIcon });
-
-    marker.on('click', () => {
-      openNodeInspector(node);
-    });
-
-    markerLayerGroup.addLayer(marker);
-  });
 }
 
 // ============================================================================
@@ -870,7 +225,6 @@ if (btnInspectZoom) {
   btnInspectZoom.addEventListener('click', () => {
     if (appState.activeNode && map) {
       map.flyTo(appState.activeNode.coords, 9.5, { duration: 1.4 });
-      showToast(`Isolating Craton: ${appState.activeNode.craton}`, 'info');
     }
   });
 }
@@ -889,157 +243,21 @@ if (btnInspectDb) {
 // ============================================================================
 // 8. Event Handlers, Cascading Filters & Reactive Camera
 // ============================================================================
-const STATE_DISTRICTS_MAP = {
-  'Odisha': ['Keonjhar', 'Koraput', 'Jajpur', 'Sundergarh'],
-  'Jharkhand': ['West Singhbhum', 'Gumla', 'East Singhbhum'],
-  'Chhattisgarh': ['Dantewada'],
-  'Karnataka': ['Bellary'],
-  'Rajasthan': ['Jhunjhunu', 'Udaipur']
-};
-
-function populateDistrictsForState(selectedState) {
-  const districtSelect = document.getElementById('filterDistrictSelect');
-  if (!districtSelect) return;
-
-  let districts = [];
-  if (selectedState && selectedState !== 'ALL' && STATE_DISTRICTS_MAP[selectedState]) {
-    districts = STATE_DISTRICTS_MAP[selectedState];
-  } else {
-    districts = ['Keonjhar', 'West Singhbhum', 'Koraput', 'Bellary', 'Dantewada', 'Jhunjhunu', 'Jajpur', 'Udaipur', 'Sundergarh'];
-  }
-
-  districtSelect.innerHTML = `<option value="ALL">All Districts</option>` +
-    districts.map((d) => `<option value="${d}">${d}</option>`).join('');
-  districtSelect.value = 'ALL';
-  appState.selectedDistrict = 'ALL';
-}
-
 function setupEventListeners() {
-  const mineralSelect = document.getElementById('filterMineralSelect');
-  const stateSelect = document.getElementById('filterStateSelect');
-  const districtSelect = document.getElementById('filterDistrictSelect');
-  const btnReset = document.getElementById('btnFilterReset');
-
-  // Mineral Select Reactive Filter
-  mineralSelect.addEventListener('change', (e) => {
-    appState.selectedMineral = e.target.value;
-    updatePlottedLayers();
-
-    // Reactive flyTo based on mineral belt
-    if (appState.selectedMineral === 'Iron Ore') {
-      map.flyTo([21.8, 85.3], 7.5, { duration: 1.5 });
-      showToast('Filtering: Major Iron Ore Cratons (Odisha-Jharkhand-Bailadila)', 'info');
-    } else if (appState.selectedMineral === 'Copper Ore') {
-      map.flyTo([27.95, 75.75], 8.5, { duration: 1.5 });
-      showToast('Filtering: Khetri Copper Belt (Rajasthan)', 'info');
-    } else if (appState.selectedMineral === 'Bauxite') {
-      map.flyTo([18.9, 82.9], 7.8, { duration: 1.5 });
-      showToast('Filtering: Bauxite High-Alumina Belts', 'info');
-    }
-  });
-
-  // State Select Cascading Filter: Dynamically populates district dropdown
-  stateSelect.addEventListener('change', (e) => {
-    appState.selectedState = e.target.value;
-    populateDistrictsForState(appState.selectedState);
-    updatePlottedLayers();
-
-    // Camera transitions matching state boundaries
-    if (appState.selectedState === 'Karnataka') {
-      map.flyTo([14.8, 75.8], 6.8, { duration: 1.4 });
-      showToast('Focusing: Karnataka Mineral Corridor & Sandur Basin', 'info');
-    } else if (appState.selectedState === 'Odisha') {
-      map.flyTo([21.0, 84.8], 7.2, { duration: 1.4 });
-      showToast('Focusing: Odisha Mineral Concessions (Keonjhar / Koraput)', 'info');
-    } else if (appState.selectedState === 'Jharkhand') {
-      map.flyTo([23.2, 85.4], 7.4, { duration: 1.4 });
-      showToast('Focusing: Jharkhand Singhbhum Iron & Chotanagpur Belt', 'info');
-    } else if (appState.selectedState === 'Rajasthan') {
-      map.flyTo([26.8, 74.8], 7.0, { duration: 1.4 });
-      showToast('Focusing: Rajasthan Aravalli & Khetri Belts', 'info');
-    } else if (appState.selectedState === 'Chhattisgarh') {
-      map.flyTo([20.5, 82.0], 7.0, { duration: 1.4 });
-      showToast('Focusing: Chhattisgarh Bailadila Range & Balrampur', 'info');
-    } else {
-      map.flyTo([20.8, 80.0], 5.4, { duration: 1.4 });
-    }
-  });
-
-  // District Select Reactive Filter
-  districtSelect.addEventListener('change', (e) => {
-    appState.selectedDistrict = e.target.value;
-    updatePlottedLayers();
-
-    if (appState.selectedDistrict !== 'ALL') {
-      const match = TELEMETRY_NODES.find((n) => n.district.toLowerCase() === appState.selectedDistrict.toLowerCase());
-      if (match) {
-        map.flyTo(match.coords, 9.2, { duration: 1.5 });
-        showToast(`Targeting District Hub: ${match.district}`, 'info');
-      }
-    }
-  });
-
-  // Reset Button: Clears all filters, restores Pan-India camera
-  btnReset.addEventListener('click', () => {
-    mineralSelect.value = 'ALL';
-    stateSelect.value = 'ALL';
-    populateDistrictsForState('ALL');
-    appState.selectedMineral = 'ALL';
-    appState.selectedState = 'ALL';
-    appState.selectedDistrict = 'ALL';
-    updatePlottedLayers();
-    map.flyTo([20.8, 80.0], 5.4, { duration: 1.5 });
-    showToast('Resetting telemetry grid to Pan-India view', 'info');
-  });
-
-  // Layer Toggle Chips
-  const toggleMinesChip = document.getElementById('toggleMinesChip');
-  const toggleHotspotsChip = document.getElementById('toggleHotspotsChip');
-  const toggleLeasesChip = document.getElementById('toggleLeasesChip');
-
-  toggleMinesChip.addEventListener('click', () => {
-    appState.showMines = !appState.showMines;
-    toggleMinesChip.classList.toggle('active', appState.showMines);
-    updatePlottedLayers();
-  });
-
-  toggleHotspotsChip.addEventListener('click', () => {
-    appState.showHotspots = !appState.showHotspots;
-    toggleHotspotsChip.classList.toggle('active', appState.showHotspots);
-    if (appState.showHotspots) {
-      map.addLayer(hotspotLayerGroup);
-    } else {
-      map.removeLayer(hotspotLayerGroup);
-    }
-  });
-
-  toggleLeasesChip.addEventListener('click', () => {
-    appState.showLeases = !appState.showLeases;
-    toggleLeasesChip.classList.toggle('active', appState.showLeases);
-    if (appState.showLeases) {
-      map.addLayer(concessionLayerGroup);
-      map.addLayer(boundaryLayerGroup);
-    } else {
-      map.removeLayer(concessionLayerGroup);
-      map.removeLayer(boundaryLayerGroup);
-    }
-  });
-
-  // Top-Right Map Controls
+  // Top-right map controls
   document.getElementById('ctrlZoomIn').addEventListener('click', () => map.zoomIn());
   document.getElementById('ctrlZoomOut').addEventListener('click', () => map.zoomOut());
   document.getElementById('ctrlRecenter').addEventListener('click', () => {
-    map.flyTo([20.8, 80.0], 5.4, { duration: 1.2 });
+    map.flyTo(DEFAULT_VIEW.center, DEFAULT_VIEW.zoom, { duration: 1.2 });
   });
 
   const ctrlLayerToggle = document.getElementById('ctrlLayerToggle');
   ctrlLayerToggle.addEventListener('click', () => {
     currentBasemap = currentBasemap === 'satellite' ? 'tactical' : currentBasemap === 'tactical' ? 'hybrid' : 'satellite';
     setBasemap(currentBasemap);
-    showToast(`Basemap mode: ${currentBasemap.toUpperCase()}`, 'info');
   });
 
-  // Global Search (Ctrl + K) & Debounced 300ms Query Dispatch
+  // Global search (Ctrl + K): one handler, acts on whichever view is open
   const globalSearchInput = document.getElementById('globalSearchInput');
   window.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
@@ -1049,101 +267,59 @@ function setupEventListeners() {
   });
 
   let searchDebounceTimer = null;
-  globalSearchInput.addEventListener('input', (e) => {
+  globalSearchInput.addEventListener('input', () => {
     clearTimeout(searchDebounceTimer);
-    searchDebounceTimer = setTimeout(() => {
-      dispatchSearchQuery(e.target.value.trim());
-    }, 300);
+    searchDebounceTimer = setTimeout(() => dispatchSearchQuery(globalSearchInput.value.trim(), false), 200);
   });
-
   globalSearchInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       clearTimeout(searchDebounceTimer);
-      dispatchSearchQuery(globalSearchInput.value.trim());
+      dispatchSearchQuery(globalSearchInput.value.trim(), true);
+    } else if (e.key === 'Escape') {
+      globalSearchInput.value = '';
+      dispatchSearchQuery('', false);
+      globalSearchInput.blur();
     }
   });
 
-  function dispatchSearchQuery(query) {
-    const q = query.toLowerCase();
-    const dbView = document.getElementById('databaseExplorerView');
-    const mapView = document.getElementById('mapView');
-    const reportsView = document.getElementById('reportsView');
+  // Left dock navigation
+  document.getElementById('dockBtnMap').addEventListener('click', () => switchView('map', true));
+  document.getElementById('dockBtnDatabase').addEventListener('click', () => switchView('database', true));
+  document.getElementById('dockBtnReports').addEventListener('click', () => switchView('reports', true));
+  document.getElementById('dockBtnAuth').addEventListener('click', signOut);
+}
 
-    if (dbView && !dbView.classList.contains('hidden')) {
-      fetchMinesData(query).then(() => {
-        renderMinesTable(currentMinesList);
+/** Search the open view. On the map only Enter jumps to a mine, so typing doesn't move the camera. */
+function dispatchSearchQuery(query, submitted) {
+  const q = query.toLowerCase();
+  const isOpen = (id) => !document.getElementById(id)?.classList.contains('hidden');
+
+  if (isOpen('databaseExplorerView')) {
+    searchQuery = query;
+    if (activeEntityTab === 'mines') {
+      renderMinesTable(filterMines(q));
+    } else {
+      document.querySelectorAll('#masterTableTbody tr').forEach((row) => {
+        row.classList.toggle('hidden', !!q && !row.textContent.toLowerCase().includes(q));
       });
-    } else if (mapView && !mapView.classList.contains('hidden')) {
-      if (!q) return;
-      const found = TELEMETRY_NODES.find(
-        (n) =>
-          n.name.toLowerCase().includes(q) ||
-          n.mineral.toLowerCase().includes(q) ||
-          n.district.toLowerCase().includes(q) ||
-          n.state.toLowerCase().includes(q) ||
-          n.leaseId.toLowerCase().includes(q)
-      );
-
-      if (found) {
-        map.flyTo(found.coords, 9.5, { duration: 1.5 });
-        openNodeInspector(found);
-        showToast(`Located: ${found.name}`, 'success');
-      } else {
-        showToast('No exact coordinate match found in national grid.', 'error');
-      }
-    } else if (reportsView && !reportsView.classList.contains('hidden')) {
-      const filtered = ARCHIVAL_PUBLICATIONS_DATA.filter((p) =>
+    }
+  } else if (isOpen('reportsView')) {
+    renderPublicationsList(
+      ARCHIVAL_PUBLICATIONS_DATA.filter((p) =>
         !q ||
         p.title.toLowerCase().includes(q) ||
         p.jurisdiction.toLowerCase().includes(q) ||
         p.period.toLowerCase().includes(q)
-      );
-      renderPublicationsList(filtered);
+      )
+    );
+  } else if (isOpen('mapView') && submitted && q) {
+    const found = filterMines(q)[0];
+    if (found) {
+      locateMineOnMap(found);
+    } else {
+      showToast(`No mine matches "${query}"`, 'warning');
     }
   }
-
-  // Left Vertical Dock Navigation (Routing & Navigation)
-  document.getElementById('dockBtnMap').addEventListener('click', () => {
-    switchView('map', true);
-  });
-
-  document.getElementById('dockBtnDatabase').addEventListener('click', () => {
-    switchView('database', true);
-  });
-
-  document.getElementById('dockBtnReports').addEventListener('click', () => {
-    switchView('reports', true);
-  });
-
-  document.getElementById('dockBtnAuth').addEventListener('click', () => {
-    switchView('auth', true);
-  });
-
-  // Top Nav View Switcher Pills
-  ['Map', 'Database', 'Reports', 'Auth'].forEach((viewName) => {
-    const pill = document.getElementById('navPill' + viewName);
-    if (pill) {
-      pill.addEventListener('click', () => {
-        switchView(viewName.toLowerCase(), true);
-      });
-    }
-  });
-
-  document.getElementById('btnCloseAuthModal').addEventListener('click', () => {
-    document.getElementById('authModal').close();
-  });
-
-  document.getElementById('btnSwitchAccount').addEventListener('click', () => {
-    document.getElementById('authModal').close();
-    showToast('Switching to Sign In Workstation...', 'info');
-    switchView('auth', true);
-  });
-
-  document.getElementById('btnLockWorkstation').addEventListener('click', () => {
-    document.getElementById('authModal').close();
-    showToast('Workstation locked. Session secured with AES-256.', 'info');
-    switchView('auth', true);
-  });
 }
 
 // ============================================================================
@@ -1157,6 +333,14 @@ function isAuthenticated() {
   } catch {
     return false;
   }
+}
+
+function signOut() {
+  try {
+    sessionStorage.removeItem(AUTH_SESSION_KEY);
+  } catch {}
+  mineAlertsQueued = false;
+  switchView('auth', true);
 }
 
 function markAuthenticated() {
@@ -1181,25 +365,9 @@ function switchView(viewName, updateHistory = true) {
   const dockBtnReports = document.getElementById('dockBtnReports');
   const dockBtnAuth = document.getElementById('dockBtnAuth');
 
-  const navPillMap = document.getElementById('navPillMap');
-  const navPillDatabase = document.getElementById('navPillDatabase');
-  const navPillReports = document.getElementById('navPillReports');
-  const navPillAuth = document.getElementById('navPillAuth');
-
-  const footerLeftText = document.getElementById('footerLeftText');
-  const footerRightText = document.getElementById('footerRightText');
-  const footerDot = document.getElementById('footerDot');
-  const footerSyncIcon = document.getElementById('footerSyncIcon');
-  const footerLogo = document.getElementById('footerLogo');
-
   // Clear active states on dock
   [dockBtnMap, dockBtnDatabase, dockBtnReports, dockBtnAuth].forEach((btn) => {
     if (btn) btn.classList.remove('active');
-  });
-
-  // Clear active states on nav pills
-  [navPillMap, navPillDatabase, navPillReports, navPillAuth].forEach((pill) => {
-    if (pill) pill.classList.remove('active');
   });
 
   // Hide all views
@@ -1216,13 +384,6 @@ function switchView(viewName, updateHistory = true) {
       dbView.classList.add('active');
     }
     if (dockBtnDatabase) dockBtnDatabase.classList.add('active');
-    if (navPillDatabase) navPillDatabase.classList.add('active');
-
-    if (footerLeftText) footerLeftText.innerHTML = `Coordinate System: <strong>WGS84</strong> &bull; Source: <strong>IBM / Ministry of Mines Registry</strong>`;
-    if (footerRightText) footerRightText.innerHTML = `Total Plotted Records: <strong id="totalPlottedDisplay">1,420</strong> &bull; Real-time DB Sync Active`;
-    if (footerDot) footerDot.style.display = 'inline-block';
-    if (footerSyncIcon) footerSyncIcon.style.display = 'inline-block';
-    if (footerLogo) footerLogo.style.display = 'inline-block';
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } else if (viewName === 'map') {
@@ -1231,13 +392,6 @@ function switchView(viewName, updateHistory = true) {
       mapView.classList.add('active');
     }
     if (dockBtnMap) dockBtnMap.classList.add('active');
-    if (navPillMap) navPillMap.classList.add('active');
-
-    if (footerLeftText) footerLeftText.innerHTML = `Coordinate System: <strong>WGS84</strong> &bull; Source: <strong>IBM / Ministry of Mines Registry</strong>`;
-    if (footerRightText) footerRightText.innerHTML = `Total Plotted Records: <strong id="totalPlottedDisplay">1,420</strong> &bull; Real-time DB Sync Active`;
-    if (footerDot) footerDot.style.display = 'inline-block';
-    if (footerSyncIcon) footerSyncIcon.style.display = 'inline-block';
-    if (footerLogo) footerLogo.style.display = 'inline-block';
 
     if (map) {
       setTimeout(() => {
@@ -1250,13 +404,6 @@ function switchView(viewName, updateHistory = true) {
       reportsView.classList.add('active');
     }
     if (dockBtnReports) dockBtnReports.classList.add('active');
-    if (navPillReports) navPillReports.classList.add('active');
-
-    if (footerLeftText) footerLeftText.innerHTML = `Ministry of Mines Registry &bull; National Mineral Intelligence`;
-    if (footerRightText) footerRightText.innerHTML = `348 Verified Archival Publications`;
-    if (footerDot) footerDot.style.display = 'none';
-    if (footerSyncIcon) footerSyncIcon.style.display = 'none';
-    if (footerLogo) footerLogo.style.display = 'none';
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } else if (viewName === 'auth') {
@@ -1265,15 +412,15 @@ function switchView(viewName, updateHistory = true) {
       authView.classList.add('active');
     }
     if (dockBtnAuth) dockBtnAuth.classList.add('active');
-    if (navPillAuth) navPillAuth.classList.add('active');
-
-    if (footerLeftText) footerLeftText.innerHTML = `MINERVA Security Clearance &bull; AES-256 Transport & Storage Layer`;
-    if (footerRightText) footerRightText.innerHTML = `Administrative Workstation Gateway &bull; USR-1024`;
-    if (footerDot) footerDot.style.display = 'inline-block';
-    if (footerSyncIcon) footerSyncIcon.style.display = 'inline-block';
-    if (footerLogo) footerLogo.style.display = 'inline-block';
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // A search typed in one view shouldn't silently filter the next one
+  const search = document.getElementById('globalSearchInput');
+  if (search && search.value) {
+    search.value = '';
+    dispatchSearchQuery('', false);
   }
 
   // Update browser URL history
@@ -1303,7 +450,6 @@ window.addEventListener('hashchange', () => {
     switchView(hash, false);
   }
 });
-
 
 // ============================================================================
 // 10. Relational Master Dataset & Detail Dossier Data (3NF Schema)
@@ -1695,22 +841,26 @@ const PRODUCTION_ENTITY_DATA = [
 let currentMinesList = [...MINES_MASTER_DATA];
 let selectedMineId = 'MN-0182';
 let activeEntityTab = 'mines';
+let searchQuery = '';
 
-async function fetchMinesData(query = '') {
+async function fetchMinesData() {
   try {
-    const url = query ? `/api/mines?search=${encodeURIComponent(query)}` : '/api/mines';
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-    const json = await res.json();
+    const json = await apiService.getMines();
     if (json.success && Array.isArray(json.data) && json.data.length > 0) {
       currentMinesList = json.data;
-    } else {
-      currentMinesList = [...MINES_MASTER_DATA];
     }
   } catch (err) {
     console.warn('API /api/mines fetch failed; using embedded master records:', err);
-    currentMinesList = [...MINES_MASTER_DATA];
   }
+}
+
+/** Mines whose id, name, mineral, location or lessee contain q (lower-case) */
+function filterMines(q) {
+  if (!q) return currentMinesList;
+  return currentMinesList.filter((m) =>
+    [m.mineId, m.mineName, m.primaryMineral, m.stateDistrict, m.operatingLessee, m.dossier?.lease?.id]
+      .some((field) => String(field || '').toLowerCase().includes(q))
+  );
 }
 
 function initDatabaseExplorer() {
@@ -1724,7 +874,6 @@ function initDatabaseExplorer() {
   const sqlResultsBox = document.getElementById('sqlResultsBox');
   const btnDossierLocate = document.getElementById('btnDossierLocate');
   const btnDossierDownload = document.getElementById('btnDossierDownload');
-  const globalSearchInput = document.getElementById('globalSearchInput');
 
   // Render initial master table
   renderMinesTable(currentMinesList);
@@ -1737,7 +886,7 @@ function initDatabaseExplorer() {
 
   // Fetch live API records in background
   fetchMinesData().then(() => {
-    renderMinesTable(currentMinesList);
+    renderMinesTable(filterMines(searchQuery.toLowerCase()));
     const selected = currentMinesList.find((m) => m.mineId === selectedMineId) || currentMinesList[0];
     if (selected) updateDossier(selected);
   });
@@ -1750,17 +899,7 @@ function initDatabaseExplorer() {
       activeEntityTab = targetTab;
 
       // Update active styling
-      tabButtons.forEach((b) => {
-        b.classList.remove('active');
-        const chip = b.querySelector('.tab-active-chip');
-        if (chip) chip.remove();
-      });
-      btn.classList.add('active');
-
-      const activeChip = document.createElement('span');
-      activeChip.className = 'tab-active-chip';
-      activeChip.textContent = 'ACTIVE';
-      btn.appendChild(activeChip);
+      tabButtons.forEach((b) => b.classList.toggle('active', b === btn));
 
       const bstPanel = document.getElementById('bstPanel');
       if (bstPanel) bstPanel.classList.toggle('hidden', targetTab !== 'minerals');
@@ -1812,23 +951,6 @@ function initDatabaseExplorer() {
     });
   }
 
-  // Live filter on search input when in database view
-  if (globalSearchInput) {
-    globalSearchInput.addEventListener('input', (e) => {
-      const q = e.target.value.toLowerCase().trim();
-      const filtered = currentMinesList.filter((m) => {
-        if (!q) return true;
-        return (
-          m.mineId.toLowerCase().includes(q) ||
-          m.mineName.toLowerCase().includes(q) ||
-          m.primaryMineral.toLowerCase().includes(q) ||
-          m.stateDistrict.toLowerCase().includes(q) ||
-          m.operatingLessee.toLowerCase().includes(q)
-        );
-      });
-      renderMinesTable(filtered);
-    });
-  }
 }
 
 // Render Master Mines Table strictly matching media_1792515683588.png
@@ -1836,6 +958,13 @@ function renderMinesTable(mines) {
   const table = document.getElementById('masterGridTable');
   const tbody = document.getElementById('masterTableTbody');
   if (!tbody || !table) return;
+
+  const pill = document.getElementById('masterRecordsPill');
+  if (pill) {
+    pill.textContent = mines.length === currentMinesList.length
+      ? `${mines.length} mines`
+      : `${mines.length} of ${currentMinesList.length} mines`;
+  }
 
   // Restore Mines Master Header
   const thead = table.querySelector('thead');
@@ -2034,33 +1163,24 @@ function updateDossier(mine) {
 // Locate Mine on Geospatial Satellite Map
 function locateMineOnMap(mine) {
   switchView('map');
-  if (mine.coords && map) {
-    map.flyTo(mine.coords, 9.5, { duration: 1.4 });
+  if (!mine.coords || !map) return;
+  map.flyTo(mine.coords, 9.5, { duration: 1.4 });
+  setTimeout(() => openNodeInspector(mineToInspectorNode(mine)), 450);
+}
 
-    // Look up or construct a telemetry node for the inspect card
-    const node = TELEMETRY_NODES.find((n) => n.id === mine.mineId || n.name.toLowerCase().includes(mine.mineName.toLowerCase())) || {
-      id: mine.mineId,
-      name: mine.mineName,
-      state: mine.state,
-      district: mine.district,
-      coords: mine.coords,
-      company: mine.operatingLessee,
-      mineral: mine.primaryMineral,
-      mineralCategory: mine.mineralCategory,
-      leaseId: `LEASE: ${mine.dossier.lease.id}`,
-      yield: mine.dossier.production.currentOutput,
-      sensorsOnline: 48,
-      colorType: mine.mineralDotColor === 'teal' ? 'copper' : 'amber',
-      craton: `${mine.state} Mineral Basin`,
-      status: mine.status
-    };
-
-    setTimeout(() => {
-      openNodeInspector(node);
-    }, 450);
-
-    showToast(`Navigated to ${mine.mineName} (${mine.stateDistrict})`, 'success');
-  }
+/** Shape a mine record (from /api/mines) for the map inspector card */
+function mineToInspectorNode(mine) {
+  return {
+    id: mine.mineId,
+    name: mine.mineName,
+    state: mine.state,
+    district: mine.district,
+    coords: mine.coords,
+    company: mine.operatingLessee,
+    mineral: mine.primaryMineral,
+    leaseId: mine.dossier?.lease?.id || '—',
+    yield: mine.dossier?.production?.currentOutput || '—',
+  };
 }
 
 // Focus Mine by Name from Geospatial Map Inspector
@@ -2073,9 +1193,8 @@ function focusMineByName(name) {
 
 // Export Master Records to CSV (Streaming from backend API)
 function exportMasterCsv() {
-  const url = apiService.getMinesExportUrl();
-  window.open(url, '_blank');
-  showToast('Exporting master records as CSV from database...', 'success');
+  window.open(apiService.getMinesExportUrl({ search: searchQuery }), '_blank');
+  showToast(searchQuery ? `Exporting mines matching "${searchQuery}"` : 'Exporting all mines as CSV', 'success');
 }
 
 // Download Dossier as Text Report
@@ -2162,8 +1281,7 @@ async function renderEntityView(tabName) {
   if (!table || !thead || !tbody) return;
 
   if (tabName === 'mines') {
-    if (pill) pill.textContent = `${currentMinesList.length} Active Records`;
-    renderMinesTable(currentMinesList);
+    renderMinesTable(filterMines(searchQuery.toLowerCase()));
     return;
   }
 
@@ -2460,8 +1578,12 @@ function raiseMineDots() {
 function drawMineDots(clear = true) {
   if (clear) networkLayerGroup.clearLayers();
   networkState.nodes.forEach((n) => {
-    L.circleMarker(latLng(n), { radius: 5, color: '#211A14', weight: 2, fillColor: '#FFFFFF', fillOpacity: 1 })
+    L.circleMarker(latLng(n), { radius: 6, color: '#211A14', weight: 2, fillColor: '#FFFFFF', fillOpacity: 1 })
       .bindTooltip(`${n.name} · ${n.id}`, { direction: 'top', offset: [0, -6] })
+      .on('click', () => {
+        const mine = currentMinesList.find((m) => m.mineId === n.id);
+        if (mine) openNodeInspector(mineToInspectorNode(mine));
+      })
       .addTo(networkLayerGroup);
   });
 }
@@ -2835,30 +1957,6 @@ async function executeSqlQuery(query, resultsContainer) {
   }
 }
 
-// Real-time telemetry latency measurement
-async function startRealTelemetryPing() {
-  const latencyDisplay = document.getElementById('latencyDisplay');
-  const latencyDot = document.getElementById('latencyDot');
-
-  async function ping() {
-    try {
-      const { ok, duration } = await apiService.pingLatency();
-      if (latencyDisplay && duration !== null) {
-        latencyDisplay.textContent = `${duration}ms`;
-      }
-      if (latencyDot) {
-        latencyDot.style.backgroundColor = ok ? '#1B7A43' : '#B92520';
-      }
-    } catch {
-      if (latencyDisplay) latencyDisplay.textContent = '24ms';
-    }
-  }
-
-  // Initial ping and recurring periodic measurement
-  ping();
-  setInterval(ping, 4500);
-}
-
 // ============================================================================
 // 13. Archival Publications & Past Reports Controller
 // ============================================================================
@@ -2875,7 +1973,6 @@ const ARCHIVAL_PUBLICATIONS_DATA = [
     pages: 42,
     size: '4.8 MB',
     format: 'PDF',
-    hash: 'SHA-256: 8f4c2e11d08b3a76295e87a2741d4c9f182e0b55291a45778b4097f4c519d08e',
     summary: 'Audited gross production, grade distribution (64.2% Fe Hematite), environmental dispatch permits, and royalty remittances for the Keonjhar Iron Ore Sector.',
     metrics: [
       { key: 'Gross Extracted Output', val: '48.20 Million Metric Tonnes' },
@@ -2896,7 +1993,6 @@ const ARCHIVAL_PUBLICATIONS_DATA = [
     pages: 68,
     size: '6.2 MB',
     format: 'PDF',
-    hash: 'SHA-256: 3c91a0f8b172d54e8910b271c4801e9564f20b33481e19488b1937f2a410b91e',
     summary: 'National audit of 842 major mineral concessions under Section 8A of the MMDR Act, flagging upcoming 2030 auction transitions and compliance clearances.',
     metrics: [
       { key: 'Audited Concession Leases', val: '842 Active Major Mineral Leases' },
@@ -2917,7 +2013,6 @@ const ARCHIVAL_PUBLICATIONS_DATA = [
     pages: 36,
     size: '3.9 MB',
     format: 'PDF',
-    hash: 'SHA-256: 9b2d8e41f776a301c54e2098d519a4f1082e5b77821034f19b4820a1c4918e20',
     summary: 'Sub-surface geological extraction log, chalcopyrite ore beneficiation yields, underground shaft structural monitoring, and tailings pond safety compliance.',
     metrics: [
       { key: 'Processed Copper Ore', val: '18,450 Metric Tonnes (2.4% Cu Grade)' },
@@ -2938,7 +2033,6 @@ const ARCHIVAL_PUBLICATIONS_DATA = [
     pages: 54,
     size: '5.4 MB',
     format: 'PDF',
-    hash: 'SHA-256: 1a5e98f24c30b881d763e002c918a4f5619e0b112093847781b047a2c5108491',
     summary: 'DGPS and satellite cadastral boundary verification over the Panchpatmali bauxite plateau, validating 50-meter buffer demarcations against tribal and forest reserves.',
     metrics: [
       { key: 'DGPS Validated Area', val: '1,845.00 Hectares (Panchpatmali Ridge)' },
@@ -2959,7 +2053,6 @@ const ARCHIVAL_PUBLICATIONS_DATA = [
     pages: 82,
     size: '8.1 MB',
     format: 'PDF',
-    hash: 'SHA-256: 7e3f1c99b820a443d018e652a9104b51829e0b44319482778a40291fc5182910',
     summary: 'Tripartite inter-state reconciliation report covering District Mineral Foundation (DMF) and National Mineral Exploration Trust (NMET) cess disbursements.',
     metrics: [
       { key: 'Reconciled Royalty Amount', val: '₹2,845.60 Crores Reconciled' },
@@ -3016,22 +2109,6 @@ async function initArchivalReports() {
     });
   }
 
-  // Global search filtering when on reports view
-  const globalSearchInput = document.getElementById('globalSearchInput');
-  if (globalSearchInput) {
-    globalSearchInput.addEventListener('input', (e) => {
-      const reportsView = document.getElementById('reportsView');
-      if (reportsView && !reportsView.classList.contains('hidden')) {
-        const q = e.target.value.toLowerCase().trim();
-        const filtered = ARCHIVAL_PUBLICATIONS_DATA.filter((p) =>
-          p.title.toLowerCase().includes(q) ||
-          p.jurisdiction.toLowerCase().includes(q) ||
-          p.period.toLowerCase().includes(q)
-        );
-        renderPublicationsList(filtered);
-      }
-    });
-  }
 }
 
 function renderPublicationsList(list) {
@@ -3051,31 +2128,29 @@ function renderPublicationsList(list) {
     article.dataset.id = pub.id;
     article.innerHTML = `
       <div class="report-left-col">
-        <h2 class="report-item-title">${pub.title}</h2>
+        <h2 class="report-item-title">${escapeHtml(pub.title)}</h2>
         <div class="report-item-meta">
-          <span>${pub.jurisdiction}</span>
+          <span>${escapeHtml(pub.jurisdiction)}</span>
           <span class="meta-separator">&bull;</span>
-          <span>${pub.period}</span>
+          <span>${escapeHtml(pub.period)}</span>
         </div>
       </div>
       <div class="report-right-col">
-        <span class="badge-verified">${pub.status}</span>
-        <button type="button" class="btn-download-pdf" aria-label="Download ${pub.title} PDF">
+        <button type="button" class="btn-download-pdf" aria-label="Download ${escapeHtml(pub.title)}">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
             <polyline points="7 10 12 15 17 10"></polyline>
             <line x1="12" y1="15" x2="12" y2="3"></line>
           </svg>
-          <span>PDF</span>
+          <span>Download</span>
         </button>
       </div>
     `;
 
-    // Row click opens official inspector modal
+    // Row opens the preview; the button downloads directly
     article.addEventListener('click', (e) => {
       if (e.target.closest('.btn-download-pdf')) {
         e.stopPropagation();
-        openPublicationInspector(pub);
         downloadPublicationFile(pub);
         return;
       }
@@ -3092,54 +2167,36 @@ function openPublicationInspector(pub) {
   if (!pdfModal) return;
 
   document.getElementById('pdfDocTitle').textContent = pub.title;
-  document.getElementById('pdfDocMeta').textContent = `Registry: ${pub.registryNo} • ${pub.jurisdiction} • ${pub.period}`;
-  document.getElementById('pdfHashCode').textContent = pub.hash;
+  document.getElementById('pdfDocMeta').textContent = `${pub.registryNo} • ${pub.jurisdiction} • ${pub.period}`;
   document.getElementById('pdfDocSummary').textContent = pub.summary;
-  document.getElementById('pdfPageInfo').textContent = `${pub.pages} Pages • ${pub.size} • Digitally Certified (IBM)`;
-  document.getElementById('btnDownloadPdfText').textContent = `Download Verified PDF (${pub.size})`;
 
   const metricsGrid = document.getElementById('pdfMetricsGrid');
   if (metricsGrid && Array.isArray(pub.metrics)) {
     metricsGrid.innerHTML = pub.metrics.map((m) => `
       <div class="pdf-metric-card">
-        <span class="pdf-metric-key">${m.key}</span>
-        <span class="pdf-metric-val">${m.val}</span>
+        <span class="pdf-metric-key">${escapeHtml(m.key)}</span>
+        <span class="pdf-metric-val">${escapeHtml(m.val)}</span>
       </div>
     `).join('');
   }
 
   pdfModal.showModal();
-  showToast(`Accessing verified archival document: ${pub.registryNo}`, 'info');
 }
 
 function downloadPublicationFile(pub) {
-  const content = `========================================================================
-MINERVA — NATIONAL MINERAL GEOSPATIAL ARCHIVE
-MINISTRY OF MINES • INDIAN BUREAU OF MINES REGISTRY
-========================================================================
-Document:           ${pub.title}
-Serial Registry:    ${pub.registryNo}
-Jurisdiction:       ${pub.jurisdiction}
-Accounting Period:  ${pub.period}
-Tamper Hash:        ${pub.hash}
-Statutory Status:   ${pub.status} (Verified under MMDR Act Sec. 8A)
-Total Pages:        ${pub.pages}
-Archival Date:      ${pub.date}
+  const content = `MINERVA — Indian Mineral Resource Management Database
+${'='.repeat(60)}
+Document:      ${pub.title}
+Registry no.:  ${pub.registryNo}
+Jurisdiction:  ${pub.jurisdiction}
+Period:        ${pub.period}
+Date:          ${pub.date}
 
-------------------------------------------------------------------------
-EXECUTIVE SUMMARY
-------------------------------------------------------------------------
+SUMMARY
 ${pub.summary}
 
-------------------------------------------------------------------------
-AUDIT LEDGER METRICS
-------------------------------------------------------------------------
+FIGURES
 ${pub.metrics.map((m) => `* ${m.key.padEnd(28)}: ${m.val}`).join('\n')}
-
-========================================================================
-Digitally Signed by Director General, Indian Bureau of Mines (IBM)
-WGS84 Geospatial Reference Registry • All Rights Reserved
-========================================================================
 `;
 
   const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' });
@@ -3152,7 +2209,7 @@ WGS84 Geospatial Reference Registry • All Rights Reserved
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 
-  showToast(`Downloaded verified ledger: ${pub.title}`, 'success');
+  showToast(`Downloaded ${pub.title}`, 'success');
 }
 
 // ============================================================================
@@ -3162,6 +2219,13 @@ WGS84 Geospatial Reference Registry • All Rights Reserved
 // ============================================================================
 // 13b. Auth Workstation (Prompt 1 Frontend Interactions)
 // ============================================================================
+// Demo accounts. PINs can be changed through "Forgot PIN?" for the current page session.
+const DEMO_ACCOUNTS = {
+  'USR-1024': { pin: 'minerva@2026', name: 'Joel George', role: 'Database Administrator' },
+  'INS-4088': { pin: 'inspector@2026', name: 'R. K. Sharma', role: 'Mining Lease Inspector' },
+  'GEO-9921': { pin: 'surveyor@2026', name: 'Ananya Sen', role: 'Geological Field Surveyor' },
+};
+
 function initAuthWorkstation() {
   const form = document.getElementById('authSignInForm');
   const idInput = document.getElementById('authIdentifierInput');
@@ -3169,14 +2233,8 @@ function initAuthWorkstation() {
   const toggleBtn = document.getElementById('authTogglePasswordBtn');
   const eyeIcon = document.getElementById('authEyeIcon');
   const eyeOffIcon = document.getElementById('authEyeOffIcon');
-  const quickFillBtn = document.getElementById('authQuickFillBtn');
-  const demoAccountsBtn = document.getElementById('authDemoAccountsBtn');
-  const rolesMenu = document.getElementById('authRolesMenu');
-  const forgotPinBtn = document.getElementById('authForgotPinBtn');
-  const googleBtn = document.getElementById('authGoogleSsoBtn');
-  const govBtn = document.getElementById('authGovIdSsoBtn');
 
-  // Password toggle
+  // Password visibility toggle
   let showPass = false;
   if (toggleBtn && passInput) {
     toggleBtn.addEventListener('click', () => {
@@ -3187,160 +2245,115 @@ function initAuthWorkstation() {
     });
   }
 
-  // Quick fill
-  if (quickFillBtn && idInput && passInput) {
-    quickFillBtn.addEventListener('click', () => {
-      idInput.value = 'USR-1024';
-      passInput.value = 'minerva@2026';
-      showToast('Auto-filled demo credentials: USR-1024 / minerva@2026', 'info');
-    });
-  }
+  initPinReset(idInput);
 
-  // Roles menu
-  if (demoAccountsBtn && rolesMenu) {
-    demoAccountsBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      rolesMenu.classList.toggle('hidden');
-    });
+  if (!form) return;
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const idVal = idInput ? idInput.value.trim().toUpperCase() : '';
+    const passVal = passInput ? passInput.value : '';
+    const btnText = document.getElementById('authBtnText');
+    const btnLoading = document.getElementById('authBtnLoading');
+    const errBanner = document.getElementById('authErrorBanner');
+    const submitBtn = document.getElementById('authSubmitBtn');
 
-    document.addEventListener('click', () => {
-      if (!rolesMenu.classList.contains('hidden')) {
-        rolesMenu.classList.add('hidden');
-      }
-    });
+    if (submitBtn) submitBtn.disabled = true;
+    if (btnText) btnText.classList.add('hidden');
+    if (btnLoading) btnLoading.classList.remove('hidden');
+    if (errBanner) errBanner.classList.add('hidden');
 
-    document.querySelectorAll('#authRolesMenu .role-item').forEach((item) => {
-      item.addEventListener('click', () => {
-        if (idInput) idInput.value = item.dataset.id;
-        if (passInput) passInput.value = item.dataset.pin;
-        rolesMenu.classList.add('hidden');
-        showToast('Selected role: ' + item.dataset.id + ' (' + item.dataset.role + ')', 'info');
-      });
-    });
-  }
+    setTimeout(() => {
+      if (submitBtn) submitBtn.disabled = false;
+      if (btnText) btnText.classList.remove('hidden');
+      if (btnLoading) btnLoading.classList.add('hidden');
 
-  // Forgot PIN dialog
-  const forgotModal = document.getElementById('forgotPinModal');
-  const closeForgotBtn = document.getElementById('closeForgotPinBtn');
-  const cancelForgotBtn = document.getElementById('cancelForgotPinBtn');
-  const sendOtpBtn = document.getElementById('sendOtpBtn');
-  const confirmResetBtn = document.getElementById('confirmResetBtn');
-  const otpStep = document.getElementById('otpStep');
-
-  if (forgotPinBtn && forgotModal) {
-    forgotPinBtn.addEventListener('click', () => forgotModal.showModal());
-  }
-  if (closeForgotBtn && forgotModal) {
-    closeForgotBtn.addEventListener('click', () => forgotModal.close());
-  }
-  if (cancelForgotBtn && forgotModal) {
-    cancelForgotBtn.addEventListener('click', () => forgotModal.close());
-  }
-  if (sendOtpBtn && otpStep && confirmResetBtn) {
-    sendOtpBtn.addEventListener('click', () => {
-      otpStep.classList.remove('hidden');
-      sendOtpBtn.classList.add('hidden');
-      confirmResetBtn.classList.remove('hidden');
-      showToast('6-digit security OTP dispatched to registered device.', 'info');
-    });
-    confirmResetBtn.addEventListener('click', () => {
-      forgotModal.close();
-      showToast('Security PIN successfully updated. You may now sign in.', 'success');
-    });
-  }
-
-  // Google SSO dialog
-  const googleModal = document.getElementById('googleModal');
-  const closeGoogleBtn = document.getElementById('closeGoogleBtn');
-  const cancelGoogleBtn = document.getElementById('cancelGoogleBtn');
-
-  if (googleBtn && googleModal) {
-    googleBtn.addEventListener('click', () => googleModal.showModal());
-  }
-  if (closeGoogleBtn && googleModal) {
-    closeGoogleBtn.addEventListener('click', () => googleModal.close());
-  }
-  if (cancelGoogleBtn && googleModal) {
-    cancelGoogleBtn.addEventListener('click', () => googleModal.close());
-  }
-  document.querySelectorAll('.google-account-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      if (googleModal) googleModal.close();
-      showToast('Authenticated via Google Identity (' + btn.dataset.email + ')', 'success');
-      markAuthenticated();
-      setTimeout(() => {
+      const account = DEMO_ACCOUNTS[idVal];
+      if (account && passVal === account.pin) {
+        showToast(`Welcome, ${account.name}`, 'success');
+        markAuthenticated();
         switchView('database', true);
-      }, 500);
-    });
+      } else if (errBanner) {
+        errBanner.classList.remove('hidden');
+      }
+    }, 400);
+  });
+}
+
+function initPinReset(signInIdInput) {
+  const modal = document.getElementById('forgotPinModal');
+  const openBtn = document.getElementById('authForgotPinBtn');
+  const closeBtn = document.getElementById('closeForgotPinBtn');
+  const cancelBtn = document.getElementById('cancelForgotPinBtn');
+  const sendBtn = document.getElementById('sendOtpBtn');
+  const saveBtn = document.getElementById('confirmResetBtn');
+  const otpStep = document.getElementById('otpStep');
+  const idInput = document.getElementById('resetIdentifierInput');
+  const otpInput = document.getElementById('resetOtpInput');
+  const otpHint = document.getElementById('resetOtpHint');
+  const newPinInput = document.getElementById('newPinInput');
+  const errorEl = document.getElementById('resetError');
+  if (!modal || !openBtn || !sendBtn || !saveBtn) return;
+
+  let pendingCode = null;
+  let pendingId = null;
+
+  const showError = (msg) => {
+    errorEl.textContent = msg;
+    errorEl.classList.toggle('hidden', !msg);
+  };
+
+  const reset = () => {
+    pendingCode = null;
+    pendingId = null;
+    idInput.value = signInIdInput?.value.trim() || '';
+    idInput.disabled = false;
+    otpInput.value = '';
+    newPinInput.value = '';
+    otpStep.classList.add('hidden');
+    sendBtn.classList.remove('hidden');
+    saveBtn.classList.add('hidden');
+    showError('');
+  };
+
+  openBtn.addEventListener('click', () => {
+    reset();
+    modal.showModal();
+  });
+  [closeBtn, cancelBtn].forEach((btn) => btn?.addEventListener('click', () => modal.close()));
+
+  sendBtn.addEventListener('click', () => {
+    const id = idInput.value.trim().toUpperCase();
+    if (!DEMO_ACCOUNTS[id]) {
+      showError('No account with that identifier.');
+      return;
+    }
+    pendingId = id;
+    pendingCode = String(Math.floor(100000 + Math.random() * 900000));
+    idInput.disabled = true;
+    otpHint.textContent = `Your code: ${pendingCode}`;
+    otpStep.classList.remove('hidden');
+    sendBtn.classList.add('hidden');
+    saveBtn.classList.remove('hidden');
+    showError('');
+    otpInput.focus();
   });
 
-  // Jan Parichay Government ID SSO dialog
-  const govModal = document.getElementById('govModal');
-  const closeGovBtn = document.getElementById('closeGovBtn');
-  const cancelGovBtn = document.getElementById('cancelGovBtn');
-  const govInstantAuthBtn = document.getElementById('govInstantAuthBtn');
-
-  if (govBtn && govModal) {
-    govBtn.addEventListener('click', () => govModal.showModal());
-  }
-  if (closeGovBtn && govModal) {
-    closeGovBtn.addEventListener('click', () => govModal.close());
-  }
-  if (cancelGovBtn && govModal) {
-    cancelGovBtn.addEventListener('click', () => govModal.close());
-  }
-  if (govInstantAuthBtn && govModal) {
-    govInstantAuthBtn.addEventListener('click', () => {
-      govModal.close();
-      showToast('Jan Parichay & DigiLocker Federated Identity Verified!', 'success');
-      markAuthenticated();
-      setTimeout(() => {
-        switchView('database', true);
-      }, 500);
-    });
-  }
-
-  // Form Submit
-  if (form) {
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const idVal = idInput ? idInput.value.trim() : '';
-      const passVal = passInput ? passInput.value.trim() : '';
-      const btnText = document.getElementById('authBtnText');
-      const btnLoading = document.getElementById('authBtnLoading');
-      const errBanner = document.getElementById('authErrorBanner');
-      const submitBtn = document.getElementById('authSubmitBtn');
-
-      if (submitBtn) submitBtn.disabled = true;
-      if (btnText) btnText.classList.add('hidden');
-      if (btnLoading) btnLoading.classList.remove('hidden');
-      if (errBanner) errBanner.classList.add('hidden');
-
-      setTimeout(() => {
-        if (submitBtn) submitBtn.disabled = false;
-        if (btnText) btnText.classList.remove('hidden');
-        if (btnLoading) btnLoading.classList.add('hidden');
-
-        const validCredentials = {
-          'USR-1024': { pin: 'minerva@2026', name: 'Joel George', role: 'Database Administrator' },
-          'INS-4088': { pin: 'inspector@2026', name: 'R. K. Sharma', role: 'Mining Lease Inspector' },
-          'GEO-9921': { pin: 'surveyor@2026', name: 'Ananya Sen', role: 'Geological Field Surveyor' },
-        };
-
-        const found = validCredentials[idVal];
-        if (found && (passVal === found.pin || passVal === '1024' || passVal === 'admin')) {
-          showToast('Authentication verified. Welcome, ' + found.name + '!', 'success');
-          markAuthenticated();
-          setTimeout(() => {
-            switchView('database', true);
-          }, 400);
-        } else {
-          if (errBanner) errBanner.classList.remove('hidden');
-          showToast('Invalid credentials. Use USR-1024 / minerva@2026', 'error');
-        }
-      }, 600);
-    });
-  }
+  saveBtn.addEventListener('click', () => {
+    if (otpInput.value.trim() !== pendingCode) {
+      showError('That code is not correct.');
+      return;
+    }
+    if (newPinInput.value.length < 6) {
+      showError('The new PIN must be at least 6 characters.');
+      return;
+    }
+    DEMO_ACCOUNTS[pendingId].pin = newPinInput.value;
+    if (signInIdInput) signInIdInput.value = pendingId;
+    const pass = document.getElementById('authPasscodeInput');
+    if (pass) pass.value = '';
+    modal.close();
+    showToast('PIN updated. Sign in with your new PIN.', 'success');
+  });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
