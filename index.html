@@ -588,62 +588,30 @@
     <div id="map" class="geospatial-map"></div>
     <div class="map-vignette-overlay" aria-hidden="true"></div>
 
-    <!-- Top-Left Floating Intelligence Card -->
-    <section class="intel-card" id="intelCard" aria-label="Strategic Intelligence Hub">
-      <div class="intel-header">
-        <div class="intel-badge-title">
-          <img src="minerva-logo.png" alt="" class="intel-logo-tiny" aria-hidden="true">
-          <span>STRATEGIC INTELLIGENCE HUB</span>
+    <!-- Top-left: mine transport network (graph algorithms) -->
+    <section class="intel-card net-card" id="networkCard" aria-labelledby="networkTitle">
+      <h2 class="net-title" id="networkTitle">Transport network</h2>
+      <p class="net-sub" id="networkSub">Mines linked to their nearest neighbours by straight-line corridors.</p>
+
+      <form class="net-form" id="routeForm">
+        <label class="net-field">
+          <span>From</span>
+          <select id="routeFrom"></select>
+        </label>
+        <label class="net-field">
+          <span>To</span>
+          <select id="routeTo"></select>
+        </label>
+        <div class="net-actions">
+          <button type="submit" class="btn-net-primary">Find shortest route</button>
+          <button type="button" class="btn-net-clear hidden" id="routeClear">Clear</button>
         </div>
-        <div class="intel-badge-realtime">
-          <span>REAL-TIME</span>
-        </div>
+      </form>
+
+      <div class="net-result hidden" id="routeResult">
+        <ol class="net-hops" id="routeHops"></ol>
+        <p class="net-total" id="routeTotal"></p>
       </div>
-
-      <h2 class="intel-title">Pan-India Mineral Grid</h2>
-      <p class="intel-subtitle">Automated telemetry & lease compliance matrix</p>
-
-      <div class="intel-metrics-grid">
-        <div class="intel-metric-item">
-          <div class="metric-head">Active Mines Plotted</div>
-          <div class="metric-body">
-            <span class="metric-value">1,248</span>
-            <span class="metric-growth-chip">+12%</span>
-          </div>
-        </div>
-        <div class="intel-metric-item">
-          <div class="metric-head">Tracked Belts</div>
-          <div class="metric-body">
-            <span class="metric-value">64</span>
-            <span class="metric-unit">Cratons</span>
-          </div>
-        </div>
-        <div class="intel-metric-item">
-          <div class="metric-head">Active Concessions</div>
-          <div class="metric-body">
-            <span class="metric-value">842</span>
-            <span class="metric-unit">99.4% IBM</span>
-          </div>
-        </div>
-        <div class="intel-metric-item">
-          <div class="metric-head">Annual Ore Yield</div>
-          <div class="metric-body">
-            <span class="metric-value">1.28B</span>
-            <span class="metric-unit">MT</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="intel-craton-tag" id="primeBeltTag" title="Focus on Prime Ore Zone">
-        <img src="minerva-logo.png" alt="" class="craton-logo-tiny" aria-hidden="true">
-        <span class="craton-name">Odisha-Jharkhand Iron Belt</span>
-        <span class="craton-badge">PRIME</span>
-      </div>
-
-      <button type="button" class="btn-intel-database" id="btnOpenDatabaseModal">
-        <span>View Detailed Database</span>
-        <span class="btn-arrow">&rarr;</span>
-      </button>
     </section>
 
     <!-- Top-Right Floating Map Controls -->

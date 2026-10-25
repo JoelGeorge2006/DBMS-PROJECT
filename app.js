@@ -629,7 +629,7 @@ let map;
 let markerLayerGroup;
 let hotspotLayerGroup;
 let concessionLayerGroup;
-let splineLayerGroup;
+let networkLayerGroup;
 let boundaryLayerGroup;
 let currentBasemap = 'satellite';
 
@@ -661,7 +661,7 @@ function initGeospatialMap() {
   hotspotLayerGroup = L.layerGroup().addTo(map);
   concessionLayerGroup = L.layerGroup().addTo(map);
   boundaryLayerGroup = L.layerGroup().addTo(map);
-  splineLayerGroup = L.layerGroup().addTo(map);
+  networkLayerGroup = L.layerGroup().addTo(map);
   markerLayerGroup = L.layerGroup().addTo(map);
 
   // Basemap Tiles: Esri High-Resolution World Imagery
@@ -670,14 +670,14 @@ function initGeospatialMap() {
   // Draw GeoJSON-style vector state boundaries & concessions
   renderBoundariesAndConcessions();
 
-  // Draw Dynamic Network Connector Splines
-  renderNetworkSplines();
-
   // Plot Tactical Nodes and Hotspots
   updatePlottedLayers();
 
   // Setup DOM Event Listeners
   setupEventListeners();
+
+  // Mine transport network: corridors, shortest route
+  initTransportNetwork();
 
   // Real-time telemetry latency measurement
   startRealTelemetryPing();
@@ -771,21 +771,6 @@ function renderBoundariesAndConcessions() {
 // ============================================================================
 // 5. Dynamic Network Connector Splines (Image 2 Curved Links)
 // ============================================================================
-function renderNetworkSplines() {
-  splineLayerGroup.clearLayers();
-
-  NETWORK_CONNECTIONS.forEach((coords) => {
-    // Polyline connecting adjacent telemetry clusters
-    const spline = L.polyline(coords, {
-      color: 'rgba(237, 230, 220, 0.55)',
-      weight: 1.3,
-      dashArray: '4, 6',
-      lineCap: 'round',
-      interactive: false,
-    });
-    splineLayerGroup.addLayer(spline);
-  });
-}
 
 // ============================================================================
 // 6. Tactical Telemetry Nodes with Numerical Counts (Image 2 & 1)
@@ -929,34 +914,11 @@ function populateDistrictsForState(selectedState) {
   appState.selectedDistrict = 'ALL';
 }
 
-async function refreshDashboardMetrics() {
-  try {
-    const res = await apiService.getKpiMetrics();
-    if (res.success && res.data) {
-      const d = res.data;
-      const elActiveMines = document.querySelector('#intelCard .intel-metric-item:nth-child(1) .metric-value');
-      const elTrackedBelts = document.querySelector('#intelCard .intel-metric-item:nth-child(2) .metric-value');
-      const elConcessions = document.querySelector('#intelCard .intel-metric-item:nth-child(3) .metric-value');
-      const elAnnualYield = document.querySelector('#intelCard .intel-metric-item:nth-child(4) .metric-value');
-
-      if (elActiveMines) elActiveMines.textContent = Number(d.activeMinesPlotted).toLocaleString();
-      if (elTrackedBelts) elTrackedBelts.textContent = d.trackedBeltsCratons;
-      if (elConcessions) elConcessions.textContent = d.activeConcessions;
-      if (elAnnualYield) elAnnualYield.textContent = d.annualOreYieldFormatted.replace(' MT', '');
-    }
-  } catch (err) {
-    console.warn('Dashboard KPI fetch fallback:', err);
-  }
-}
-
 function setupEventListeners() {
   const mineralSelect = document.getElementById('filterMineralSelect');
   const stateSelect = document.getElementById('filterStateSelect');
   const districtSelect = document.getElementById('filterDistrictSelect');
   const btnReset = document.getElementById('btnFilterReset');
-
-  // Fetch real KPI counters from relational database on boot
-  refreshDashboardMetrics();
 
   // Mineral Select Reactive Filter
   mineralSelect.addEventListener('change', (e) => {
@@ -1077,12 +1039,6 @@ function setupEventListeners() {
     showToast(`Basemap mode: ${currentBasemap.toUpperCase()}`, 'info');
   });
 
-  // Prime Craton Tag Quick Zoom
-  document.getElementById('primeBeltTag').addEventListener('click', () => {
-    map.flyTo([22.05, 85.45], 8.2, { duration: 1.5 });
-    showToast('Focusing Prime Zone: Odisha-Jharkhand Iron Belt', 'info');
-  });
-
   // Global Search (Ctrl + K) & Debounced 300ms Query Dispatch
   const globalSearchInput = document.getElementById('globalSearchInput');
   window.addEventListener('keydown', (e) => {
@@ -1154,13 +1110,6 @@ function setupEventListeners() {
   document.getElementById('dockBtnDatabase').addEventListener('click', () => {
     switchView('database', true);
   });
-
-  const btnOpenDatabaseModal = document.getElementById('btnOpenDatabaseModal');
-  if (btnOpenDatabaseModal) {
-    btnOpenDatabaseModal.addEventListener('click', () => {
-      switchView('database', true);
-    });
-  }
 
   document.getElementById('dockBtnReports').addEventListener('click', () => {
     switchView('reports', true);
@@ -2339,6 +2288,126 @@ async function renderEntityView(tabName) {
     console.warn(`Failed to fetch 3NF table ${tabName}:`, err);
     tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 24px; color: #B92520;">Error loading ${tabName} table from database.</td></tr>`;
   }
+}
+
+// Transport network on the map: corridor graph from the server, Dijkstra routes
+const networkState = { nodes: [], edges: [], byId: new Map(), corridorLayer: null, routeLayer: null };
+
+async function initTransportNetwork() {
+  const form = document.getElementById('routeForm');
+  const fromSel = document.getElementById('routeFrom');
+  const toSel = document.getElementById('routeTo');
+  const clearBtn = document.getElementById('routeClear');
+  const sub = document.getElementById('networkSub');
+  if (!form || !fromSel || !toSel) return;
+
+  try {
+    const net = await apiService.getMineNetwork();
+    networkState.nodes = net.nodes;
+    networkState.edges = net.edges;
+    networkState.byId = new Map(net.nodes.map((n) => [n.id, n]));
+    if (sub) {
+      sub.textContent = `${net.nodes.length} mines, ${net.edges.length} corridors. Each mine links to its ${net.neighbours} nearest mines; distances are straight-line km.`;
+    }
+  } catch (err) {
+    if (sub) sub.textContent = `Could not load the network: ${err.message}`;
+    return;
+  }
+
+  const options = networkState.nodes
+    .map((n) => `<option value="${escapeHtml(n.id)}">${escapeHtml(n.name)} (${escapeHtml(n.state)})</option>`)
+    .join('');
+  fromSel.innerHTML = options;
+  toSel.innerHTML = options;
+  if (networkState.nodes.length > 1) toSel.selectedIndex = networkState.nodes.length - 1;
+
+  drawCorridors();
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (fromSel.value === toSel.value) {
+      showRouteMessage('Pick two different mines.');
+      return;
+    }
+    try {
+      const res = await apiService.getShortestRoute(fromSel.value, toSel.value);
+      showRoute(res);
+    } catch (err) {
+      showRouteMessage(`Route failed: ${err.message}`);
+    }
+  });
+
+  if (clearBtn) clearBtn.addEventListener('click', clearRoute);
+}
+
+const latLng = (n) => [n.lat, n.lng];
+
+/** Fit bounds while keeping clear of the network card (left) and filter dock (bottom) */
+function fitToNetworkView(bounds) {
+  map.fitBounds(bounds, { paddingTopLeft: [440, 60], paddingBottomRight: [90, 220], maxZoom: 7 });
+}
+
+function drawCorridors(highlight = new Set()) {
+  networkLayerGroup.clearLayers();
+  networkState.edges.forEach((e) => {
+    const a = networkState.byId.get(e.from);
+    const b = networkState.byId.get(e.to);
+    const on = highlight.has(`${e.from}|${e.to}`) || highlight.has(`${e.to}|${e.from}`);
+    if (on) return; // drawn by the route layer
+    L.polyline([latLng(a), latLng(b)], { color: '#F4F1EA', weight: 1.5, opacity: 0.7, dashArray: '4 6', interactive: false })
+      .addTo(networkLayerGroup);
+  });
+  networkState.nodes.forEach((n) => {
+    L.circleMarker(latLng(n), { radius: 5, color: '#211A14', weight: 2, fillColor: '#FFFFFF', fillOpacity: 1 })
+      .bindTooltip(`${n.name} · ${n.id}`, { direction: 'top', offset: [0, -6] })
+      .addTo(networkLayerGroup);
+  });
+}
+
+function showRoute(res) {
+  const result = document.getElementById('routeResult');
+  const hopsEl = document.getElementById('routeHops');
+  const totalEl = document.getElementById('routeTotal');
+  const clearBtn = document.getElementById('routeClear');
+  if (networkState.routeLayer) networkState.routeLayer.remove();
+
+  if (!res.reachable) {
+    showRouteMessage('These mines are not connected by any corridor.');
+    return;
+  }
+
+  const highlight = new Set(res.hops.map((h) => `${h.from}|${h.to}`));
+  drawCorridors(highlight);
+  const points = res.path.map(latLng);
+  networkState.routeLayer = L.featureGroup([
+    L.polyline(points, { color: '#211A14', weight: 7, opacity: 0.55, interactive: false }),
+    L.polyline(points, { color: '#F7F4EE', weight: 3.5, opacity: 1, interactive: false }),
+  ]).addTo(map);
+  fitToNetworkView(networkState.routeLayer.getBounds());
+
+  const name = (id) => networkState.byId.get(id)?.name || id;
+  hopsEl.innerHTML = res.hops
+    .map((h) => `<li><span>${escapeHtml(name(h.from))} → ${escapeHtml(name(h.to))}</span><span class="net-km">${h.distanceKm.toLocaleString()} km</span></li>`)
+    .join('');
+  const n = res.hops.length;
+  totalEl.textContent = `${res.distanceKm.toLocaleString()} km in ${n} hop${n === 1 ? '' : 's'} · Dijkstra settled ${res.nodesSettled} of ${networkState.nodes.length} mines`;
+  result.classList.remove('hidden');
+  if (clearBtn) clearBtn.classList.remove('hidden');
+}
+
+function showRouteMessage(text) {
+  const result = document.getElementById('routeResult');
+  document.getElementById('routeHops').innerHTML = '';
+  document.getElementById('routeTotal').textContent = text;
+  result.classList.remove('hidden');
+}
+
+function clearRoute() {
+  if (networkState.routeLayer) networkState.routeLayer.remove();
+  networkState.routeLayer = null;
+  drawCorridors();
+  document.getElementById('routeResult').classList.add('hidden');
+  document.getElementById('routeClear').classList.add('hidden');
 }
 
 // Assay range search: the server builds a BST over the chosen assay column

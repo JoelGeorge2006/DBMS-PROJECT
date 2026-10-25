@@ -11,6 +11,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { BinarySearchTree } from './dsa/BinarySearchTree.js';
+import { buildNearestNeighbourGraph, dijkstra } from './dsa/Dijkstra.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -654,6 +655,53 @@ app.get('/api/dsa/bst/range', (req, res) => {
     matches: results.map((n) => ({ id: n.id, key: n.key, mineral: n.data })),
     bstComparisons: visited.length,
     linearComparisons: linear.comparisons
+  });
+});
+
+// DSA: mine transport network (each mine linked to its 3 nearest mines)
+const CORRIDOR_NEIGHBOURS = 3;
+
+function loadMineGraph() {
+  const mines = db.prepare(`
+    SELECT m.mine_id AS id, m.mine_name AS name, m.status, l.state, l.district,
+           m.latitude AS lat, m.longitude AS lng
+    FROM MINE m JOIN LOCATION l ON l.location_id = m.location_id
+    ORDER BY m.mine_id
+  `).all();
+  return { mines, graph: buildNearestNeighbourGraph(mines, CORRIDOR_NEIGHBOURS) };
+}
+
+app.get('/api/dsa/network', (req, res) => {
+  const { mines, graph } = loadMineGraph();
+  res.json({ success: true, neighbours: CORRIDOR_NEIGHBOURS, nodes: mines, edges: graph.edges() });
+});
+
+app.get('/api/dsa/shortest-route', (req, res) => {
+  const { from, to } = req.query;
+  const { mines, graph } = loadMineGraph();
+  const byId = new Map(mines.map((m) => [m.id, m]));
+  if (!byId.has(from) || !byId.has(to)) {
+    return res.status(400).json({ success: false, error: 'from and to must be valid mine IDs.' });
+  }
+
+  const { path, distance, settledOrder } = dijkstra(graph, from, to);
+  if (path.length === 0) {
+    return res.json({ success: true, reachable: false, path: [], hops: [], distanceKm: null });
+  }
+
+  const hops = path.slice(1).map((id, i) => ({
+    from: path[i],
+    to: id,
+    distanceKm: graph.neighbours(path[i]).get(id)
+  }));
+
+  res.json({
+    success: true,
+    reachable: true,
+    path: path.map((id) => byId.get(id)),
+    hops,
+    distanceKm: distance,
+    nodesSettled: settledOrder.length
   });
 });
 

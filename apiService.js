@@ -130,6 +130,16 @@ export const apiService = {
     return apiGet('/api/analytics/lease-compliance');
   },
 
+  /** Mine transport network: nodes and corridor edges */
+  async getMineNetwork() {
+    return apiGet('/api/dsa/network');
+  },
+
+  /** Dijkstra shortest route between two mines */
+  async getShortestRoute(from, to) {
+    return apiGet('/api/dsa/shortest-route', { from, to });
+  },
+
   /** BST range search over a mineral assay column */
   async getBstRange(attr, min, max) {
     return apiGet('/api/dsa/bst/range', { attr, min, max });
