@@ -1098,7 +1098,27 @@ function setupEventListeners() {
 // ============================================================================
 // 9. View Switcher (Mines & Concessions Master vs Geospatial Satellite Map vs Archival Reports)
 // ============================================================================
+const AUTH_SESSION_KEY = 'minerva-authenticated';
+
+function isAuthenticated() {
+  try {
+    return sessionStorage.getItem(AUTH_SESSION_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function markAuthenticated() {
+  try {
+    sessionStorage.setItem(AUTH_SESSION_KEY, '1');
+  } catch {}
+}
+
 function switchView(viewName, updateHistory = true) {
+  // Every view except the login gate requires an authenticated session
+  if (viewName !== 'auth' && !isAuthenticated()) viewName = 'auth';
+  document.body.classList.toggle('auth-mode', viewName === 'auth');
+
   const dbView = document.getElementById('databaseExplorerView');
   const mapView = document.getElementById('mapView');
   const reportsView = document.getElementById('reportsView');
@@ -2704,6 +2724,7 @@ function initAuthWorkstation() {
     btn.addEventListener('click', () => {
       if (googleModal) googleModal.close();
       showToast('Authenticated via Google Identity (' + btn.dataset.email + ')', 'success');
+      markAuthenticated();
       setTimeout(() => {
         switchView('database', true);
       }, 500);
@@ -2729,6 +2750,7 @@ function initAuthWorkstation() {
     govInstantAuthBtn.addEventListener('click', () => {
       govModal.close();
       showToast('Jan Parichay & DigiLocker Federated Identity Verified!', 'success');
+      markAuthenticated();
       setTimeout(() => {
         switchView('database', true);
       }, 500);
@@ -2765,6 +2787,7 @@ function initAuthWorkstation() {
         const found = validCredentials[idVal];
         if (found && (passVal === found.pin || passVal === '1024' || passVal === 'admin')) {
           showToast('Authentication verified. Welcome, ' + found.name + '!', 'success');
+          markAuthenticated();
           setTimeout(() => {
             switchView('database', true);
           }, 400);
@@ -2791,10 +2814,10 @@ document.addEventListener('DOMContentLoaded', () => {
     switchView('database', false);
   } else if (path === '/reports' || hash === '#reports' || path.includes('reports.html')) {
     switchView('reports', false);
-  } else if (path === '/auth' || hash === '#auth' || path.includes('auth.html')) {
+  } else if (path === '/auth' || hash === '#auth' || path.includes('auth.html') || !isAuthenticated()) {
+    // Login page is the default entry point
     switchView('auth', false);
   } else {
-    // Default to GIS Map Command Center (Image 1 & 2)
     switchView('map', false);
   }
 });
