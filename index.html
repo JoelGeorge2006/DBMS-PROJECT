@@ -58,6 +58,16 @@
 
     <!-- Telemetry Latency Badge -->
     <div class="nav-right-actions">
+      <div class="nav-alerts">
+        <button type="button" class="nav-alerts-btn" id="navAlertsBtn" aria-haspopup="true" aria-expanded="false" title="Alerts">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+          <span class="nav-alerts-count hidden" id="navAlertsCount">0</span>
+        </button>
+        <div class="nav-alerts-panel hidden" id="navAlertsPanel" role="menu">
+          <div class="nav-alerts-head">Alerts</div>
+          <ul class="nav-alerts-list" id="navAlertsList"></ul>
+        </div>
+      </div>
       <div class="nav-latency-badge" id="navLatencyBadge" title="Real-time DBMS Telemetry Round-Trip Latency">
         <span class="latency-dot" id="latencyDot"></span>
         <span class="latency-label">Telemetry Latency:</span>
@@ -860,11 +870,25 @@
       <div class="sql-modal-body">
         <p class="sql-helper-text">Execute read-only SQL queries against <code>MineralResourceDB</code> (3NF Schema):</p>
         <div class="sql-editor-wrapper">
-          <textarea id="sqlInput" class="sql-textarea" rows="3">SELECT m.mine_id, m.mine_name, min.mineral_name, l.state_name, c.company_name FROM Mine m JOIN Mineral min ON m.mine_id = min.mineral_id JOIN Location l ON m.location_id = l.location_id JOIN MiningCompany c ON m.company_id = c.company_id LIMIT 5;</textarea>
+          <textarea id="sqlInput" class="sql-textarea" rows="3" spellcheck="false">SELECT m.mine_id, m.mine_name, mn.mineral_name, l.state, c.company_name
+FROM MINE m
+JOIN MINE_MINERAL mm ON mm.mine_id = m.mine_id AND mm.is_primary = 1
+JOIN MINERAL mn ON mn.mineral_id = mm.mineral_id
+JOIN LOCATION l ON l.location_id = m.location_id
+JOIN MINING_COMPANY c ON c.company_id = m.company_id
+LIMIT 5;</textarea>
         </div>
         <div class="sql-actions-bar">
-          <button type="button" class="btn-run-sql" id="btnRunSql">Execute Query &rarr;</button>
-          <span class="sql-schema-note">Tables: <code>Mine</code>, <code>Mineral</code>, <code>Location</code>, <code>MiningCompany</code>, <code>Lease</code>, <code>Production</code></span>
+          <button type="button" class="btn-run-sql" id="btnRunSql">Run query</button>
+          <div class="sql-history-controls">
+            <button type="button" class="btn-sql-history" id="btnSqlUndo" title="Previous query (Ctrl+&uarr;)" disabled>&larr; Undo</button>
+            <button type="button" class="btn-sql-history" id="btnSqlRedo" title="Next query (Ctrl+&darr;)" disabled>Redo &rarr;</button>
+          </div>
+          <span class="sql-schema-note">Ctrl+Enter to run</span>
+        </div>
+        <div id="sqlHistory" class="sql-history hidden">
+          <div class="sql-history-title">History <span id="sqlHistoryCount"></span></div>
+          <ol id="sqlHistoryList" class="sql-history-list"></ol>
         </div>
         <div id="sqlResultsBox" class="sql-results-box">
           <div class="sql-results-placeholder">Ready to execute query.</div>

@@ -568,23 +568,17 @@ app.post('/api/sql/query', (req, res) => {
     }
 
     const trimmed = query.trim();
-    // Safety check: Read-only queries allowed in terminal
-    const lower = trimmed.toLowerCase();
-    if (
-      lower.startsWith('drop') ||
-      lower.startsWith('delete') ||
-      lower.startsWith('insert') ||
-      lower.startsWith('update') ||
-      lower.startsWith('alter')
-    ) {
+    const stmt = db.prepare(trimmed);
+    // better-sqlite3 knows whether a statement writes; only allow pure reads
+    if (!stmt.readonly || !stmt.reader) {
       return res.status(403).json({
         success: false,
-        message: 'Security Notice: MINERVA SQL Console is restricted to read-only queries (SELECT / PRAGMA / EXPLAIN).'
+        error: 'The SQL console is read-only. Only SELECT, EXPLAIN and read-only PRAGMA queries are allowed.'
       });
     }
 
     const start = performance.now();
-    const rows = db.prepare(trimmed).all();
+    const rows = stmt.all();
     const durationMs = (performance.now() - start).toFixed(2);
 
     const columns = rows.length > 0 ? Object.keys(rows[0]) : [];

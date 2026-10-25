@@ -4,6 +4,106 @@
  */
 
 import apiService from './apiService.js';
+import { AlertQueueManager, AlertPriority } from './dsa/Queue.js';
+import { QueryHistoryManager } from './dsa/Stack.js';
+
+// ============================================================================
+// 0. Alerts — toasts are shown one at a time from a priority queue
+// ============================================================================
+const alertQueue = new AlertQueueManager();
+
+const TOAST_PRIORITY = {
+  error: AlertPriority.CRITICAL,
+  warning: AlertPriority.WARNING,
+  success: AlertPriority.INFO,
+  info: AlertPriority.INFO,
+};
+
+function showToast(message, type = 'info') {
+  alertQueue.add(message, TOAST_PRIORITY[type] ?? AlertPriority.INFO, { type });
+}
+
+function initAlerts() {
+  const container = document.getElementById('toastContainer');
+  const btn = document.getElementById('navAlertsBtn');
+  const panel = document.getElementById('navAlertsPanel');
+  const list = document.getElementById('navAlertsList');
+  const count = document.getElementById('navAlertsCount');
+  let unread = 0;
+
+  alertQueue.setDisplayHandlers(
+    (alert) => {
+      if (!container) return;
+      const el = document.createElement('div');
+      el.className = `toast toast-${alert.type || 'info'}`;
+      el.textContent = alert.message;
+      el.addEventListener('click', () => alertQueue.dismissCurrent());
+      container.replaceChildren(el);
+    },
+    () => {
+      if (container) container.replaceChildren();
+      unread++;
+    }
+  );
+
+  const renderPanel = () => {
+    if (count) {
+      count.textContent = unread;
+      count.classList.toggle('hidden', unread === 0);
+    }
+    if (!list) return;
+    if (alertQueue.log.length === 0) {
+      list.innerHTML = '<li class="nav-alerts-empty">No alerts yet</li>';
+      return;
+    }
+    list.innerHTML = alertQueue.log
+      .map((a) => {
+        const time = new Date(a.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return `<li class="nav-alert-item"><span class="nav-alert-level level-${a.label.toLowerCase()}">${a.label}</span><span class="nav-alert-msg">${escapeHtml(a.message)}</span><span class="nav-alert-time">${time}</span></li>`;
+      })
+      .join('');
+  };
+  alertQueue.onChange(renderPanel);
+  renderPanel();
+
+  if (btn && panel) {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = panel.classList.toggle('hidden') === false;
+      btn.setAttribute('aria-expanded', String(open));
+      if (open) {
+        unread = 0;
+        renderPanel();
+      }
+    });
+    document.addEventListener('click', (e) => {
+      if (!panel.contains(e.target)) {
+        panel.classList.add('hidden');
+        btn.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
+}
+
+let mineAlertsQueued = false;
+
+/** Raise alerts for mines whose status needs attention (from the MINE table) */
+async function queueMineAlerts() {
+  if (mineAlertsQueued) return;
+  mineAlertsQueued = true;
+  try {
+    const res = await apiService.getMines();
+    (res.data || []).forEach((m) => {
+      if (m.status === 'Expiring') {
+        alertQueue.critical(`${m.mineId} ${m.mineName}: lease is expiring`, { type: 'error' });
+      } else if (m.status === 'Under Maintenance') {
+        alertQueue.warning(`${m.mineId} ${m.mineName}: under maintenance, production halted`, { type: 'warning' });
+      }
+    });
+  } catch {
+    mineAlertsQueued = false;
+  }
+}
 
 // ============================================================================
 // 1. Geospatial Telemetry Dataset (From DBMS Schema & Real Cratons)
@@ -1112,6 +1212,7 @@ function markAuthenticated() {
   try {
     sessionStorage.setItem(AUTH_SESSION_KEY, '1');
   } catch {}
+  queueMineAlerts();
 }
 
 function switchView(viewName, updateHistory = true) {
@@ -1735,9 +1836,7 @@ function initDatabaseExplorer() {
   }
 
   if (btnRunSql && sqlInput && sqlResultsBox) {
-    btnRunSql.addEventListener('click', () => {
-      executeSqlQuery(sqlInput.value.trim(), sqlResultsBox);
-    });
+    initSqlHistory(sqlInput, sqlResultsBox, btnRunSql);
   }
 
   // Dossier Buttons
@@ -2233,14 +2332,77 @@ async function renderEntityView(tabName) {
   }
 }
 
-// Execute Relational SQL Query in Console
+// SQL console history: two stacks give undo / redo over executed queries
+const sqlHistory = new QueryHistoryManager();
+
+function initSqlHistory(sqlInput, resultsBox, btnRun) {
+  const btnUndo = document.getElementById('btnSqlUndo');
+  const btnRedo = document.getElementById('btnSqlRedo');
+  const historyBox = document.getElementById('sqlHistory');
+  const historyList = document.getElementById('sqlHistoryList');
+  const historyCount = document.getElementById('sqlHistoryCount');
+
+  const render = () => {
+    if (btnUndo) btnUndo.disabled = !sqlHistory.canUndo();
+    if (btnRedo) btnRedo.disabled = !sqlHistory.canRedo();
+    const recent = sqlHistory.recent(8);
+    if (historyBox) historyBox.classList.toggle('hidden', recent.length === 0);
+    if (historyCount) historyCount.textContent = `(${sqlHistory.history.size()})`;
+    if (historyList) {
+      historyList.innerHTML = recent
+        .map((q, i) => `<li><button type="button" class="sql-history-item${i === 0 ? ' current' : ''}" data-index="${i}">${escapeHtml(q.replace(/\s+/g, ' '))}</button></li>`)
+        .join('');
+      historyList.querySelectorAll('.sql-history-item').forEach((item) => {
+        item.addEventListener('click', () => {
+          sqlInput.value = recent[Number(item.dataset.index)];
+          sqlInput.focus();
+        });
+      });
+    }
+  };
+
+  const run = async () => {
+    const query = sqlInput.value.trim();
+    const ok = await executeSqlQuery(query, resultsBox);
+    if (ok) sqlHistory.record(query);
+    render();
+  };
+
+  const step = (query) => {
+    if (query === null) return;
+    sqlInput.value = query;
+    render();
+  };
+
+  btnRun.addEventListener('click', run);
+  if (btnUndo) btnUndo.addEventListener('click', () => step(sqlHistory.undo()));
+  if (btnRedo) btnRedo.addEventListener('click', () => step(sqlHistory.redoQuery()));
+
+  sqlInput.addEventListener('keydown', (e) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      run();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      step(sqlHistory.undo());
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      step(sqlHistory.redoQuery());
+    }
+  });
+
+  render();
+}
+
+// Execute Relational SQL Query in Console. Resolves true on success.
 async function executeSqlQuery(query, resultsContainer) {
   if (!query || !query.trim()) {
     resultsContainer.innerHTML = `<div class="sql-results-placeholder">Please enter a valid SQL query.</div>`;
-    return;
+    return false;
   }
 
-  resultsContainer.innerHTML = `<div class="sql-results-placeholder">Executing query against SQLite 3NF relational database...</div>`;
+  resultsContainer.innerHTML = `<div class="sql-results-placeholder">Running…</div>`;
 
   try {
     const res = await apiService.executeSql(query);
@@ -2250,7 +2412,7 @@ async function executeSqlQuery(query, resultsContainer) {
         <div class="sql-results-meta">Query completed in ${res.executionTimeMs}ms &bull; 0 rows returned</div>
         <div class="sql-results-placeholder">Query executed successfully but returned an empty dataset.</div>
       `;
-      return;
+      return true;
     }
 
     const theadHtml = res.columns.map((col) => `<th>${escapeHtml(col)}</th>`).join('');
@@ -2272,7 +2434,7 @@ async function executeSqlQuery(query, resultsContainer) {
       .join('');
 
     resultsContainer.innerHTML = `
-      <div class="sql-results-meta">Query executed in ${res.executionTimeMs}ms &bull; ${res.rowCount} rows returned &bull; 3NF Schema: minerva.db</div>
+      <div class="sql-results-meta">Query executed in ${res.executionTimeMs}ms &bull; ${res.rowCount} rows returned</div>
       <div style="overflow-x: auto; max-height: 280px;">
         <table class="db-master-table" style="font-size:0.75rem;">
           <thead><tr>${theadHtml}</tr></thead>
@@ -2280,7 +2442,7 @@ async function executeSqlQuery(query, resultsContainer) {
         </table>
       </div>
     `;
-    showToast(`SQL query executed (${res.rowCount} rows returned)`, 'success');
+    return true;
   } catch (err) {
     resultsContainer.innerHTML = `
       <div class="sql-results-meta" style="color: #B92520;">Query Execution Error</div>
@@ -2288,7 +2450,7 @@ async function executeSqlQuery(query, resultsContainer) {
         &#9888; ${escapeHtml(err.message)}
       </div>
     `;
-    showToast('SQL Execution Error', 'error');
+    return false;
   }
 }
 
@@ -2801,6 +2963,8 @@ function initAuthWorkstation() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  initAlerts();
+  if (isAuthenticated()) queueMineAlerts();
   initGeospatialMap();
   initDatabaseExplorer();
   initArchivalReports();
