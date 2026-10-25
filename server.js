@@ -49,117 +49,6 @@ try {
 }
 
 // ============================================================================
-// 2. Archival Publications Dataset
-// ============================================================================
-const ARCHIVAL_PUBLICATIONS = [
-  {
-    id: 'PUB-2026-01',
-    title: 'Annual Iron Ore Production & Dispatch Ledger',
-    jurisdiction: 'Odisha (Keonjhar)',
-    period: 'FY 2025–26',
-    meta: 'Odisha (Keonjhar)  •  FY 2025–26',
-    status: 'VERIFIED',
-    registryNo: 'IBM/PUB/2026/041',
-    date: '15 Jan 2026',
-    pages: 42,
-    size: '4.8 MB',
-    format: 'PDF',
-    hash: 'SHA-256: 8f4c2e11d08b3a76295e87a2741d4c9f182e0b55291a45778b4097f4c519d08e',
-    summary: 'Audited gross production, grade distribution (64.2% Fe Hematite), environmental dispatch permits, and royalty remittances for the Keonjhar Iron Ore Sector.',
-    metrics: [
-      { key: 'Gross Extracted Output', val: '48.20 Million Metric Tonnes' },
-      { key: 'Dispatch Clearance Pass', val: '100% Biometric e-Transit Pass Verified' },
-      { key: 'Net Royalty Remittance', val: '₹1,420.84 Crores to State Treasury' },
-      { key: 'Regulatory Compliance', val: '99.8% IBM Benchmark Index' }
-    ]
-  },
-  {
-    id: 'PUB-2026-02',
-    title: 'Concession Validity & Expiry Timeline Review',
-    jurisdiction: 'Pan-India',
-    period: 'Q2 2026',
-    meta: 'Pan-India  •  Q2 2026',
-    status: 'VERIFIED',
-    registryNo: 'IBM/PUB/2026/028',
-    date: '02 Apr 2026',
-    pages: 68,
-    size: '6.2 MB',
-    format: 'PDF',
-    hash: 'SHA-256: 3c91a0f8b172d54e8910b271c4801e9564f20b33481e19488b1937f2a410b91e',
-    summary: 'National audit of 842 major mineral concessions under Section 8A of the MMDR Act, flagging upcoming 2030 auction transitions and compliance clearances.',
-    metrics: [
-      { key: 'Audited Concession Leases', val: '842 Active Major Mineral Leases' },
-      { key: 'Expiring Within 5-Yr Cycle', val: '42 Concessions Scheduled for Re-Auction' },
-      { key: 'Protected Compliant Leases', val: '780 Compliant Leases Protected' },
-      { key: 'Reconciliation Status', val: 'National Registry Cleared' }
-    ]
-  },
-  {
-    id: 'PUB-2025-03',
-    title: 'Copper & Multi-Metal Reserve Extraction Index',
-    jurisdiction: 'Rajasthan (Khetri)',
-    period: 'Bi-Annual 2025',
-    meta: 'Rajasthan (Khetri)  •  Bi-Annual 2025',
-    status: 'VERIFIED',
-    registryNo: 'IBM/PUB/2025/119',
-    date: '18 Nov 2025',
-    pages: 36,
-    size: '3.9 MB',
-    format: 'PDF',
-    hash: 'SHA-256: 9b2d8e41f776a301c54e2098d519a4f1082e5b77821034f19b4820a1c4918e20',
-    summary: 'Sub-surface geological extraction log, chalcopyrite ore beneficiation yields, underground shaft structural monitoring, and tailings pond safety compliance.',
-    metrics: [
-      { key: 'Processed Copper Ore', val: '18,450 Metric Tonnes (2.4% Cu Grade)' },
-      { key: 'Smelter Recovery Ratio', val: '94.2% Theoretical Recovery' },
-      { key: 'Underground Active Shafts', val: '4 Fully Monitored Shafts' },
-      { key: 'Tailings Stability Index', val: 'Zero-Seepage Certified' }
-    ]
-  },
-  {
-    id: 'PUB-2025-04',
-    title: 'Bauxite Lease Boundary & Buffer Overlap Report',
-    jurisdiction: 'Odisha (Koraput)',
-    period: 'Annual 2025',
-    meta: 'Odisha (Koraput)  •  Annual 2025',
-    status: 'VERIFIED',
-    registryNo: 'IBM/PUB/2025/084',
-    date: '10 Dec 2025',
-    pages: 54,
-    size: '5.4 MB',
-    format: 'PDF',
-    hash: 'SHA-256: 1a5e98f24c30b881d763e002c918a4f5619e0b112093847781b047a2c5108491',
-    summary: 'DGPS and satellite cadastral boundary verification over the Panchpatmali bauxite plateau, validating 50-meter buffer demarcations against tribal and forest reserves.',
-    metrics: [
-      { key: 'DGPS Validated Area', val: '1,845.00 Hectares (Panchpatmali Ridge)' },
-      { key: 'Boundary Pillars Checked', val: '100% Boundary Pillars Georeferenced' },
-      { key: 'Buffer Zone Verification', val: 'Zero Encroachment Beyond Concession' },
-      { key: 'Environmental Status', val: 'Stage-II Forest Clearance Compliant' }
-    ]
-  },
-  {
-    id: 'PUB-2025-05',
-    title: 'Cross-State Mineral Royalty Collection Reconciliation',
-    jurisdiction: 'Karnataka & Chhattisgarh',
-    period: 'FY 2024–25',
-    meta: 'Karnataka & Chhattisgarh  •  FY 2024–25',
-    status: 'VERIFIED',
-    registryNo: 'IBM/PUB/2025/002',
-    date: '28 Mar 2025',
-    pages: 82,
-    size: '8.1 MB',
-    format: 'PDF',
-    hash: 'SHA-256: 7e3f1c99b820a443d018e652a9104b51829e0b44319482778a40291fc5182910',
-    summary: 'Tripartite inter-state reconciliation report covering District Mineral Foundation (DMF) and National Mineral Exploration Trust (NMET) cess disbursements.',
-    metrics: [
-      { key: 'Reconciled Royalty Amount', val: '₹2,845.60 Crores Reconciled' },
-      { key: 'DMF Welfare Allocation', val: '₹1,980.20 Crores to Mining Districts' },
-      { key: 'NMET Exploration Fund', val: '₹142.28 Crores for Greenfield Basins' },
-      { key: 'Audit Discrepancy Margin', val: '0.00% (Full Settlement Verified)' }
-    ]
-  }
-];
-
-// ============================================================================
 // 3. REST API ENDPOINTS
 // ============================================================================
 
@@ -510,61 +399,6 @@ app.get(['/api/mines/export', '/api/export/csv'], (req, res) => {
   }
 });
 
-// 6. GET /api/reports & GET /api/reports/:id/download (Archival Publications)
-app.get('/api/reports', (req, res) => {
-  res.json({
-    success: true,
-    count: ARCHIVAL_PUBLICATIONS.length,
-    data: ARCHIVAL_PUBLICATIONS
-  });
-});
-
-app.get('/api/reports/:id/download', (req, res) => {
-  const pubId = req.params.id.toUpperCase();
-  const found = ARCHIVAL_PUBLICATIONS.find((p) => p.id.toUpperCase() === pubId);
-
-  if (!found) {
-    return res.status(404).json({ success: false, message: 'Archival report not found.' });
-  }
-
-  const content = `========================================================================
-MINERVA — NATIONAL MINERAL GEOSPATIAL ARCHIVE
-MINISTRY OF MINES • INDIAN BUREAU OF MINES REGISTRY
-========================================================================
-Document:           ${found.title}
-Serial Registry:    ${found.registryNo}
-Jurisdiction:       ${found.jurisdiction}
-Accounting Period:  ${found.period}
-Tamper Hash:        ${found.hash}
-Statutory Status:   ${found.status} (Verified under MMDR Act Sec. 8A)
-Total Pages:        ${found.pages}
-Archival Date:      ${found.date}
-
-------------------------------------------------------------------------
-EXECUTIVE SUMMARY & STATUTORY FINDINGS
-------------------------------------------------------------------------
-${found.summary}
-
-------------------------------------------------------------------------
-AUDIT LEDGER METRICS
-------------------------------------------------------------------------
-${found.metrics.map((m) => `* ${m.key.padEnd(28)}: ${m.val}`).join('\n')}
-
-========================================================================
-Digitally Signed by Director General, Indian Bureau of Mines (Nagpur HQ)
-WGS84 Geospatial Reference Registry • All Rights Reserved
-========================================================================
-`;
-
-  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-  res.setHeader('Content-Disposition', `attachment; filename="MINERVA_${found.id}_${found.title.replace(/\s+/g, '_')}.txt"`);
-  res.send(content);
-});
-
-// Alias for backward compatibility
-app.get('/api/publications', (req, res) => res.redirect('/api/reports'));
-app.get('/api/publications/:id/download', (req, res) => res.redirect(`/api/reports/${req.params.id}/download`));
-
 // 7. POST /api/sql/query (Interactive Read-Only SQL Terminal)
 app.post('/api/sql/query', (req, res) => {
   try {
@@ -729,6 +563,21 @@ app.get('/api/dsa/mst', (req, res) => {
     allPairsKm,
     cycleEdgesRejected: result.rejected ?? null
   });
+});
+
+// DSA: source of a dsa/ module, for the excerpts on the DSA tab (read-only, dsa/ only)
+const DSA_DIR = path.join(__dirname, 'dsa');
+
+app.get('/api/dsa/source/:file', (req, res) => {
+  const file = req.params.file;
+  if (!/^[A-Za-z]+\.js$/.test(file)) {
+    return res.status(400).json({ success: false, error: 'Invalid file name.' });
+  }
+  const full = path.join(DSA_DIR, file);
+  if (!fs.existsSync(full)) {
+    return res.status(404).json({ success: false, error: 'No such module.' });
+  }
+  res.type('text/plain').send(fs.readFileSync(full, 'utf8'));
 });
 
 // 9. Analytical Aggregation Routes

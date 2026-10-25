@@ -80,20 +80,6 @@ export const apiService = {
   },
 
   /**
-   * 6. Archival Publications
-   */
-  async getReports() {
-    return apiGet('/api/reports');
-  },
-
-  /**
-   * 7. Report Download URL
-   */
-  getReportDownloadUrl(reportId) {
-    return `/api/reports/${encodeURIComponent(reportId)}/download`;
-  },
-
-  /**
    * 8. 3NF Entity Tables for Entity Switcher Tabs
    * @param {'mines'|'minerals'|'locations'|'companies'|'leases'|'production'} entity
    */
@@ -128,6 +114,13 @@ export const apiService = {
 
   async getLeaseCompliance() {
     return apiGet('/api/analytics/lease-compliance');
+  },
+
+  /** Source text of a dsa/ module (for the DSA tab) */
+  async getDsaSource(file) {
+    const res = await fetch(`/api/dsa/source/${encodeURIComponent(file)}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.text();
   },
 
   /** Mine transport network: nodes and corridor edges */

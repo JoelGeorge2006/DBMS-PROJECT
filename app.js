@@ -4,8 +4,11 @@
  */
 
 import apiService from './apiService.js';
-import { AlertQueueManager, AlertPriority } from './dsa/Queue.js';
-import { QueryHistoryManager } from './dsa/Stack.js';
+import { AlertQueueManager, AlertPriority, Queue, PriorityQueue } from './dsa/Queue.js';
+import { QueryHistoryManager, Stack } from './dsa/Stack.js';
+import { Graph, dijkstra } from './dsa/Dijkstra.js';
+import { primMST, UnionFind } from './dsa/MST.js';
+import { DSA_CONCEPTS, DSA_GROUPS } from './dsa/registry.js';
 import { AVLTree } from './dsa/AVLTree.js';
 import { BinarySearchTree } from './dsa/BinarySearchTree.js';
 
@@ -13,6 +16,7 @@ import { BinarySearchTree } from './dsa/BinarySearchTree.js';
 // 0. Alerts — toasts are shown one at a time from a priority queue
 // ============================================================================
 const alertQueue = new AlertQueueManager();
+let openAlertsPanel = () => {};
 
 const TOAST_PRIORITY = {
   error: AlertPriority.CRITICAL,
@@ -54,11 +58,11 @@ function initAlerts() {
       count.classList.toggle('hidden', unread === 0);
     }
     if (!list) return;
-    if (alertQueue.log.length === 0) {
+    if (alertQueue.log.isEmpty()) {
       list.innerHTML = '<li class="nav-alerts-empty">No alerts yet</li>';
       return;
     }
-    list.innerHTML = alertQueue.log
+    list.innerHTML = alertQueue.recent()
       .map((a) => {
         const time = new Date(a.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         return `<li class="nav-alert-item"><span class="nav-alert-level level-${a.label.toLowerCase()}">${a.label}</span><span class="nav-alert-msg">${escapeHtml(a.message)}</span><span class="nav-alert-time">${time}</span></li>`;
@@ -69,14 +73,18 @@ function initAlerts() {
   renderPanel();
 
   if (btn && panel) {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const open = panel.classList.toggle('hidden') === false;
+    const setOpen = (open) => {
+      panel.classList.toggle('hidden', !open);
       btn.setAttribute('aria-expanded', String(open));
       if (open) {
         unread = 0;
         renderPanel();
       }
+    };
+    openAlertsPanel = () => setOpen(true);
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      setOpen(panel.classList.contains('hidden'));
     });
     document.addEventListener('click', (e) => {
       if (!panel.contains(e.target)) {
@@ -257,69 +265,14 @@ function setupEventListeners() {
     setBasemap(currentBasemap);
   });
 
-  // Global search (Ctrl + K): one handler, acts on whichever view is open
-  const globalSearchInput = document.getElementById('globalSearchInput');
-  window.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-      e.preventDefault();
-      globalSearchInput.focus();
-    }
-  });
-
-  let searchDebounceTimer = null;
-  globalSearchInput.addEventListener('input', () => {
-    clearTimeout(searchDebounceTimer);
-    searchDebounceTimer = setTimeout(() => dispatchSearchQuery(globalSearchInput.value.trim(), false), 200);
-  });
-  globalSearchInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      clearTimeout(searchDebounceTimer);
-      dispatchSearchQuery(globalSearchInput.value.trim(), true);
-    } else if (e.key === 'Escape') {
-      globalSearchInput.value = '';
-      dispatchSearchQuery('', false);
-      globalSearchInput.blur();
-    }
-  });
-
   // Left dock navigation
   document.getElementById('dockBtnMap').addEventListener('click', () => switchView('map', true));
   document.getElementById('dockBtnDatabase').addEventListener('click', () => switchView('database', true));
-  document.getElementById('dockBtnReports').addEventListener('click', () => switchView('reports', true));
+  document.getElementById('dockBtnLeases').addEventListener('click', () => switchView('leases', true));
+  document.getElementById('dockBtnDsa').addEventListener('click', () => switchView('dsa', true));
   document.getElementById('dockBtnAuth').addEventListener('click', signOut);
-}
 
-/** Search the open view. On the map only Enter jumps to a mine, so typing doesn't move the camera. */
-function dispatchSearchQuery(query, submitted) {
-  const q = query.toLowerCase();
-  const isOpen = (id) => !document.getElementById(id)?.classList.contains('hidden');
-
-  if (isOpen('databaseExplorerView')) {
-    searchQuery = query;
-    if (activeEntityTab === 'mines') {
-      renderMinesTable(filterMines(q));
-    } else {
-      document.querySelectorAll('#masterTableTbody tr').forEach((row) => {
-        row.classList.toggle('hidden', !!q && !row.textContent.toLowerCase().includes(q));
-      });
-    }
-  } else if (isOpen('reportsView')) {
-    renderPublicationsList(
-      ARCHIVAL_PUBLICATIONS_DATA.filter((p) =>
-        !q ||
-        p.title.toLowerCase().includes(q) ||
-        p.jurisdiction.toLowerCase().includes(q) ||
-        p.period.toLowerCase().includes(q)
-      )
-    );
-  } else if (isOpen('mapView') && submitted && q) {
-    const found = filterMines(q)[0];
-    if (found) {
-      locateMineOnMap(found);
-    } else {
-      showToast(`No mine matches "${query}"`, 'warning');
-    }
-  }
+  initSearch();
 }
 
 // ============================================================================
@@ -350,80 +303,63 @@ function markAuthenticated() {
   queueMineAlerts();
 }
 
-function switchView(viewName, updateHistory = true) {
+const VIEWS = {
+  map: { view: 'mapView', dock: 'dockBtnMap' },
+  database: { view: 'databaseExplorerView', dock: 'dockBtnDatabase' },
+  leases: { view: 'leasesView', dock: 'dockBtnLeases' },
+  dsa: { view: 'dsaView', dock: 'dockBtnDsa' },
+  auth: { view: 'authView', dock: null },
+};
+
+// Old links keep working
+const VIEW_ALIASES = { reports: 'leases' };
+
+let currentView = null;
+// Where to go after signing in, when a protected view was requested while signed out
+let postLoginView = null;
+
+function resolveView(name) {
+  const resolved = VIEW_ALIASES[name] || name;
+  return VIEWS[resolved] ? resolved : null;
+}
+
+function takePostLoginView() {
+  const next = postLoginView && postLoginView !== 'auth' ? postLoginView : 'database';
+  postLoginView = null;
+  return next;
+}
+
+function switchView(requested, updateHistory = true) {
+  let viewName = resolveView(requested) || 'map';
   // Every view except the login gate requires an authenticated session
-  if (viewName !== 'auth' && !isAuthenticated()) viewName = 'auth';
+  if (viewName !== 'auth' && !isAuthenticated()) {
+    postLoginView = viewName;
+    viewName = 'auth';
+  }
   document.body.classList.toggle('auth-mode', viewName === 'auth');
 
-  const dbView = document.getElementById('databaseExplorerView');
-  const mapView = document.getElementById('mapView');
-  const reportsView = document.getElementById('reportsView');
-  const authView = document.getElementById('authView');
-
-  const dockBtnMap = document.getElementById('dockBtnMap');
-  const dockBtnDatabase = document.getElementById('dockBtnDatabase');
-  const dockBtnReports = document.getElementById('dockBtnReports');
-  const dockBtnAuth = document.getElementById('dockBtnAuth');
-
-  // Clear active states on dock
-  [dockBtnMap, dockBtnDatabase, dockBtnReports, dockBtnAuth].forEach((btn) => {
-    if (btn) btn.classList.remove('active');
+  Object.entries(VIEWS).forEach(([name, cfg]) => {
+    const on = name === viewName;
+    const el = document.getElementById(cfg.view);
+    if (el) {
+      el.classList.toggle('hidden', !on);
+      el.classList.toggle('active', on);
+    }
+    if (cfg.dock) document.getElementById(cfg.dock)?.classList.toggle('active', on);
   });
 
-  // Hide all views
-  [dbView, mapView, reportsView, authView].forEach((view) => {
-    if (view) {
-      view.classList.add('hidden');
-      view.classList.remove('active');
-    }
-  });
-
-  if (viewName === 'database') {
-    if (dbView) {
-      dbView.classList.remove('hidden');
-      dbView.classList.add('active');
-    }
-    if (dockBtnDatabase) dockBtnDatabase.classList.add('active');
-
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  } else if (viewName === 'map') {
-    if (mapView) {
-      mapView.classList.remove('hidden');
-      mapView.classList.add('active');
-    }
-    if (dockBtnMap) dockBtnMap.classList.add('active');
-
-    if (map) {
-      setTimeout(() => {
-        map.invalidateSize();
-      }, 100);
-    }
-  } else if (viewName === 'reports') {
-    if (reportsView) {
-      reportsView.classList.remove('hidden');
-      reportsView.classList.add('active');
-    }
-    if (dockBtnReports) dockBtnReports.classList.add('active');
-
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  } else if (viewName === 'auth') {
-    if (authView) {
-      authView.classList.remove('hidden');
-      authView.classList.add('active');
-    }
-    if (dockBtnAuth) dockBtnAuth.classList.add('active');
-
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (viewName === 'map') {
+    if (map) setTimeout(() => map.invalidateSize(), 100);
+  } else {
+    window.scrollTo({ top: 0 });
   }
+
+  currentView = viewName;
+  if (viewName === 'dsa') renderDsaView();
 
   // A search typed in one view shouldn't silently filter the next one
-  const search = document.getElementById('globalSearchInput');
-  if (search && search.value) {
-    search.value = '';
-    dispatchSearchQuery('', false);
-  }
+  resetSearchForView();
 
-  // Update browser URL history
   if (updateHistory) {
     const targetHash = '#' + viewName;
     try {
@@ -431,24 +367,20 @@ function switchView(viewName, updateHistory = true) {
     } catch {
       window.location.hash = targetHash;
     }
+  } else if (viewName !== 'auth' && location.hash && location.hash !== '#' + viewName) {
+    // Normalise aliases such as #reports -> #leases
+    history.replaceState({ view: viewName }, '', '#' + viewName);
   }
 }
 
 // Browser Back/Forward navigation listener
 window.addEventListener('popstate', () => {
-  const hash = window.location.hash.replace('#', '');
-  if (hash === 'database' || hash === 'reports' || hash === 'auth' || hash === 'map') {
-    switchView(hash, false);
-  } else {
-    switchView('map', false);
-  }
+  switchView(resolveView(window.location.hash.replace('#', '')) || 'map', false);
 });
 
 window.addEventListener('hashchange', () => {
-  const hash = window.location.hash.replace('#', '');
-  if (hash === 'database' || hash === 'reports' || hash === 'auth' || hash === 'map') {
-    switchView(hash, false);
-  }
+  const name = resolveView(window.location.hash.replace('#', ''));
+  if (name && name !== currentView) switchView(name, false);
 });
 
 // ============================================================================
@@ -906,6 +838,8 @@ function initDatabaseExplorer() {
 
       renderEntityView(targetTab).then(() => {
         if (targetTab === 'minerals') runBstSearch();
+        updateSearchScope();
+        reapplySearch();
       });
     });
   });
@@ -984,7 +918,9 @@ function renderMinesTable(mines) {
   tbody.innerHTML = '';
 
   if (mines.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 32px; color: var(--text-label);">No mines found matching search parameters.</td></tr>`;
+    tbody.innerHTML = searchQuery
+      ? `<tr class="search-empty"><td colspan="8">No mines match “${escapeHtml(searchQuery)}”. <button type="button" class="btn-link-inline" data-clear-search>Clear search</button></td></tr>`
+      : `<tr class="search-empty"><td colspan="8">No mines in the database.</td></tr>`;
     return;
   }
 
@@ -1419,6 +1355,9 @@ async function initTransportNetwork() {
   const sub = document.getElementById('networkSub');
   if (!form || !fromSel || !toSel) return;
 
+  // Never let these forms submit natively (that reloads the page), even before the data arrives
+  [form, document.getElementById('mstForm')].forEach((f) => f?.addEventListener('submit', (e) => e.preventDefault()));
+
   try {
     const net = await apiService.getMineNetwork();
     networkState.nodes = net.nodes;
@@ -1511,6 +1450,7 @@ function initMstPane(options) {
 /** Draw MST edges one at a time in the order the algorithm picked them */
 function showMst(res) {
   clearMst();
+  dsaLive.mst = res;
   const run = ++networkState.mstRun;
   const steps = document.getElementById('mstSteps');
   const totalEl = document.getElementById('mstTotal');
@@ -1600,6 +1540,7 @@ function showRoute(res) {
     return;
   }
 
+  dsaLive.route = res;
   const highlight = new Set(res.hops.map((h) => `${h.from}|${h.to}`));
   drawCorridors(highlight);
   const points = res.path.map(latLng);
@@ -1660,6 +1601,7 @@ async function runBstSearch() {
 
   try {
     const res = await apiService.getBstRange(attr, min, max);
+    dsaLive.bst = res;
     const matchIds = new Set(res.matches.map((m) => m.id));
     const matchMinerals = new Set(res.matches.map((m) => String(m.mineral.mineral_id)));
 
@@ -1736,8 +1678,12 @@ function drawTree(svg, root, { classOf, edgeOn = () => false, keyOf, labelOf, ti
 // Lease expiry index: AVL tree keyed by "valid_till|lease_id" (unique, date-ordered)
 const leaseIndex = new AVLTree();
 let leaseRecords = [];
+// Lower-case text typed in the search bar while the Lease expiry view is open
+let leaseSearch = '';
 
 const leaseKey = (lease) => `${lease.valid_till}|${lease.lease_id}`;
+const YEAR_MS = 365.25 * 24 * 3600 * 1000;
+const yearsUntil = (isoDate) => (new Date(isoDate) - new Date()) / YEAR_MS;
 
 async function initLeaseExpiryIndex() {
   const form = document.getElementById('avlQueryForm');
@@ -1746,13 +1692,23 @@ async function initLeaseExpiryIndex() {
   if (!form || !select || !toggle) return;
 
   try {
-    const [leases, companies] = await Promise.all([
+    const [leases, companies, mines] = await Promise.all([
       apiService.getEntityTable('leases'),
       apiService.getEntityTable('companies'),
+      apiService.getMines(),
     ]);
     const companyName = new Map((companies.data || []).map((c) => [c.company_id, c.company_name]));
+    const mineByLease = new Map((mines.data || []).map((m) => [m.dossier?.lease?.id, m]));
     // /api/leases returns rows sorted by valid_till: the worst case for a plain BST
-    leaseRecords = (leases.data || []).map((l) => ({ ...l, company_name: companyName.get(l.company_id) || '' }));
+    leaseRecords = (leases.data || []).map((l) => {
+      const mine = mineByLease.get(l.lease_id);
+      return {
+        ...l,
+        company_name: companyName.get(l.company_id) || '',
+        mine_id: mine?.mineId || null,
+        mine_name: mine?.mineName || '',
+      };
+    });
   } catch (err) {
     const stats = document.getElementById('avlStats');
     if (stats) stats.textContent = `Could not load leases: ${err.message}`;
@@ -1772,6 +1728,7 @@ async function initLeaseExpiryIndex() {
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
+    leaseDateRange = null;
     renderLeaseRange();
   });
   select.addEventListener('change', syncToggle);
@@ -1782,13 +1739,76 @@ async function initLeaseExpiryIndex() {
     if (leaseIndex.has(key)) leaseIndex.delete(key);
     else leaseIndex.insert(key, lease);
     syncToggle();
+    renderLeaseSummary();
     renderLeaseIndex(describeRotations(leaseIndex.lastRotations));
     renderLeaseRange();
   });
 
+  document.getElementById('avlResults')?.addEventListener('click', (e) => {
+    const row = e.target.closest('tr[data-mine-id]');
+    if (row) openMineInDatabase(row.dataset.mineId);
+  });
+
   syncToggle();
+  renderLeaseSummary();
   renderLeaseIndex(`${buildRotations} rotation${buildRotations === 1 ? '' : 's'} while building`);
   renderLeaseRange();
+}
+
+// A tile click sets an exact date range; the year inputs and Find button set whole years
+let leaseDateRange = null;
+
+const isoDay = (d) => d.toISOString().slice(0, 10);
+function addYears(date, n) {
+  const d = new Date(date);
+  d.setFullYear(d.getFullYear() + n);
+  return d;
+}
+
+/** The four summary ranges. Counts and clicks both use these, through the AVL range query. */
+function leaseTiles() {
+  const today = new Date();
+  const yesterday = new Date(today.getTime() - 24 * 3600 * 1000);
+  // "|~" sorts after any "date|lease id" key with that date, so the end day is included
+  const upTo = (d) => `${isoDay(d)}|~`;
+  return [
+    { label: 'Expired', min: '0000-01-01', max: upTo(yesterday), text: `ended before ${isoDay(today)}` },
+    ...[1, 5, 10].map((n) => ({
+      label: `Within ${n} year${n === 1 ? '' : 's'}`,
+      min: isoDay(today),
+      max: upTo(addYears(today, n)),
+      text: `end between ${isoDay(today)} and ${isoDay(addYears(today, n))}`,
+    })),
+  ];
+}
+
+function renderLeaseSummary() {
+  const box = document.getElementById('leaseSummary');
+  if (!box) return;
+  const tiles = leaseTiles();
+  box.innerHTML = tiles
+    .map((t, i) => `<button type="button" class="lease-tile" data-tile="${i}" title="Show leases that ${escapeHtml(t.text)}">
+        <span class="lease-tile-count">${leaseIndex.rangeQuery(t.min, t.max).length}</span>
+        <span class="lease-tile-label">${escapeHtml(t.label)}</span>
+      </button>`)
+    .join('') + `<p class="lease-summary-note">${nextExpiryNote()} · ${leaseIndex.size()} leases in the index, as of ${isoDay(new Date())}</p>`;
+  box.querySelectorAll('.lease-tile').forEach((tile) => {
+    tile.addEventListener('click', () => {
+      leaseDateRange = tiles[Number(tile.dataset.tile)];
+      document.getElementById('avlFromYear').value = leaseDateRange.min.slice(0, 4) === '0000' ? 2000 : leaseDateRange.min.slice(0, 4);
+      document.getElementById('avlToYear').value = leaseDateRange.max.slice(0, 4);
+      if (leaseSearch) clearSearch();
+      renderLeaseRange();
+    });
+  });
+}
+
+/** Earliest lease that hasn't ended yet: an in-order walk of the AVL index from today */
+function nextExpiryNote() {
+  const [next] = leaseIndex.firstN(1, new Date().toISOString().slice(0, 10));
+  if (!next) return 'No lease in the index ends after today';
+  const l = next.data;
+  return `Next to expire: ${escapeHtml(l.lease_id)}${l.mine_name ? ` (${escapeHtml(l.mine_name)})` : ''} on ${escapeHtml(l.valid_till)}, in ${yearsUntil(l.valid_till).toFixed(1)} years`;
 }
 
 function describeRotations(rotations) {
@@ -1818,21 +1838,70 @@ function renderLeaseIndex(lastChange) {
 }
 
 function renderLeaseRange() {
-  const list = document.getElementById('avlResults');
-  if (!list) return;
-  const from = Number(document.getElementById('avlFromYear')?.value);
-  const to = Number(document.getElementById('avlToYear')?.value);
-  if (!Number.isInteger(from) || !Number.isInteger(to) || from > to) {
-    list.innerHTML = '<li class="avl-empty">Enter a year range where From is not after To.</li>';
+  const body = document.getElementById('avlResults');
+  const stats = document.getElementById('avlRangeStats');
+  if (!body) return;
+
+  let hits;
+  if (leaseSearch) {
+    // Searching ignores the year range: walk the index in date order and keep matches
+    hits = leaseIndex.inOrder().filter((n) =>
+      [n.data.lease_id, n.data.mine_name, n.data.mine_id, n.data.company_name]
+        .some((f) => String(f || '').toLowerCase().includes(leaseSearch))
+    );
+    if (stats) stats.textContent = `${hits.length} lease${hits.length === 1 ? '' : 's'} match “${leaseSearch}” (year range ignored while searching)`;
+    setSearchCount(hits.length, leaseIndex.size());
+  } else if (leaseDateRange) {
+    hits = leaseIndex.rangeQuery(leaseDateRange.min, leaseDateRange.max);
+    if (stats) stats.textContent = `${hits.length} of ${leaseIndex.size()} indexed leases ${leaseDateRange.text}`;
+  } else {
+    const from = Number(document.getElementById('avlFromYear')?.value);
+    const to = Number(document.getElementById('avlToYear')?.value);
+    if (!Number.isInteger(from) || !Number.isInteger(to) || from > to) {
+      body.innerHTML = '<tr class="search-empty"><td colspan="5">Enter a year range where From is not after To.</td></tr>';
+      if (stats) stats.textContent = '';
+      return;
+    }
+    // "|" sorts after any lease id character, so this upper bound covers the whole last year
+    hits = leaseIndex.rangeQuery(`${from}-01-01`, `${to}-12-31|~`);
+    if (stats) stats.textContent = `${hits.length} of ${leaseIndex.size()} indexed leases end between ${from} and ${to}`;
+  }
+
+  if (hits.length === 0) {
+    body.innerHTML = leaseSearch
+      ? `<tr class="search-empty"><td colspan="5">No leases match “${escapeHtml(leaseSearch)}”. <button type="button" class="btn-link-inline" data-clear-search>Clear search</button></td></tr>`
+      : '<tr class="search-empty"><td colspan="5">No leases in the index end in this range.</td></tr>';
     return;
   }
-  // "|" sorts after any lease id character, so this upper bound covers the whole last year
-  const hits = leaseIndex.rangeQuery(`${from}-01-01`, `${to}-12-31|~`);
-  list.innerHTML = hits.length
-    ? hits
-        .map((n) => `<li><span class="avl-date">${escapeHtml(n.data.valid_till)}</span><span class="avl-lease">${escapeHtml(n.data.lease_id)}</span><span class="avl-company">${escapeHtml(n.data.company_name)}</span></li>`)
-        .join('')
-    : `<li class="avl-empty">No leases in the index expire between ${from} and ${to}.</li>`;
+
+  body.innerHTML = hits
+    .map((n) => {
+      const l = n.data;
+      const years = yearsUntil(l.valid_till);
+      const left = years < 0 ? 'Expired' : years.toFixed(1);
+      const attrs = l.mine_id ? ` data-mine-id="${escapeHtml(l.mine_id)}" tabindex="0" title="Open ${escapeHtml(l.mine_name)} in the database"` : '';
+      return `<tr${attrs}>
+        <td class="mono">${escapeHtml(l.lease_id)}</td>
+        <td>${escapeHtml(l.mine_name || '—')}</td>
+        <td>${escapeHtml(l.company_name)}</td>
+        <td class="mono">${escapeHtml(l.valid_till)}</td>
+        <td class="num${years < 5 ? ' soon' : ''}">${left}</td>
+      </tr>`;
+    })
+    .join('');
+  if (leaseSearch) highlightMatches(body, leaseSearch);
+}
+
+/** Show a mine in the database view's mines tab with its dossier open */
+function openMineInDatabase(mineId) {
+  const mine = currentMinesList.find((m) => m.mineId === mineId);
+  if (!mine) return;
+  switchView('database', true);
+  if (activeEntityTab !== 'mines') {
+    document.querySelector('.entity-tab-btn[data-tab="mines"]')?.click();
+  }
+  selectMine(mine);
+  document.querySelector(`#masterTableTbody tr[data-mine-id="${CSS.escape(mineId)}"]`)?.scrollIntoView({ block: 'center' });
 }
 
 // SQL console history: two stacks give undo / redo over executed queries
@@ -1958,265 +2027,6 @@ async function executeSqlQuery(query, resultsContainer) {
 }
 
 // ============================================================================
-// 13. Archival Publications & Past Reports Controller
-// ============================================================================
-const ARCHIVAL_PUBLICATIONS_DATA = [
-  {
-    id: 'PUB-2026-01',
-    title: 'Annual Iron Ore Production & Dispatch Ledger',
-    jurisdiction: 'Odisha (Keonjhar)',
-    period: 'FY 2025–26',
-    meta: 'Odisha (Keonjhar)  •  FY 2025–26',
-    status: 'VERIFIED',
-    registryNo: 'IBM/PUB/2026/041',
-    date: '15 Jan 2026',
-    pages: 42,
-    size: '4.8 MB',
-    format: 'PDF',
-    summary: 'Audited gross production, grade distribution (64.2% Fe Hematite), environmental dispatch permits, and royalty remittances for the Keonjhar Iron Ore Sector.',
-    metrics: [
-      { key: 'Gross Extracted Output', val: '48.20 Million Metric Tonnes' },
-      { key: 'Dispatch Clearance Pass', val: '100% Biometric e-Transit Pass Verified' },
-      { key: 'Net Royalty Remittance', val: '₹1,420.84 Crores to State Treasury' },
-      { key: 'Regulatory Compliance', val: '99.8% IBM Benchmark Index' }
-    ]
-  },
-  {
-    id: 'PUB-2026-02',
-    title: 'Concession Validity & Expiry Timeline Review',
-    jurisdiction: 'Pan-India',
-    period: 'Q2 2026',
-    meta: 'Pan-India  •  Q2 2026',
-    status: 'VERIFIED',
-    registryNo: 'IBM/PUB/2026/028',
-    date: '02 Apr 2026',
-    pages: 68,
-    size: '6.2 MB',
-    format: 'PDF',
-    summary: 'National audit of 842 major mineral concessions under Section 8A of the MMDR Act, flagging upcoming 2030 auction transitions and compliance clearances.',
-    metrics: [
-      { key: 'Audited Concession Leases', val: '842 Active Major Mineral Leases' },
-      { key: 'Expiring Within 5-Yr Cycle', val: '42 Concessions Scheduled for Re-Auction' },
-      { key: 'Protected Compliant Leases', val: '780 Compliant Leases Protected' },
-      { key: 'Reconciliation Status', val: 'National Registry Cleared' }
-    ]
-  },
-  {
-    id: 'PUB-2025-03',
-    title: 'Copper & Multi-Metal Reserve Extraction Index',
-    jurisdiction: 'Rajasthan (Khetri)',
-    period: 'Bi-Annual 2025',
-    meta: 'Rajasthan (Khetri)  •  Bi-Annual 2025',
-    status: 'VERIFIED',
-    registryNo: 'IBM/PUB/2025/119',
-    date: '18 Nov 2025',
-    pages: 36,
-    size: '3.9 MB',
-    format: 'PDF',
-    summary: 'Sub-surface geological extraction log, chalcopyrite ore beneficiation yields, underground shaft structural monitoring, and tailings pond safety compliance.',
-    metrics: [
-      { key: 'Processed Copper Ore', val: '18,450 Metric Tonnes (2.4% Cu Grade)' },
-      { key: 'Smelter Recovery Ratio', val: '94.2% Theoretical Recovery' },
-      { key: 'Underground Active Shafts', val: '4 Fully Monitored Shafts' },
-      { key: 'Tailings Stability Index', val: 'Zero-Seepage Certified' }
-    ]
-  },
-  {
-    id: 'PUB-2025-04',
-    title: 'Bauxite Lease Boundary & Buffer Overlap Report',
-    jurisdiction: 'Odisha (Koraput)',
-    period: 'Annual 2025',
-    meta: 'Odisha (Koraput)  •  Annual 2025',
-    status: 'VERIFIED',
-    registryNo: 'IBM/PUB/2025/084',
-    date: '10 Dec 2025',
-    pages: 54,
-    size: '5.4 MB',
-    format: 'PDF',
-    summary: 'DGPS and satellite cadastral boundary verification over the Panchpatmali bauxite plateau, validating 50-meter buffer demarcations against tribal and forest reserves.',
-    metrics: [
-      { key: 'DGPS Validated Area', val: '1,845.00 Hectares (Panchpatmali Ridge)' },
-      { key: 'Boundary Pillars Checked', val: '100% Boundary Pillars Georeferenced' },
-      { key: 'Buffer Zone Verification', val: 'Zero Encroachment Beyond Concession' },
-      { key: 'Environmental Status', val: 'Stage-II Forest Clearance Compliant' }
-    ]
-  },
-  {
-    id: 'PUB-2025-05',
-    title: 'Cross-State Mineral Royalty Collection Reconciliation',
-    jurisdiction: 'Karnataka & Chhattisgarh',
-    period: 'FY 2024–25',
-    meta: 'Karnataka & Chhattisgarh  •  FY 2024–25',
-    status: 'VERIFIED',
-    registryNo: 'IBM/PUB/2025/002',
-    date: '28 Mar 2025',
-    pages: 82,
-    size: '8.1 MB',
-    format: 'PDF',
-    summary: 'Tripartite inter-state reconciliation report covering District Mineral Foundation (DMF) and National Mineral Exploration Trust (NMET) cess disbursements.',
-    metrics: [
-      { key: 'Reconciled Royalty Amount', val: '₹2,845.60 Crores Reconciled' },
-      { key: 'DMF Welfare Allocation', val: '₹1,980.20 Crores to Mining Districts' },
-      { key: 'NMET Exploration Fund', val: '₹142.28 Crores for Greenfield Basins' },
-      { key: 'Audit Discrepancy Margin', val: '0.00% (Full Settlement Verified)' }
-    ]
-  }
-];
-
-let activeSelectedPublication = ARCHIVAL_PUBLICATIONS_DATA[0];
-
-async function initArchivalReports() {
-  const container = document.getElementById('reportsListContainer');
-  const pdfModal = document.getElementById('pdfPreviewModal');
-  const btnClosePdfModal = document.getElementById('btnClosePdfModal');
-  const btnPrintPdfDoc = document.getElementById('btnPrintPdfDoc');
-  const btnDownloadPdfDoc = document.getElementById('btnDownloadPdfDoc');
-
-  // Render initial records
-  renderPublicationsList(ARCHIVAL_PUBLICATIONS_DATA);
-
-  // Fetch live reports from relational backend
-  try {
-    const res = await apiService.getReports();
-    if (res.success && Array.isArray(res.data) && res.data.length > 0) {
-      ARCHIVAL_PUBLICATIONS_DATA.splice(0, ARCHIVAL_PUBLICATIONS_DATA.length, ...res.data);
-      renderPublicationsList(ARCHIVAL_PUBLICATIONS_DATA);
-    }
-  } catch (err) {
-    console.warn('API /api/reports fetch fallback:', err);
-  }
-
-  // Close modal handler
-  if (btnClosePdfModal && pdfModal) {
-    btnClosePdfModal.addEventListener('click', () => {
-      pdfModal.close();
-    });
-  }
-
-  // Print Document handler
-  if (btnPrintPdfDoc) {
-    btnPrintPdfDoc.addEventListener('click', () => {
-      window.print();
-    });
-  }
-
-  // Download PDF file handler
-  if (btnDownloadPdfDoc) {
-    btnDownloadPdfDoc.addEventListener('click', () => {
-      if (activeSelectedPublication) {
-        downloadPublicationFile(activeSelectedPublication);
-      }
-    });
-  }
-
-}
-
-function renderPublicationsList(list) {
-  const container = document.getElementById('reportsListContainer');
-  if (!container) return;
-
-  container.innerHTML = '';
-
-  if (list.length === 0) {
-    container.innerHTML = `<div style="padding: 40px; text-align: center; color: var(--text-muted); font-size: 0.9rem;">No archival publications matching filter.</div>`;
-    return;
-  }
-
-  list.forEach((pub) => {
-    const article = document.createElement('article');
-    article.className = 'report-row';
-    article.dataset.id = pub.id;
-    article.innerHTML = `
-      <div class="report-left-col">
-        <h2 class="report-item-title">${escapeHtml(pub.title)}</h2>
-        <div class="report-item-meta">
-          <span>${escapeHtml(pub.jurisdiction)}</span>
-          <span class="meta-separator">&bull;</span>
-          <span>${escapeHtml(pub.period)}</span>
-        </div>
-      </div>
-      <div class="report-right-col">
-        <button type="button" class="btn-download-pdf" aria-label="Download ${escapeHtml(pub.title)}">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="7 10 12 15 17 10"></polyline>
-            <line x1="12" y1="15" x2="12" y2="3"></line>
-          </svg>
-          <span>Download</span>
-        </button>
-      </div>
-    `;
-
-    // Row opens the preview; the button downloads directly
-    article.addEventListener('click', (e) => {
-      if (e.target.closest('.btn-download-pdf')) {
-        e.stopPropagation();
-        downloadPublicationFile(pub);
-        return;
-      }
-      openPublicationInspector(pub);
-    });
-
-    container.appendChild(article);
-  });
-}
-
-function openPublicationInspector(pub) {
-  activeSelectedPublication = pub;
-  const pdfModal = document.getElementById('pdfPreviewModal');
-  if (!pdfModal) return;
-
-  document.getElementById('pdfDocTitle').textContent = pub.title;
-  document.getElementById('pdfDocMeta').textContent = `${pub.registryNo} • ${pub.jurisdiction} • ${pub.period}`;
-  document.getElementById('pdfDocSummary').textContent = pub.summary;
-
-  const metricsGrid = document.getElementById('pdfMetricsGrid');
-  if (metricsGrid && Array.isArray(pub.metrics)) {
-    metricsGrid.innerHTML = pub.metrics.map((m) => `
-      <div class="pdf-metric-card">
-        <span class="pdf-metric-key">${escapeHtml(m.key)}</span>
-        <span class="pdf-metric-val">${escapeHtml(m.val)}</span>
-      </div>
-    `).join('');
-  }
-
-  pdfModal.showModal();
-}
-
-function downloadPublicationFile(pub) {
-  const content = `MINERVA — Indian Mineral Resource Management Database
-${'='.repeat(60)}
-Document:      ${pub.title}
-Registry no.:  ${pub.registryNo}
-Jurisdiction:  ${pub.jurisdiction}
-Period:        ${pub.period}
-Date:          ${pub.date}
-
-SUMMARY
-${pub.summary}
-
-FIGURES
-${pub.metrics.map((m) => `* ${m.key.padEnd(28)}: ${m.val}`).join('\n')}
-`;
-
-  const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `MINERVA_${pub.id}_${pub.title.replace(/\s+/g, '_')}.txt`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-
-  showToast(`Downloaded ${pub.title}`, 'success');
-}
-
-// ============================================================================
-// 14. Application Boot
-// ============================================================================
-
-// ============================================================================
 // 13b. Auth Workstation (Prompt 1 Frontend Interactions)
 // ============================================================================
 // Demo accounts. PINs can be changed through "Forgot PIN?" for the current page session.
@@ -2271,7 +2081,7 @@ function initAuthWorkstation() {
       if (account && passVal === account.pin) {
         showToast(`Welcome, ${account.name}`, 'success');
         markAuthenticated();
-        switchView('database', true);
+        switchView(takePostLoginView(), true);
       } else if (errBanner) {
         errBanner.classList.remove('hidden');
       }
@@ -2361,23 +2171,1029 @@ document.addEventListener('DOMContentLoaded', () => {
   if (isAuthenticated()) queueMineAlerts();
   initGeospatialMap();
   initDatabaseExplorer();
-  initArchivalReports();
   initLeaseExpiryIndex();
   initAuthWorkstation();
+  initDsaView();
 
-  // Check URL pathname or hash for direct view routing
-  const path = window.location.pathname;
-  const hash = window.location.hash;
-
-  if (path === '/database' || hash === '#database' || path.includes('database.html')) {
-    switchView('database', false);
-  } else if (path === '/reports' || hash === '#reports' || path.includes('reports.html')) {
-    switchView('reports', false);
-  } else if (path === '/auth' || hash === '#auth' || path.includes('auth.html') || !isAuthenticated()) {
-    // Login page is the default entry point
-    switchView('auth', false);
-  } else {
-    switchView('map', false);
-  }
+  // Direct links: #map, #database, #leases (#reports), #dsa
+  const fromHash = resolveView(window.location.hash.replace('#', ''));
+  const fromPath = resolveView(window.location.pathname.replace(/^\/|\.html$/g, ''));
+  // Signed out with no deep link: just show the login (sign-in then goes to the database)
+  switchView(fromHash || fromPath || (isAuthenticated() ? 'map' : 'auth'), false);
 });
 
+
+// ============================================================================
+// 12. Global search: the scope follows the open view
+// ============================================================================
+const ENTITY_SCOPE = {
+  mines: 'Mines',
+  minerals: 'Minerals',
+  locations: 'Places',
+  companies: 'Companies',
+  leases: 'Leases',
+  production: 'Production',
+};
+
+let suggestItems = [];
+let suggestIndex = -1;
+// The query the visible suggestion list was built for
+let suggestQuery = '';
+
+const searchInput = () => document.getElementById('globalSearchInput');
+const searchText = () => (searchInput()?.value || '').trim();
+
+function searchScope() {
+  if (currentView === 'database') {
+    const label = ENTITY_SCOPE[activeEntityTab] || 'Records';
+    return {
+      label,
+      placeholder: activeEntityTab === 'mines' ? 'Filter mines by name, mineral, place or lessee' : `Filter ${label.toLowerCase()}`,
+    };
+  }
+  if (currentView === 'leases') return { label: 'Leases', placeholder: 'Search leases by ID, mine or company' };
+  if (currentView === 'dsa') return { label: 'Concepts', placeholder: 'Search concepts, e.g. heap or shortest path' };
+  return { label: 'Mines', placeholder: 'Find a mine by name, mineral, place or lessee' };
+}
+
+function updateSearchScope() {
+  const { label, placeholder } = searchScope();
+  const chip = document.getElementById('searchScope');
+  if (chip) chip.textContent = label;
+  const input = searchInput();
+  if (input) {
+    input.placeholder = placeholder;
+    input.setAttribute('aria-label', `Search ${label.toLowerCase()}`);
+  }
+}
+
+function initSearch() {
+  const input = searchInput();
+  const clearBtn = document.getElementById('searchClearBtn');
+  const kbd = document.getElementById('searchKbd');
+  const toggleBtn = document.getElementById('searchToggleBtn');
+  const suggest = document.getElementById('searchSuggest');
+  if (!input) return;
+
+  const isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+  if (kbd) kbd.textContent = isMac ? '⌘K' : 'Ctrl K';
+
+  const focusSearch = () => {
+    document.body.classList.add('search-open');
+    toggleBtn?.setAttribute('aria-expanded', 'true');
+    input.focus();
+    input.select();
+  };
+
+  window.addEventListener('keydown', (e) => {
+    if (document.body.classList.contains('auth-mode')) return;
+    const typing = e.target.closest?.('input, textarea, select, [contenteditable="true"]');
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      focusSearch();
+    } else if (e.key === '/' && !typing && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      focusSearch();
+    }
+  });
+
+  let debounce = null;
+  input.addEventListener('input', () => {
+    updateSearchChrome();
+    clearTimeout(debounce);
+    debounce = setTimeout(() => dispatchSearchQuery(searchText(), false), 150);
+  });
+
+  input.addEventListener('keydown', (e) => {
+    const open = suggest && !suggest.classList.contains('hidden') && suggestItems.length > 0;
+    if (open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      e.preventDefault();
+      const step = e.key === 'ArrowDown' ? 1 : -1;
+      suggestIndex = (suggestIndex + step + suggestItems.length) % suggestItems.length;
+      renderSuggestActive();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      clearTimeout(debounce);
+      dispatchSearchQuery(searchText(), true);
+    } else if (e.key === 'Escape') {
+      if (searchText()) {
+        clearSearch();
+      } else {
+        input.blur();
+      }
+    }
+  });
+
+  input.addEventListener('blur', () => {
+    setTimeout(() => {
+      // Focus came straight back (e.g. the clear button refocuses the input): keep the bar open
+      if (document.activeElement === input) return;
+      hideSuggestions();
+      if (!searchText()) {
+        document.body.classList.remove('search-open');
+        toggleBtn?.setAttribute('aria-expanded', 'false');
+      }
+    }, 150);
+  });
+
+  clearBtn?.addEventListener('click', () => {
+    clearSearch();
+    input.focus();
+  });
+
+  toggleBtn?.addEventListener('click', focusSearch);
+
+  // Pick a suggestion with the mouse (mousedown so the input's blur doesn't hide the list first)
+  suggest?.addEventListener('mousedown', (e) => {
+    const li = e.target.closest('[data-index]');
+    if (!li) return;
+    e.preventDefault();
+    chooseMine(suggestItems[Number(li.dataset.index)]);
+  });
+
+  // Any "Clear search" link inside an empty-results message
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('[data-clear-search]')) clearSearch();
+  });
+
+  // Lease rows open with Enter as well as a click
+  document.getElementById('avlResults')?.addEventListener('keydown', (e) => {
+    const row = e.target.closest('tr[data-mine-id]');
+    if (row && e.key === 'Enter') openMineInDatabase(row.dataset.mineId);
+  });
+
+  updateSearchScope();
+}
+
+function updateSearchChrome() {
+  const has = searchText().length > 0;
+  document.getElementById('searchClearBtn')?.classList.toggle('hidden', !has);
+  document.getElementById('searchKbd')?.classList.toggle('hidden', has);
+  if (!has) setSearchCount(null);
+}
+
+/** "3 of 8" at the right of the bar while a query is active */
+function setSearchCount(shown, total) {
+  const el = document.getElementById('searchCount');
+  if (!el) return;
+  if (shown === null || !searchText()) {
+    el.classList.add('hidden');
+    return;
+  }
+  el.textContent = `${shown} of ${total}`;
+  el.classList.remove('hidden');
+}
+
+function dispatchSearchQuery(query, submitted) {
+  const q = query.toLowerCase();
+  updateSearchChrome();
+  if (currentView !== 'map') hideSuggestions();
+
+  if (currentView === 'database') {
+    searchQuery = query;
+    filterDatabaseView(q);
+  } else if (currentView === 'leases') {
+    leaseSearch = q;
+    renderLeaseRange();
+  } else if (currentView === 'dsa') {
+    dsaFilter = q;
+    renderDsaList();
+  } else if (currentView === 'map') {
+    mapSearch(q, submitted);
+  }
+}
+
+function filterDatabaseView(q) {
+  const tbody = document.getElementById('masterTableTbody');
+  if (!tbody) return;
+  if (activeEntityTab === 'mines') {
+    const list = filterMines(q);
+    renderMinesTable(list);
+    if (q) setSearchCount(list.length, currentMinesList.length);
+  } else {
+    tbody.querySelector('tr.search-empty')?.remove();
+    const rows = [...tbody.querySelectorAll('tr')];
+    let shown = 0;
+    rows.forEach((row) => {
+      const hit = !q || row.textContent.toLowerCase().includes(q);
+      row.classList.toggle('hidden', !hit);
+      if (hit) shown++;
+    });
+    if (q) {
+      setSearchCount(shown, rows.length);
+      if (shown === 0) {
+        const cols = document.querySelectorAll('#masterGridTable thead th').length || 1;
+        tbody.insertAdjacentHTML('beforeend', `<tr class="search-empty"><td colspan="${cols}">No ${escapeHtml((ENTITY_SCOPE[activeEntityTab] || 'records').toLowerCase())} match “${escapeHtml(q)}”. <button type="button" class="btn-link-inline" data-clear-search>Clear search</button></td></tr>`);
+      }
+    }
+  }
+  highlightMatches(tbody, q);
+}
+
+/** Re-run the current query after a table re-renders (e.g. switching entity tabs) */
+function reapplySearch() {
+  if (currentView === 'database' && searchText()) dispatchSearchQuery(searchText(), false);
+}
+
+function mapSearch(q, submitted) {
+  if (!q) {
+    hideSuggestions();
+    return;
+  }
+  const matches = filterMines(q);
+  setSearchCount(matches.length, currentMinesList.length);
+  if (submitted) {
+    // Only trust the highlighted suggestion if the list was built for this exact query
+    const pick = (suggestQuery === q && suggestItems[suggestIndex]) || matches[0];
+    if (pick) chooseMine(pick);
+    else showToast(`No mine matches “${q}”`, 'warning');
+    return;
+  }
+  showSuggestions(matches.slice(0, 5), q);
+}
+
+function showSuggestions(list, q) {
+  const box = document.getElementById('searchSuggest');
+  if (!box) return;
+  suggestItems = list;
+  suggestQuery = q;
+  suggestIndex = list.length ? 0 : -1;
+  box.innerHTML = list.length
+    ? list
+        .map((m, i) => `<li role="option" id="suggest-${i}" data-index="${i}" class="search-suggest-item">
+            <span class="suggest-name">${highlightText(m.mineName, q)}</span>
+            <span class="suggest-meta">${highlightText(m.primaryMineral, q)} · ${highlightText(m.stateDistrict, q)}</span>
+          </li>`)
+        .join('')
+    : `<li class="search-suggest-empty">No mines match “${escapeHtml(q)}”</li>`;
+  box.classList.remove('hidden');
+  searchInput()?.setAttribute('aria-expanded', 'true');
+  renderSuggestActive();
+}
+
+function renderSuggestActive() {
+  const box = document.getElementById('searchSuggest');
+  box?.querySelectorAll('[data-index]').forEach((li) => {
+    const on = Number(li.dataset.index) === suggestIndex;
+    li.classList.toggle('active', on);
+    li.setAttribute('aria-selected', String(on));
+  });
+  const input = searchInput();
+  if (input) {
+    if (suggestIndex >= 0) input.setAttribute('aria-activedescendant', `suggest-${suggestIndex}`);
+    else input.removeAttribute('aria-activedescendant');
+  }
+}
+
+function hideSuggestions() {
+  document.getElementById('searchSuggest')?.classList.add('hidden');
+  searchInput()?.setAttribute('aria-expanded', 'false');
+  searchInput()?.removeAttribute('aria-activedescendant');
+  suggestItems = [];
+  suggestQuery = '';
+  suggestIndex = -1;
+}
+
+function chooseMine(mine) {
+  if (!mine) return;
+  hideSuggestions();
+  searchInput()?.blur();
+  locateMineOnMap(mine);
+}
+
+function clearSearch() {
+  const input = searchInput();
+  if (input) input.value = '';
+  dispatchSearchQuery('', false);
+}
+
+/** Called on every view switch: empty the bar and undo any filtering it applied */
+function resetSearchForView() {
+  updateSearchScope();
+  const input = searchInput();
+  if (input) input.value = '';
+  if (searchQuery) {
+    searchQuery = '';
+    filterDatabaseView('');
+  }
+  if (leaseSearch) {
+    leaseSearch = '';
+    renderLeaseRange();
+  }
+  if (dsaFilter) {
+    dsaFilter = '';
+    renderDsaList();
+  }
+  hideSuggestions();
+  updateSearchChrome();
+  document.body.classList.remove('search-open');
+}
+
+/** Escaped text with the first match of q wrapped in <mark> */
+function highlightText(text, q) {
+  const value = String(text ?? '');
+  const i = q ? value.toLowerCase().indexOf(q) : -1;
+  if (i === -1) return escapeHtml(value);
+  return `${escapeHtml(value.slice(0, i))}<mark class="search-hit">${escapeHtml(value.slice(i, i + q.length))}</mark>${escapeHtml(value.slice(i + q.length))}`;
+}
+
+/** Wrap every match of q in the container's text (skipping buttons and icons); removes old marks first */
+function highlightMatches(container, q) {
+  if (!container) return;
+  container.querySelectorAll('mark.search-hit').forEach((m) => m.replaceWith(document.createTextNode(m.textContent)));
+  container.normalize();
+  if (!q) return;
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
+    acceptNode: (node) =>
+      node.parentElement.closest('button, svg') || !node.nodeValue.toLowerCase().includes(q)
+        ? NodeFilter.FILTER_REJECT
+        : NodeFilter.FILTER_ACCEPT,
+  });
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  nodes.forEach((node) => {
+    const text = node.nodeValue;
+    const lower = text.toLowerCase();
+    const frag = document.createDocumentFragment();
+    let from = 0;
+    let at;
+    while ((at = lower.indexOf(q, from)) !== -1) {
+      frag.append(text.slice(from, at));
+      const mark = document.createElement('mark');
+      mark.className = 'search-hit';
+      mark.textContent = text.slice(at, at + q.length);
+      frag.append(mark);
+      from = at + q.length;
+    }
+    frag.append(text.slice(from));
+    node.replaceWith(frag);
+  });
+}
+
+// ============================================================================
+// 13. DSA guide: renders from dsa/registry.js
+// ============================================================================
+const dsaLive = { bst: null, route: null, mst: null };
+let dsaSelected = DSA_CONCEPTS[0].id;
+let dsaFilter = '';
+const dsaSourceCache = new Map();
+
+function initDsaView() {
+  document.getElementById('dsaList')?.addEventListener('click', (e) => {
+    const item = e.target.closest('[data-dsa-id]');
+    if (!item) return;
+    dsaSelected = item.dataset.dsaId;
+    renderDsaView();
+  });
+}
+
+function dsaMatches(c, q) {
+  return !q || [c.name, c.group, c.summary, c.usedIn, c.file].some((f) => f.toLowerCase().includes(q));
+}
+
+function renderDsaList() {
+  const list = document.getElementById('dsaList');
+  if (!list) return;
+  const visible = DSA_CONCEPTS.filter((c) => dsaMatches(c, dsaFilter));
+  if (dsaFilter) setSearchCount(visible.length, DSA_CONCEPTS.length);
+  if (visible.length === 0) {
+    list.innerHTML = `<p class="dsa-muted">No concepts match “${escapeHtml(dsaFilter)}”. <button type="button" class="btn-link-inline" data-clear-search>Clear search</button></p>`;
+    return;
+  }
+  list.innerHTML = DSA_GROUPS.map((group) => {
+    const items = visible.filter((c) => c.group === group);
+    if (items.length === 0) return '';
+    return `<div class="dsa-group">
+        <h2 class="dsa-group-title">${escapeHtml(group)}</h2>
+        ${items
+          .map((c) => `<button type="button" class="dsa-item${c.id === dsaSelected ? ' active' : ''}" data-dsa-id="${c.id}"${c.id === dsaSelected ? ' aria-current="true"' : ''}>${highlightText(c.name, dsaFilter)}</button>`)
+          .join('')}
+      </div>`;
+  }).join('');
+}
+
+function renderDsaView() {
+  renderDsaList();
+  renderDsaDetail(DSA_CONCEPTS.find((c) => c.id === dsaSelected) || DSA_CONCEPTS[0]);
+}
+
+function renderDsaDetail(c) {
+  const box = document.getElementById('dsaDetail');
+  if (!box) return;
+  const live = DSA_LIVE[c.id]?.();
+  const liveHtml = Array.isArray(live)
+    ? `<dl class="dsa-live">${live.map(([k, v]) => `<div><dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd></div>`).join('')}</dl>`
+    : `<p class="dsa-muted">${escapeHtml(DSA_LIVE_HINT[c.id] || 'Nothing recorded yet.')}</p>`;
+
+  box.innerHTML = `
+    <p class="dsa-kicker">${escapeHtml(c.group)}</p>
+    <h2 class="dsa-title">${escapeHtml(c.name)}</h2>
+    <p class="dsa-summary">${escapeHtml(c.summary)}</p>
+
+    <section class="dsa-section dsa-used">
+      <div>
+        <h3>Where MINERVA uses it</h3>
+        <p>${escapeHtml(c.usedIn)}</p>
+      </div>
+      <button type="button" class="btn-bst-search" id="dsaTryBtn">Try it</button>
+    </section>
+
+    <section class="dsa-section">
+      <h3>Operations</h3>
+      <table class="dsa-ops">
+        <thead><tr><th>Operation</th><th>Time</th><th>Space</th></tr></thead>
+        <tbody>${c.ops.map(([op, t, sp]) => `<tr><td>${escapeHtml(op)}</td><td class="mono">${escapeHtml(t)}</td><td class="mono">${escapeHtml(sp)}</td></tr>`).join('')}</tbody>
+      </table>
+    </section>
+
+    <section class="dsa-section">
+      <h3>Demo</h3>
+      <div class="dsa-demo" id="dsaDemo"></div>
+    </section>
+
+    <section class="dsa-section">
+      <h3>In this session</h3>
+      ${liveHtml}
+    </section>
+
+    <section class="dsa-section">
+      <h3>Source <span class="dsa-file">dsa/${escapeHtml(c.file)} · ${escapeHtml(c.symbol)}</span></h3>
+      <pre class="dsa-code" id="dsaCode">Loading…</pre>
+    </section>`;
+
+  document.getElementById('dsaTryBtn').addEventListener('click', () => DSA_TRY[c.id]?.());
+  DSA_DEMOS[c.id]?.(document.getElementById('dsaDemo'));
+  loadDsaSource(c);
+}
+
+async function loadDsaSource(c) {
+  const pre = document.getElementById('dsaCode');
+  try {
+    if (!dsaSourceCache.has(c.file)) dsaSourceCache.set(c.file, await apiService.getDsaSource(c.file));
+    // The user may have picked another concept while this loaded
+    if (document.getElementById('dsaCode') !== pre) return;
+    pre.textContent = excerptSymbol(dsaSourceCache.get(c.file), c.symbol);
+  } catch (err) {
+    pre.textContent = `Could not load dsa/${c.file}: ${err.message}`;
+  }
+}
+
+/** The declaration of `symbol` (class, function or method) with its doc comment, brace-matched */
+function excerptSymbol(src, symbol, maxLines = 48) {
+  const lines = src.split('\n');
+  const decl = new RegExp(`^\\s*(export\\s+)?(default\\s+)?(class|function)\\s+${symbol}\\b|^\\s+${symbol}\\s*\\(`);
+  const start = lines.findIndex((l) => decl.test(l));
+  if (start === -1) return lines.slice(0, maxLines).join('\n');
+
+  let end = start;
+  let depth = 0;
+  let opened = false;
+  for (let i = start; i < lines.length; i++) {
+    for (const ch of lines[i]) {
+      if (ch === '{') {
+        depth++;
+        opened = true;
+      } else if (ch === '}') {
+        depth--;
+      }
+    }
+    end = i;
+    if (opened && depth <= 0) break;
+  }
+
+  let top = start;
+  while (top > 0 && /^\s*(\/\*\*|\*|\/\/)/.test(lines[top - 1])) top--;
+
+  const out = lines.slice(top, end + 1);
+  const indent = Math.min(...out.filter((l) => l.trim()).map((l) => l.match(/^\s*/)[0].length));
+  const trimmed = out.map((l) => l.slice(indent));
+  return trimmed.length > maxLines ? `${trimmed.slice(0, maxLines).join('\n')}\n// …` : trimmed.join('\n');
+}
+
+// --- Live numbers: real state of the running app -----------------------------
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+function mstLive(algorithm) {
+  const r = dsaLive.mst;
+  if (!r || r.algorithm !== algorithm) return null;
+  const rows = [
+    ['Network length', `${r.totalKm.toLocaleString()} km`],
+    ['Links chosen', r.edges.length],
+    ['Linking every pair instead', `${r.allPairsKm.toLocaleString()} km`],
+  ];
+  if (algorithm === 'kruskal') rows.push(['Links skipped (would close a loop)', r.cycleEdgesRejected]);
+  return rows;
+}
+
+const DSA_LIVE = {
+  stack: () => [
+    ['Queries in the history stack', sqlHistory.history.size()],
+    ['Queries in the redo stack', sqlHistory.redo.size()],
+  ],
+  queue: () => [
+    ['Alerts in the history queue', alertQueue.log.size()],
+    ['Queue capacity', alertQueue.logLimit],
+  ],
+  'priority-queue': () => [
+    ['Alerts waiting in the heap', alertQueue.pending.size()],
+    ['Showing now', alertQueue.current ? `${alertQueue.current.label}: ${alertQueue.current.message}` : 'nothing'],
+  ],
+  bst: () =>
+    dsaLive.bst && [
+      ['Last search', `${dsaLive.bst.attributeLabel} ${dsaLive.bst.min}–${dsaLive.bst.max}%`],
+      ['Nodes checked', `${dsaLive.bst.bstComparisons} of ${dsaLive.bst.size} (a linear scan checks ${dsaLive.bst.linearComparisons})`],
+      ['Tree height', dsaLive.bst.height],
+    ],
+  avl: () =>
+    leaseIndex.size() > 0 && [
+      ['Leases in the index', leaseIndex.size()],
+      ['Height', leaseIndex.height()],
+      ['Rotations so far', leaseIndex.totalRotations],
+    ],
+  graph: () =>
+    networkState.nodes.length > 0 && [
+      ['Mines (nodes)', networkState.nodes.length],
+      ['Corridors (edges)', networkState.edges.length],
+    ],
+  dijkstra: () => {
+    const r = dsaLive.route;
+    if (!r || !r.reachable) return null;
+    return [
+      ['Last route', `${r.path[0].name} → ${r.path[r.path.length - 1].name}`],
+      ['Length', `${r.distanceKm.toLocaleString()} km in ${plural(r.hops.length, 'hop')}`],
+      ['Mines settled', `${r.nodesSettled} of ${networkState.nodes.length}`],
+    ];
+  },
+  prim: () => mstLive('prim'),
+  kruskal: () => mstLive('kruskal'),
+  'union-find': () => mstLive('kruskal'),
+};
+
+const DSA_LIVE_HINT = {
+  bst: 'Run an assay search on the Minerals tab (or press Try it).',
+  avl: 'Lease data is still loading.',
+  graph: 'Map data is still loading.',
+  dijkstra: 'Find a route on the map (or press Try it).',
+  prim: "Build the minimum network with Prim's on the map (or press Try it).",
+  kruskal: "Build the minimum network with Kruskal's on the map (or press Try it).",
+  'union-find': "Build the minimum network with Kruskal's on the map (or press Try it).",
+};
+
+// --- "Try it": open the feature, already set up ------------------------------
+function setSelectValue(id, value) {
+  const el = document.getElementById(id);
+  if (el && [...el.options].some((o) => o.value === value)) el.value = value;
+}
+
+function openNetworkTab(tab, then) {
+  switchView('map', true);
+  switchNetworkTab(tab);
+  if (!then) return;
+  if (networkState.nodes.length === 0) {
+    showToast('Map data is still loading. Try again in a moment.', 'warning');
+    return;
+  }
+  setTimeout(then, 150);
+}
+
+function runMstWith(algorithm) {
+  const sel = document.getElementById('mstAlgorithm');
+  if (sel) {
+    sel.value = algorithm;
+    sel.dispatchEvent(new Event('change'));
+  }
+  document.getElementById('mstForm')?.requestSubmit();
+}
+
+const DSA_TRY = {
+  stack: () => {
+    switchView('database', true);
+    document.getElementById('sqlConsoleModal')?.showModal();
+    document.getElementById('sqlInput')?.focus();
+  },
+  // The bell menu closes on any outside click, so open it after this click finishes
+  queue: () => setTimeout(openAlertsPanel, 0),
+  'priority-queue': () => setTimeout(openAlertsPanel, 0),
+  bst: () => {
+    switchView('database', true);
+    setSelectValue('bstAttr', 'fe_pct');
+    document.getElementById('bstMin').value = 50;
+    document.getElementById('bstMax').value = 70;
+    if (activeEntityTab === 'minerals') runBstSearch();
+    else document.querySelector('.entity-tab-btn[data-tab="minerals"]')?.click();
+  },
+  avl: () => switchView('leases', true),
+  graph: () => openNetworkTab('route'),
+  dijkstra: () =>
+    openNetworkTab('route', () => {
+      setSelectValue('routeFrom', 'MN-1104');
+      setSelectValue('routeTo', 'MN-0887');
+      document.getElementById('routeForm')?.requestSubmit();
+    }),
+  prim: () => openNetworkTab('mst', () => runMstWith('prim')),
+  kruskal: () => openNetworkTab('mst', () => runMstWith('kruskal')),
+  'union-find': () => openNetworkTab('mst', () => runMstWith('kruskal')),
+};
+
+// --- Step-by-step demos (they use the real dsa/ classes) ----------------------
+function demoShell(container, buttons) {
+  const bar = document.createElement('div');
+  bar.className = 'dsa-demo-controls';
+  const controls = {};
+  buttons.forEach(([key, label, fn]) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'btn-sql-history';
+    b.textContent = label;
+    b.addEventListener('click', fn);
+    bar.append(b);
+    controls[key] = b;
+  });
+  const stage = document.createElement('div');
+  stage.className = 'dsa-demo-stage';
+  const msg = document.createElement('p');
+  msg.className = 'dsa-demo-msg';
+  msg.setAttribute('aria-live', 'polite');
+  container.replaceChildren(bar, stage, msg);
+  return { stage, msg, controls };
+}
+
+const cells = (items, tagOf) =>
+  items
+    .map((v, i) => {
+      const tag = tagOf(i);
+      return `<li class="demo-cell${tag ? ' marked' : ''}">${escapeHtml(v)}${tag ? `<span class="demo-tag">${tag}</span>` : ''}</li>`;
+    })
+    .join('');
+
+function stackDemo(container) {
+  const stack = new Stack();
+  let n = 0;
+  const ui = demoShell(container, [
+    ['push', 'Push', () => {
+      if (stack.size() >= 6) return draw('The demo stops at 6 items. Pop one first.');
+      stack.push(`Q${++n}`);
+      draw(`Pushed Q${n} on top.`);
+    }],
+    ['pop', 'Pop', () => {
+      const v = stack.pop();
+      draw(v ? `Popped ${v}: the last item in is the first out.` : 'The stack is empty.');
+    }],
+  ]);
+  function draw(message) {
+    const items = stack.toArray().reverse();
+    ui.stage.innerHTML = items.length
+      ? `<ol class="demo-stack">${cells(items, (i) => (i === 0 ? 'top' : ''))}</ol>`
+      : '<p class="dsa-muted">Empty</p>';
+    ui.msg.textContent = message;
+  }
+  stack.push(`Q${++n}`);
+  stack.push(`Q${++n}`);
+  draw('Two queries have run. Push runs another; Pop is Undo.');
+}
+
+function queueDemo(container) {
+  const queue = new Queue();
+  let n = 0;
+  const ui = demoShell(container, [
+    ['enqueue', 'Enqueue', () => {
+      if (queue.size() >= 6) return draw('The demo stops at 6 items. Dequeue one first.');
+      queue.enqueue(`A${++n}`);
+      draw(`A${n} joined at the back.`);
+    }],
+    ['dequeue', 'Dequeue', () => {
+      const v = queue.dequeue();
+      draw(v ? `${v} left from the front: first in, first out.` : 'The queue is empty.');
+    }],
+  ]);
+  function draw(message) {
+    const items = queue.toArray();
+    const last = items.length - 1;
+    ui.stage.innerHTML =
+      (items.length
+        ? `<ol class="demo-queue">${cells(items, (i) => (i === 0 && i === last ? 'front · back' : i === 0 ? 'front' : i === last ? 'back' : ''))}</ol>`
+        : '<p class="dsa-muted">Empty</p>') +
+      `<p class="dsa-muted">head index ${queue._head}, tail index ${queue._tail}. Dequeue only moves the head, so nothing shifts.</p>`;
+    ui.msg.textContent = message;
+  }
+  ['A1', 'A2', 'A3'].forEach((v) => queue.enqueue(v));
+  n = 3;
+  draw('Three alerts waiting. The front one leaves first.');
+}
+
+function priorityQueueDemo(container) {
+  const pq = new PriorityQueue();
+  const LETTER = { [AlertPriority.CRITICAL]: 'C', [AlertPriority.WARNING]: 'W', [AlertPriority.INFO]: 'I' };
+  let n = 0;
+  const add = (p) => {
+    const label = `${LETTER[p]}${++n}`;
+    pq.enqueue(label, p);
+    return label;
+  };
+  const ui = demoShell(container, [
+    ['c', 'Add CRITICAL', () => draw(`Added ${add(AlertPriority.CRITICAL)}: it sifts up past less urgent parents.`)],
+    ['w', 'Add WARNING', () => draw(`Added ${add(AlertPriority.WARNING)}.`)],
+    ['i', 'Add INFO', () => draw(`Added ${add(AlertPriority.INFO)}.`)],
+    ['d', 'Dequeue', () => {
+      const v = pq.dequeue();
+      draw(v ? `Took ${v} from index 0: always the most urgent. The last item moved to the root and sifted down.` : 'The heap is empty.');
+    }],
+  ]);
+  function draw(message) {
+    const heap = pq._heap;
+    const toTree = (i) =>
+      i < heap.length ? { id: i, key: heap[i].value, label: `[${i}]`, left: toTree(2 * i + 1), right: toTree(2 * i + 2) } : null;
+    ui.stage.innerHTML = heap.length
+      ? `<ol class="demo-queue demo-array">${cells(heap.map((h) => h.value), (i) => `[${i}]`)}</ol><div class="bst-tree-wrap"><svg class="bst-tree"></svg></div>`
+      : '<p class="dsa-muted">Empty heap</p>';
+    const svg = ui.stage.querySelector('svg');
+    if (svg) {
+      drawTree(svg, toTree(0), {
+        classOf: (node) => (node.id === 0 ? 'match' : 'visited'),
+        keyOf: (node) => node.key,
+        labelOf: (node) => node.label,
+        titleOf: (node) => `${node.key} at index ${node.label}`,
+        colW: 60,
+      });
+    }
+    ui.msg.textContent = `${message} C = critical, W = warning, I = info; the number is arrival order.`;
+  }
+  add(AlertPriority.INFO);
+  add(AlertPriority.WARNING);
+  add(AlertPriority.INFO);
+  add(AlertPriority.CRITICAL);
+  draw('Four alerts arrived in the order I1, W2, I3, C4.');
+}
+
+function treeCompareDemo(container) {
+  const SORTED = [10, 20, 30, 40, 50, 60, 70];
+  const MIXED = [40, 20, 60, 10, 30, 50, 70];
+  let keys = SORTED;
+  let next = 0;
+  let bst;
+  let avl;
+  const reset = () => {
+    bst = new BinarySearchTree();
+    avl = new AVLTree();
+    next = 0;
+  };
+  const insertNext = () => {
+    if (next >= keys.length) return false;
+    const k = keys[next++];
+    bst.insert(k, null);
+    avl.insert(k, null);
+    return k;
+  };
+  const ui = demoShell(container, [
+    ['step', 'Insert next', () => {
+      const k = insertNext();
+      if (k === false) return draw('All keys inserted. Reset to start again.');
+      draw(`Inserted ${k}. AVL: ${describeRotations(avl.lastRotations.map((r) => ({ ...r, pivot: String(r.pivot) })))}.`);
+    }],
+    ['all', 'Insert all', () => {
+      while (insertNext() !== false);
+      draw(`All keys inserted. ${avl.totalRotations} AVL rotations in total.`);
+    }],
+    ['order', 'Use mixed order', () => {
+      keys = keys === SORTED ? MIXED : SORTED;
+      ui.controls.order.textContent = keys === SORTED ? 'Use mixed order' : 'Use sorted order';
+      reset();
+      draw(`Order: ${keys.join(', ')}.`);
+    }],
+    ['reset', 'Reset', () => {
+      reset();
+      draw(`Order: ${keys.join(', ')}.`);
+    }],
+  ]);
+  function draw(message) {
+    ui.stage.innerHTML = `<div class="demo-pair">
+        <div><p class="demo-caption">Binary search tree · height ${bst.height()}</p><div class="bst-tree-wrap"><svg class="bst-tree" data-tree="bst"></svg></div></div>
+        <div><p class="demo-caption">AVL tree · height ${avl.height()}</p><div class="bst-tree-wrap"><svg class="bst-tree" data-tree="avl"></svg></div></div>
+      </div>`;
+    const opts = { classOf: () => 'visited', keyOf: (n) => n.key, labelOf: () => '', titleOf: (n) => String(n.key), colW: 40 };
+    if (bst.size()) drawTree(ui.stage.querySelector('[data-tree="bst"]'), bst.toJSON(), opts);
+    if (avl.size()) {
+      drawTree(ui.stage.querySelector('[data-tree="avl"]'), avl.toJSON(), {
+        ...opts,
+        badgeOf: (n) => (n.balance > 0 ? `+${n.balance}` : String(n.balance)),
+      });
+    }
+    ui.msg.textContent = message;
+  }
+  reset();
+  draw(`Same keys into both trees. Sorted input (${SORTED.join(', ')}) is the worst case for a plain BST.`);
+}
+
+// A small fixed graph for the graph demos
+const DEMO_POS = { A: [40, 50], B: [150, 22], C: [270, 45], D: [60, 160], E: [180, 125], F: [300, 160] };
+const DEMO_EDGES = [
+  ['A', 'B', 4], ['A', 'D', 2], ['B', 'C', 5], ['B', 'E', 3], ['D', 'E', 6],
+  ['C', 'E', 4], ['C', 'F', 7], ['E', 'F', 2], ['B', 'D', 3],
+];
+const edgeKey = (a, b) => (a < b ? `${a}|${b}` : `${b}|${a}`);
+
+function demoGraph() {
+  const g = new Graph();
+  Object.keys(DEMO_POS).forEach((k) => g.addNode(k));
+  DEMO_EDGES.forEach(([a, b, w]) => g.addEdge(a, b, w));
+  return g;
+}
+
+function drawDemoGraph(stage, { nodeClass = () => '', edgeClass = () => '', nodeNote = () => '' } = {}) {
+  const edges = DEMO_EDGES.map(([a, b, w]) => {
+    const [x1, y1] = DEMO_POS[a];
+    const [x2, y2] = DEMO_POS[b];
+    return `<g class="demo-edge ${edgeClass(edgeKey(a, b))}">
+        <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>
+        <text x="${(x1 + x2) / 2}" y="${(y1 + y2) / 2 - 5}">${w}</text>
+      </g>`;
+  }).join('');
+  const nodes = Object.entries(DEMO_POS).map(([id, [x, y]]) => {
+    const note = nodeNote(id);
+    return `<g class="demo-node ${nodeClass(id)}">
+        <circle cx="${x}" cy="${y}" r="14"/>
+        <text x="${x}" y="${y + 4}">${id}</text>
+        ${note !== '' ? `<text class="demo-note" x="${x}" y="${y + 30}">${escapeHtml(note)}</text>` : ''}
+      </g>`;
+  }).join('');
+  stage.innerHTML = `<svg class="demo-graph" viewBox="0 0 340 200" role="img" aria-label="Example graph">${edges}${nodes}</svg>`;
+}
+
+function graphDemo(container) {
+  const g = demoGraph();
+  const ids = Object.keys(DEMO_POS);
+  let at = -1;
+  const ui = demoShell(container, [
+    ['next', 'Next node', () => {
+      at = (at + 1) % ids.length;
+      draw();
+    }],
+  ]);
+  function draw() {
+    const id = ids[at];
+    const nbrs = id ? g.neighbours(id) : new Map();
+    drawDemoGraph(ui.stage, {
+      nodeClass: (n) => (n === id ? 'current' : nbrs.has(n) ? 'reached' : ''),
+      edgeClass: (k) => (id && k.split('|').includes(id) ? 'on' : ''),
+    });
+    ui.stage.insertAdjacentHTML(
+      'beforeend',
+      `<pre class="demo-adj">${ids.map((n) => `${n} → ${[...g.neighbours(n)].map(([v, w]) => `${v} ${w}`).join(', ')}`).join('\n')}</pre>`
+    );
+    ui.msg.textContent = id
+      ? `${id} has ${plural(nbrs.size, 'neighbour')}: reading its adjacency list costs O(${nbrs.size}).`
+      : 'The adjacency list stores, for each node, its neighbours and edge weights.';
+  }
+  draw();
+}
+
+function dijkstraDemo(container) {
+  const g = demoGraph();
+  const run = dijkstra(g, 'A', 'F');
+  const dist = Object.fromEntries(Object.keys(DEMO_POS).map((n) => [n, dijkstra(g, 'A', n).distance]));
+  let shown = 0;
+  const pathEdges = new Set(run.path.slice(1).map((n, i) => edgeKey(run.path[i], n)));
+  const ui = demoShell(container, [
+    ['step', 'Step', () => {
+      if (shown < run.settledOrder.length) shown++;
+      draw();
+    }],
+    ['all', 'Run to F', () => {
+      shown = run.settledOrder.length;
+      draw();
+    }],
+    ['reset', 'Reset', () => {
+      shown = 0;
+      draw();
+    }],
+  ]);
+  function draw() {
+    const settled = new Set(run.settledOrder.slice(0, shown));
+    const done = shown === run.settledOrder.length;
+    drawDemoGraph(ui.stage, {
+      nodeClass: (n) => (done && run.path.includes(n) ? 'current' : settled.has(n) ? 'reached' : ''),
+      edgeClass: (k) => (done && pathEdges.has(k) ? 'on' : ''),
+      nodeNote: (n) => (settled.has(n) ? String(dist[n]) : ''),
+    });
+    if (shown === 0) ui.msg.textContent = 'Find the shortest path from A to F. Each step settles the closest unsettled node.';
+    else if (!done) {
+      const n = run.settledOrder[shown - 1];
+      ui.msg.textContent = `Settled ${n} at distance ${dist[n]} (taken from the front of the priority queue).`;
+    } else {
+      ui.msg.textContent = `F settled: shortest path ${run.path.join(' → ')} = ${run.distance}. ${shown} of 6 nodes were settled.`;
+    }
+  }
+  draw();
+}
+
+function primDemo(container) {
+  const g = demoGraph();
+  const mst = primMST(g, 'A');
+  let shown = 0;
+  const ui = demoShell(container, [
+    ['step', 'Add edge', () => {
+      if (shown < mst.edges.length) shown++;
+      draw();
+    }],
+    ['all', 'Finish', () => {
+      shown = mst.edges.length;
+      draw();
+    }],
+    ['reset', 'Reset', () => {
+      shown = 0;
+      draw();
+    }],
+  ]);
+  function draw() {
+    const chosen = mst.edges.slice(0, shown);
+    const inTree = new Set(['A', ...chosen.flatMap((e) => [e.from, e.to])]);
+    const keys = new Set(chosen.map((e) => edgeKey(e.from, e.to)));
+    drawDemoGraph(ui.stage, {
+      nodeClass: (n) => (inTree.has(n) ? 'reached' : ''),
+      edgeClass: (k) => (keys.has(k) ? 'on' : ''),
+    });
+    if (shown === 0) ui.msg.textContent = 'Start from A. Each step adds the cheapest edge leaving the tree.';
+    else {
+      const e = chosen[shown - 1];
+      const total = chosen.reduce((sum, x) => sum + x.weight, 0);
+      ui.msg.textContent = `Added ${e.from}–${e.to} (${e.weight}). Tree total: ${total}.${shown === mst.edges.length ? ' All 6 nodes connected with 5 edges.' : ''}`;
+    }
+  }
+  draw();
+}
+
+function kruskalDemo(container, showGroups = false) {
+  const g = demoGraph();
+  const sorted = g.edges().sort((a, b) => a.weight - b.weight);
+  let uf;
+  let status;
+  let i;
+  const reset = () => {
+    uf = new UnionFind(Object.keys(DEMO_POS));
+    status = new Map();
+    i = 0;
+  };
+  const step = () => {
+    if (i >= sorted.length || uf.components === 1) return null;
+    const e = sorted[i++];
+    const ok = uf.union(e.from, e.to);
+    status.set(edgeKey(e.from, e.to), ok ? 'on' : 'rejected');
+    return { e, ok };
+  };
+  const ui = demoShell(container, [
+    ['step', 'Next edge', () => draw(step())],
+    ['all', 'Finish', () => {
+      let last = null;
+      for (let r = step(); r; r = step()) last = r;
+      draw(last);
+    }],
+    ['reset', 'Reset', () => {
+      reset();
+      draw(null);
+    }],
+  ]);
+  function groups() {
+    const by = new Map();
+    Object.keys(DEMO_POS).forEach((n) => {
+      const root = uf.find(n);
+      by.set(root, [...(by.get(root) || []), n]);
+    });
+    return [...by.values()].map((m) => `{${m.join(', ')}}`).join(' ');
+  }
+  function draw(result) {
+    drawDemoGraph(ui.stage, { edgeClass: (k) => status.get(k) || '' });
+    ui.stage.insertAdjacentHTML(
+      'beforeend',
+      `<ol class="demo-edge-list">${sorted
+        .map((e) => {
+          const st = status.get(edgeKey(e.from, e.to));
+          return `<li class="${st || ''}">${e.from}–${e.to} <span class="mono">${e.weight}</span>${st === 'on' ? ' taken' : st === 'rejected' ? ' skipped' : ''}</li>`;
+        })
+        .join('')}</ol>${showGroups ? `<p class="demo-caption">Groups: ${groups()}</p>` : ''}`
+    );
+    if (!result && uf.components === 1) {
+      ui.msg.textContent = `Done: ${status.size} edges tried, ${[...status.values()].filter((v) => v === 'rejected').length} skipped. One group connects all 6 nodes.`;
+    } else if (!result) {
+      ui.msg.textContent = 'Edges are tried shortest first. An edge is taken only if its ends are in different groups.';
+    } else if (result.ok) {
+      ui.msg.textContent = `Took ${result.e.from}–${result.e.to} (${result.e.weight}): union() merged two groups.${uf.components === 1 ? ' One group left: done.' : ''}`;
+    } else {
+      ui.msg.textContent = `Skipped ${result.e.from}–${result.e.to} (${result.e.weight}): find() gives the same root for both ends, so it would close a loop.`;
+    }
+  }
+  reset();
+  draw(null);
+}
+
+const DSA_DEMOS = {
+  stack: stackDemo,
+  queue: queueDemo,
+  'priority-queue': priorityQueueDemo,
+  bst: treeCompareDemo,
+  avl: treeCompareDemo,
+  graph: graphDemo,
+  dijkstra: dijkstraDemo,
+  prim: primDemo,
+  kruskal: (c) => kruskalDemo(c, false),
+  'union-find': (c) => kruskalDemo(c, true),
+};

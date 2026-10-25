@@ -15,7 +15,8 @@
  *   order (a sequence number), so equal-priority items stay FIFO.
  *
  * AlertQueueManager shows one alert at a time: CRITICAL before
- * WARNING before INFO, arrival order within a level.
+ * WARNING before INFO, arrival order within a level. Shown alerts go
+ * into a bounded Queue, so the oldest are the first to be dropped.
  */
 
 export const AlertPriority = {
@@ -162,7 +163,8 @@ export class PriorityQueue {
 export class AlertQueueManager {
   constructor({ displayMs = 2800, logLimit = 30 } = {}) {
     this.pending = new PriorityQueue();
-    this.log = [];
+    // Bounded FIFO history: when full, the oldest alert is dequeued first
+    this.log = new Queue();
     this.displayMs = displayMs;
     this.logLimit = logLimit;
     this.current = null;
@@ -197,6 +199,11 @@ export class AlertQueueManager {
   warning(message, meta) { return this.add(message, AlertPriority.WARNING, meta); }
   info(message, meta) { return this.add(message, AlertPriority.INFO, meta); }
 
+  /** Shown alerts, newest first */
+  recent() {
+    return this.log.toArray().reverse();
+  }
+
   /** Close the visible alert early and move on to the next one */
   dismissCurrent() {
     if (!this.current) return;
@@ -214,8 +221,8 @@ export class AlertQueueManager {
 
   _finish() {
     if (this._hide) this._hide(this.current);
-    this.log.unshift(this.current);
-    if (this.log.length > this.logLimit) this.log.pop();
+    this.log.enqueue(this.current);
+    if (this.log.size() > this.logLimit) this.log.dequeue();
     this.current = null;
     this._notify();
     this._next();

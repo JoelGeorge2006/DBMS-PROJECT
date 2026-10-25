@@ -38,23 +38,34 @@
       </div>
     </div>
 
-    <!-- Center/Right Search Bar -->
-    <div class="nav-search-wrapper">
+    <!-- Search: scope follows the open view -->
+    <div class="nav-search-wrapper" id="navSearch">
       <div class="search-pill">
-        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7A7269" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7A7269" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="11" cy="11" r="8"></circle>
           <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
         </svg>
-        <input 
-          type="search" 
-          id="globalSearchInput" 
-          class="search-input" 
-          placeholder="Search mineral, deposit, district, or lease ID... (Ctrl + K)" 
-          aria-label="Search mineral, deposit, district, or lease ID"
+        <span class="search-scope" id="searchScope">Mines</span>
+        <input
+          type="search"
+          id="globalSearchInput"
+          class="search-input"
+          placeholder="Search mines by name, mineral, place or lessee"
+          aria-label="Search"
+          aria-controls="searchSuggest"
+          aria-autocomplete="list"
+          autocomplete="off"
+          spellcheck="false"
         />
-        <kbd class="search-kbd-badge" title="Press Ctrl + K to search">Ctrl + K</kbd>
+        <span class="search-count hidden" id="searchCount" aria-live="polite"></span>
+        <button type="button" class="search-clear hidden" id="searchClearBtn" aria-label="Clear search">&times;</button>
+        <kbd class="search-kbd-badge" id="searchKbd" title="Focus search">Ctrl K</kbd>
       </div>
+      <ul class="search-suggest hidden" id="searchSuggest" role="listbox" aria-label="Matching mines"></ul>
     </div>
+    <button type="button" class="search-toggle" id="searchToggleBtn" aria-label="Open search" aria-expanded="false">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+    </button>
 
     <div class="nav-right-actions">
       <div class="nav-alerts">
@@ -92,18 +103,29 @@
         </svg>
       </button>
 
-      <!-- 3: Reports / Archival Document with folded corner icon -->
-      <button type="button" class="dock-btn" id="dockBtnReports" title="Archival Publications & Past Reports" aria-label="Archival Reports">
+      <!-- 3: Lease expiry index -->
+      <button type="button" class="dock-btn" id="dockBtnLeases" title="Lease expiry index" aria-label="Lease expiry index">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-          <polyline points="14 2 14 8 20 8"></polyline>
-          <line x1="16" y1="13" x2="8" y2="13"></line>
-          <line x1="16" y1="17" x2="8" y2="17"></line>
-          <polyline points="10 9 9 9 8 9"></polyline>
+          <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+          <line x1="16" y1="2" x2="16" y2="6"></line>
+          <line x1="8" y1="2" x2="8" y2="6"></line>
+          <line x1="3" y1="10" x2="21" y2="10"></line>
+          <polyline points="12 14 12 17 14 18"></polyline>
         </svg>
       </button>
 
-      <!-- 4: Sign out -->
+      <!-- 4: DSA concepts -->
+      <button type="button" class="dock-btn" id="dockBtnDsa" title="Data structures &amp; algorithms" aria-label="Data structures and algorithms">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="5" r="2.5"></circle>
+          <circle cx="6" cy="18" r="2.5"></circle>
+          <circle cx="18" cy="18" r="2.5"></circle>
+          <line x1="10.8" y1="7.2" x2="7.2" y2="15.8"></line>
+          <line x1="13.2" y1="7.2" x2="16.8" y2="15.8"></line>
+        </svg>
+      </button>
+
+      <!-- 5: Sign out -->
       <button type="button" class="dock-btn" id="dockBtnAuth" title="Sign out" aria-label="Sign out">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
@@ -407,139 +429,18 @@
   </main>
 
   <!-- =========================================================================
-       VIEW 3: ARCHIVAL PUBLICATIONS & PAST REPORTS
-       Strictly adhering to user reference screenshot
+       VIEW 3: LEASE EXPIRY INDEX (AVL tree keyed by LEASE.valid_till)
        ========================================================================= -->
-  <main id="reportsView" class="app-view reports-view-wrapper hidden" role="main" aria-label="Archival Publications & Reports">
+  <main id="leasesView" class="app-view reports-view-wrapper hidden" role="main" aria-labelledby="leasesTitle">
     <div class="reports-container">
-      
-      <!-- Header Section -->
       <header class="reports-header">
-        <h1 class="reports-title">Archival Publications</h1>
-        <p class="reports-subtitle">Official mineral production ledgers, lease lifecycle audits, and verified state records.</p>
+        <h1 class="reports-title" id="leasesTitle">Lease expiry index</h1>
+        <p class="reports-subtitle">Every lease in the database, indexed by end date in a self-balancing AVL tree.</p>
       </header>
 
-      <!-- Publications List -->
-      <div class="reports-list" id="reportsListContainer">
-        
-        <!-- Row 1 -->
-        <article class="report-row" data-id="PUB-2026-01">
-          <div class="report-left-col">
-            <h2 class="report-item-title">Annual Iron Ore Production &amp; Dispatch Ledger</h2>
-            <div class="report-item-meta">
-              <span>Odisha (Keonjhar)</span>
-              <span class="meta-separator">&bull;</span>
-              <span>FY 2025–26</span>
-            </div>
-          </div>
-          <div class="report-right-col">
-            <button type="button" class="btn-download-pdf" aria-label="Download Annual Iron Ore Production & Dispatch Ledger PDF">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-              </svg>
-              <span>PDF</span>
-            </button>
-          </div>
-        </article>
+      <div class="lease-summary" id="leaseSummary" aria-label="Lease expiry summary"></div>
 
-        <!-- Row 2 -->
-        <article class="report-row" data-id="PUB-2026-02">
-          <div class="report-left-col">
-            <h2 class="report-item-title">Concession Validity &amp; Expiry Timeline Review</h2>
-            <div class="report-item-meta">
-              <span>Pan-India</span>
-              <span class="meta-separator">&bull;</span>
-              <span>Q2 2026</span>
-            </div>
-          </div>
-          <div class="report-right-col">
-            <button type="button" class="btn-download-pdf" aria-label="Download Concession Validity & Expiry Timeline Review PDF">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-              </svg>
-              <span>PDF</span>
-            </button>
-          </div>
-        </article>
-
-        <!-- Row 3 -->
-        <article class="report-row" data-id="PUB-2025-03">
-          <div class="report-left-col">
-            <h2 class="report-item-title">Copper &amp; Multi-Metal Reserve Extraction Index</h2>
-            <div class="report-item-meta">
-              <span>Rajasthan (Khetri)</span>
-              <span class="meta-separator">&bull;</span>
-              <span>Bi-Annual 2025</span>
-            </div>
-          </div>
-          <div class="report-right-col">
-            <button type="button" class="btn-download-pdf" aria-label="Download Copper & Multi-Metal Reserve Extraction Index PDF">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-              </svg>
-              <span>PDF</span>
-            </button>
-          </div>
-        </article>
-
-        <!-- Row 4 -->
-        <article class="report-row" data-id="PUB-2025-04">
-          <div class="report-left-col">
-            <h2 class="report-item-title">Bauxite Lease Boundary &amp; Buffer Overlap Report</h2>
-            <div class="report-item-meta">
-              <span>Odisha (Koraput)</span>
-              <span class="meta-separator">&bull;</span>
-              <span>Annual 2025</span>
-            </div>
-          </div>
-          <div class="report-right-col">
-            <button type="button" class="btn-download-pdf" aria-label="Download Bauxite Lease Boundary & Buffer Overlap Report PDF">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-              </svg>
-              <span>PDF</span>
-            </button>
-          </div>
-        </article>
-
-        <!-- Row 5 -->
-        <article class="report-row" data-id="PUB-2025-05">
-          <div class="report-left-col">
-            <h2 class="report-item-title">Cross-State Mineral Royalty Collection Reconciliation</h2>
-            <div class="report-item-meta">
-              <span>Karnataka &amp; Chhattisgarh</span>
-              <span class="meta-separator">&bull;</span>
-              <span>FY 2024–25</span>
-            </div>
-          </div>
-          <div class="report-right-col">
-            <button type="button" class="btn-download-pdf" aria-label="Download Cross-State Mineral Royalty Collection Reconciliation PDF">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-              </svg>
-              <span>PDF</span>
-            </button>
-          </div>
-        </article>
-
-      </div>
-          <!-- Lease expiry index (AVL tree keyed by LEASE.valid_till) -->
-      <section class="avl-panel" id="avlPanel" aria-labelledby="avlTitle">
-        <header class="avl-head">
-          <h2 class="avl-title" id="avlTitle">Lease expiry index</h2>
-          <p class="avl-sub">Leases indexed by end date in a self-balancing AVL tree.</p>
-        </header>
-
+      <section class="avl-panel" id="avlPanel" aria-label="Find leases">
         <form class="avl-query" id="avlQueryForm">
           <label class="bst-field">
             <span>Expiring from</span>
@@ -550,9 +451,19 @@
             <input type="number" id="avlToYear" value="2045" min="2000" max="2100">
           </label>
           <button type="submit" class="btn-bst-search">Find leases</button>
+          <p class="bst-stats" id="avlRangeStats"></p>
         </form>
-        <ul class="avl-results" id="avlResults"></ul>
 
+        <div class="lease-table-wrap">
+          <table class="lease-table" id="avlResultsTable">
+            <thead>
+              <tr><th>Lease</th><th>Mine</th><th>Company</th><th>Ends</th><th class="num">Years left</th></tr>
+            </thead>
+            <tbody id="avlResults"></tbody>
+          </table>
+        </div>
+
+        <h2 class="avl-title">Index structure</h2>
         <div class="avl-edit">
           <label class="bst-field">
             <span>Lease</span>
@@ -565,6 +476,20 @@
           <svg class="bst-tree" id="avlTreeSvg" role="img" aria-label="AVL tree of leases by expiry date"></svg>
         </div>
       </section>
+    </div>
+  </main>
+
+  <!-- =========================================================================
+       VIEW 4: DATA STRUCTURES & ALGORITHMS GUIDE
+       ========================================================================= -->
+  <main id="dsaView" class="app-view dsa-view-wrapper hidden" role="main" aria-labelledby="dsaTitle">
+    <div class="dsa-container">
+      <aside class="dsa-sidebar">
+        <h1 class="dsa-heading" id="dsaTitle">Data structures &amp; algorithms</h1>
+        <p class="dsa-intro">Every structure and algorithm MINERVA uses, where it runs, and how it behaves.</p>
+        <nav class="dsa-list" id="dsaList" aria-label="Concepts"></nav>
+      </aside>
+      <article class="dsa-detail" id="dsaDetail" aria-live="polite"></article>
     </div>
   </main>
 
@@ -691,11 +616,8 @@
       <!-- LEFT PANEL: Brand Section -->
       <section class="brand-panel" aria-label="Minerva System Branding">
         <div class="brand-top">
-          <div class="brand-logo-wrapper" aria-hidden="true">
-            <svg class="brand-logo-svg" width="38" height="30" viewBox="0 0 38 30" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M 5 26 V 13 C 5 7.2 12.5 7.2 12.5 13 V 26" stroke="#1E1A16" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M 12.5 13 C 12.5 7.2 20 7.2 20 13 V 26" stroke="#1E1A16" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
+          <div class="brand-logo-wrapper">
+            <img src="minerva-logo.svg" alt="MINERVA" class="brand-logo-img" width="56" height="39">
           </div>
           <h1 class="brand-title">MINERVA</h1>
           <p class="brand-subtitle">Indian Mineral Resource<br>Management Database</p>
@@ -838,54 +760,6 @@ LIMIT 5;</textarea>
     </div>
   </dialog>
 
-  <!-- =========================================================================
-       7. OFFICIAL PDF REPORT INSPECTOR MODAL
-       ========================================================================= -->
-  <dialog id="pdfPreviewModal" class="custom-dialog-pdf" aria-label="Official Publication Document Ledger">
-    <div class="pdf-modal-card">
-      <div class="pdf-modal-header">
-        <div class="pdf-header-brand">
-          <div class="pdf-seal-badge">
-            <img src="minerva-logo.png" alt="Emblem" class="pdf-seal-img">
-          </div>
-          <div class="pdf-header-titles">
-            <span class="pdf-gov-heading">MINISTRY OF MINES &bull; INDIAN BUREAU OF MINES</span>
-            <h3 class="pdf-doc-title" id="pdfDocTitle">Annual Iron Ore Production &amp; Dispatch Ledger</h3>
-            <span class="pdf-doc-meta" id="pdfDocMeta">Registry: IBM/PUB/2026/041 &bull; Odisha (Keonjhar) &bull; FY 2025–26</span>
-          </div>
-        </div>
-        <button type="button" class="btn-close-modal" id="btnClosePdfModal" aria-label="Close">&times;</button>
-      </div>
-
-      <div class="pdf-modal-body">
-        <div class="pdf-abstract-box">
-          <label class="pdf-section-label">SUMMARY</label>
-          <p id="pdfDocSummary">Audited gross production, grade distribution (64.2% Fe Hematite), environmental dispatch permits, and royalty remittances for the Keonjhar Iron Ore Sector.</p>
-        </div>
-
-        <div class="pdf-metrics-grid" id="pdfMetricsGrid">
-          <!-- Populated dynamically -->
-        </div>
-      </div>
-
-      <div class="pdf-modal-footer">
-        <div class="pdf-footer-info">
-          <span id="pdfPageInfo">Plain-text summary</span>
-        </div>
-        <div class="pdf-footer-actions">
-          <button type="button" class="btn-action-pill" id="btnPrintPdfDoc">Print</button>
-          <button type="button" class="btn-action-pill btn-primary-dark" id="btnDownloadPdfDoc">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="7 10 12 15 17 10"></polyline>
-              <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
-            <span id="btnDownloadPdfText">Download</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  </dialog>
 
 
   <!-- MODAL: Forgot PIN Recovery -->

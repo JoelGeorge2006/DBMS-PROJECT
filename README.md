@@ -45,18 +45,22 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000). The login page comes first; demo account `USR-1024` / `minerva@2026` (also `INS-4088` / `inspector@2026`, `GEO-9921` / `surveyor@2026`).
 
 ### Views
-- **Map**: the 8 mines from the `MINE` table on a satellite basemap. Click a mine for its details. The transport network card finds the shortest route between two mines and builds the minimum network that connects them all.
+- **Map**: the mines from the `MINE` table on a satellite basemap. Click a mine for its details. The transport network card finds the shortest route between two mines and builds the minimum network that connects them all.
 - **Database**: mines, minerals, locations, companies, leases and production tables; mine dossier; CSV export (respects the search box); read-only SQL console.
-- **Reports**: publication summaries (preview and download as text) and the lease expiry index.
+- **Lease expiry** (`#leases`, old `#reports` links redirect): leases indexed by end date in an AVL tree. Summary of leases expired or ending within 1, 5 and 10 years, year-range search, add/remove a lease to see rotations. Click a lease to open its mine.
+- **DSA** (`#dsa`): every data structure and algorithm in the project, with where it is used, a "Try it" button that opens that feature, a step-by-step demo, live numbers from the session and the source excerpt. Content comes from `dsa/registry.js`.
+
+The search bar searches whatever view is open (the label at its left says what). `/` or Ctrl/⌘K focuses it, Esc clears it, and on the map it suggests matching mines.
 
 ### Data structures and algorithms (`dsa/`)
 | Module | Where it is used |
 |---|---|
 | `Stack.js`: stack, two-stack undo/redo | SQL console history (Undo / Redo, Ctrl+↑ / Ctrl+↓) |
-| `Queue.js`: O(1) queue, binary-heap priority queue | Alerts: shown one at a time, CRITICAL before WARNING before INFO |
+| `Queue.js`: O(1) queue, binary-heap priority queue | Alerts: shown one at a time, CRITICAL before WARNING before INFO; recent-alert history is a bounded queue |
 | `BinarySearchTree.js` | Database → Minerals: assay range search (`GET /api/dsa/bst/range`) |
-| `AVLTree.js` | Reports → Lease expiry index: range search, add/remove with rotations |
+| `AVLTree.js` | Lease expiry view: range search, next expiry, add/remove with rotations |
 | `Dijkstra.js`: weighted graph, haversine, Dijkstra | Map → Shortest route (`GET /api/dsa/network`, `GET /api/dsa/shortest-route`) |
 | `MST.js`: Prim's, Kruskal's, union-find | Map → Minimum network (`GET /api/dsa/mst`) |
+| `registry.js` | Content of the DSA tab (`GET /api/dsa/source/:file` serves the excerpts) |
 
 Distances are straight-line (great-circle) kilometres between mine coordinates, not road or rail distances.
