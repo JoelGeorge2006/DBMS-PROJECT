@@ -2217,6 +2217,93 @@ html, body.minerva-body {
   flex-direction: column;
 }
 
+/* Lease expiry index (AVL) */
+.avl-panel {
+  margin-top: 44px;
+  padding-top: 28px;
+  border-top: 1px solid #EADFD4;
+}
+
+.avl-head {
+  margin-bottom: 16px;
+}
+
+.avl-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #1F1914;
+  margin-bottom: 4px;
+}
+
+.avl-sub {
+  font-size: 0.86rem;
+  color: var(--text-sub);
+}
+
+.avl-query,
+.avl-edit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.avl-results {
+  list-style: none;
+  margin: 14px 0 26px;
+  padding: 0;
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  background: #FFFFFF;
+}
+
+.avl-results li {
+  display: grid;
+  grid-template-columns: 110px 160px 1fr;
+  gap: 12px;
+  padding: 10px 14px;
+  font-size: 0.84rem;
+  color: var(--text-dark);
+}
+
+.avl-results li + li {
+  border-top: 1px solid var(--border-light);
+}
+
+.avl-date,
+.avl-lease {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.avl-company {
+  color: var(--text-sub);
+}
+
+.avl-results li.avl-empty {
+  display: block;
+  color: var(--text-muted);
+}
+
+.avl-edit select {
+  min-width: 230px;
+}
+
+.avl-panel .bst-tree-wrap {
+  margin-top: 14px;
+  padding: 8px 0;
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+}
+
+.tree-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  fill: var(--text-muted);
+  text-anchor: middle;
+}
+
 .report-row {
   display: flex;
   align-items: center;

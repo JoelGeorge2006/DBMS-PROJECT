@@ -546,6 +546,38 @@
         </article>
 
       </div>
+          <!-- Lease expiry index (AVL tree keyed by LEASE.valid_till) -->
+      <section class="avl-panel" id="avlPanel" aria-labelledby="avlTitle">
+        <header class="avl-head">
+          <h2 class="avl-title" id="avlTitle">Lease expiry index</h2>
+          <p class="avl-sub">Leases indexed by end date in a self-balancing AVL tree.</p>
+        </header>
+
+        <form class="avl-query" id="avlQueryForm">
+          <label class="bst-field">
+            <span>Expiring from</span>
+            <input type="number" id="avlFromYear" value="2035" min="2000" max="2100">
+          </label>
+          <label class="bst-field">
+            <span>To</span>
+            <input type="number" id="avlToYear" value="2045" min="2000" max="2100">
+          </label>
+          <button type="submit" class="btn-bst-search">Find leases</button>
+        </form>
+        <ul class="avl-results" id="avlResults"></ul>
+
+        <div class="avl-edit">
+          <label class="bst-field">
+            <span>Lease</span>
+            <select id="avlLeaseSelect"></select>
+          </label>
+          <button type="button" class="btn-sql-history" id="avlToggleBtn">Remove from index</button>
+          <p class="bst-stats" id="avlStats"></p>
+        </div>
+        <div class="bst-tree-wrap">
+          <svg class="bst-tree" id="avlTreeSvg" role="img" aria-label="AVL tree of leases by expiry date"></svg>
+        </div>
+      </section>
     </div>
   </main>
 

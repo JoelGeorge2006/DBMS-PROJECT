@@ -6,6 +6,8 @@
 import apiService from './apiService.js';
 import { AlertQueueManager, AlertPriority } from './dsa/Queue.js';
 import { QueryHistoryManager } from './dsa/Stack.js';
+import { AVLTree } from './dsa/AVLTree.js';
+import { BinarySearchTree } from './dsa/BinarySearchTree.js';
 
 // ============================================================================
 // 0. Alerts — toasts are shown one at a time from a priority queue
@@ -2367,7 +2369,15 @@ async function runBstSearch() {
     const matchIds = new Set(res.matches.map((m) => m.id));
     const matchMinerals = new Set(res.matches.map((m) => String(m.mineral.mineral_id)));
 
-    drawBst(document.getElementById('bstTreeSvg'), res.tree, new Set(res.visited), matchIds);
+    const visited = new Set(res.visited);
+    const shortName = (label) => label.replace(/\s*\(.*\)\s*/, '').split(' ').slice(0, 2).join(' ');
+    drawTree(document.getElementById('bstTreeSvg'), res.tree, {
+      classOf: (n) => (matchIds.has(n.id) ? 'match' : visited.has(n.id) ? 'visited' : 'skipped'),
+      edgeOn: (a, b) => visited.has(a.id) && visited.has(b.id),
+      keyOf: (n) => n.key,
+      labelOf: (n) => shortName(n.label),
+      titleOf: (n) => `${n.label}: ${n.key}%`,
+    });
 
     document.querySelectorAll('#masterTableTbody tr[data-mineral-id]').forEach((row) => {
       row.classList.toggle('row-match', matchMinerals.has(row.dataset.mineralId));
@@ -2383,7 +2393,7 @@ async function runBstSearch() {
 }
 
 /** Lay out nodes by in-order position (x) and depth (y), then draw as SVG */
-function drawBst(svg, root, visited, matches) {
+function drawTree(svg, root, { classOf, edgeOn = () => false, keyOf, labelOf, titleOf, badgeOf = null, colW = 104 }) {
   if (!svg) return;
   const nodes = [];
   let order = 0;
@@ -2397,7 +2407,6 @@ function drawBst(svg, root, visited, matches) {
   };
   layout(root, 0);
 
-  const colW = 104;
   const rowH = 52;
   const pad = 22;
   const maxDepth = Math.max(0, ...nodes.map((n) => n.depth));
@@ -2407,21 +2416,19 @@ function drawBst(svg, root, visited, matches) {
   const py = (n) => n.depth * rowH + pad;
 
   const edges = nodes
-    .flatMap((n) => [n.left, n.right].filter(Boolean).map((c) => {
-      const on = visited.has(n.id) && visited.has(c.id);
-      return `<line x1="${px(n)}" y1="${py(n)}" x2="${px(c)}" y2="${py(c)}" class="bst-edge${on ? ' on' : ''}"/>`;
-    }))
+    .flatMap((n) => [n.left, n.right].filter(Boolean).map((c) =>
+      `<line x1="${px(n)}" y1="${py(n)}" x2="${px(c)}" y2="${py(c)}" class="bst-edge${edgeOn(n, c) ? ' on' : ''}"/>`))
     .join('');
 
-  const shortName = (label) => label.replace(/\s*\(.*\)\s*/, '').split(' ').slice(0, 2).join(' ');
   const circles = nodes
     .map((n) => {
-      const cls = matches.has(n.id) ? 'match' : visited.has(n.id) ? 'visited' : 'skipped';
-      return `<g class="bst-node ${cls}">
-        <title>${escapeHtml(n.label)}: ${n.key}%</title>
+      const badge = badgeOf ? `<text x="${px(n) + 22}" y="${py(n) - 12}" class="tree-badge">${escapeHtml(badgeOf(n))}</text>` : '';
+      return `<g class="bst-node ${classOf(n)}">
+        <title>${escapeHtml(titleOf(n))}</title>
         <circle cx="${px(n)}" cy="${py(n)}" r="17"/>
-        <text x="${px(n)}" y="${py(n) + 4}" class="bst-key">${n.key}</text>
-        <text x="${px(n)}" y="${py(n) + 32}" class="bst-label">${escapeHtml(shortName(n.label))}</text>
+        <text x="${px(n)}" y="${py(n) + 4}" class="bst-key">${escapeHtml(keyOf(n))}</text>
+        <text x="${px(n)}" y="${py(n) + 32}" class="bst-label">${escapeHtml(labelOf(n))}</text>
+        ${badge}
       </g>`;
     })
     .join('');
@@ -2430,6 +2437,108 @@ function drawBst(svg, root, visited, matches) {
   svg.setAttribute('width', width);
   svg.setAttribute('height', height);
   svg.innerHTML = edges + circles;
+}
+
+// Lease expiry index: AVL tree keyed by "valid_till|lease_id" (unique, date-ordered)
+const leaseIndex = new AVLTree();
+let leaseRecords = [];
+
+const leaseKey = (lease) => `${lease.valid_till}|${lease.lease_id}`;
+
+async function initLeaseExpiryIndex() {
+  const form = document.getElementById('avlQueryForm');
+  const select = document.getElementById('avlLeaseSelect');
+  const toggle = document.getElementById('avlToggleBtn');
+  if (!form || !select || !toggle) return;
+
+  try {
+    const [leases, companies] = await Promise.all([
+      apiService.getEntityTable('leases'),
+      apiService.getEntityTable('companies'),
+    ]);
+    const companyName = new Map((companies.data || []).map((c) => [c.company_id, c.company_name]));
+    // /api/leases returns rows sorted by valid_till: the worst case for a plain BST
+    leaseRecords = (leases.data || []).map((l) => ({ ...l, company_name: companyName.get(l.company_id) || '' }));
+  } catch (err) {
+    const stats = document.getElementById('avlStats');
+    if (stats) stats.textContent = `Could not load leases: ${err.message}`;
+    return;
+  }
+
+  leaseRecords.forEach((l) => leaseIndex.insert(leaseKey(l), l));
+  const buildRotations = leaseIndex.totalRotations;
+
+  select.innerHTML = leaseRecords
+    .map((l) => `<option value="${escapeHtml(leaseKey(l))}">${escapeHtml(l.lease_id)} · ${escapeHtml(l.valid_till)}</option>`)
+    .join('');
+
+  const syncToggle = () => {
+    toggle.textContent = leaseIndex.has(select.value) ? 'Remove from index' : 'Add to index';
+  };
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    renderLeaseRange();
+  });
+  select.addEventListener('change', syncToggle);
+  toggle.addEventListener('click', () => {
+    const key = select.value;
+    const lease = leaseRecords.find((l) => leaseKey(l) === key);
+    if (!lease) return;
+    if (leaseIndex.has(key)) leaseIndex.delete(key);
+    else leaseIndex.insert(key, lease);
+    syncToggle();
+    renderLeaseIndex(describeRotations(leaseIndex.lastRotations));
+    renderLeaseRange();
+  });
+
+  syncToggle();
+  renderLeaseIndex(`${buildRotations} rotation${buildRotations === 1 ? '' : 's'} while building`);
+  renderLeaseRange();
+}
+
+function describeRotations(rotations) {
+  if (rotations.length === 0) return 'no rotation needed';
+  return rotations.map((r) => `rotate ${r.direction} at ${r.pivot.split('|')[0]}`).join(', ');
+}
+
+function renderLeaseIndex(lastChange) {
+  const stats = document.getElementById('avlStats');
+
+  // Same keys inserted in date order into a plain BST, for comparison
+  const plain = new BinarySearchTree();
+  leaseIndex.inOrder().forEach((n) => plain.insert(n.key, null));
+
+  if (stats) {
+    stats.textContent = `${leaseIndex.size()} leases · AVL height ${leaseIndex.height()} vs ${plain.height()} for an unbalanced BST · ${lastChange}`;
+  }
+
+  drawTree(document.getElementById('avlTreeSvg'), leaseIndex.toJSON((n) => n.data.lease_id), {
+    classOf: () => 'visited',
+    keyOf: (n) => n.key.slice(0, 4),
+    labelOf: (n) => n.label,
+    titleOf: (n) => `${n.label} expires ${n.key.split('|')[0]} (balance ${n.balance})`,
+    badgeOf: (n) => (n.balance > 0 ? `+${n.balance}` : String(n.balance)),
+    colW: 118,
+  });
+}
+
+function renderLeaseRange() {
+  const list = document.getElementById('avlResults');
+  if (!list) return;
+  const from = Number(document.getElementById('avlFromYear')?.value);
+  const to = Number(document.getElementById('avlToYear')?.value);
+  if (!Number.isInteger(from) || !Number.isInteger(to) || from > to) {
+    list.innerHTML = '<li class="avl-empty">Enter a year range where From is not after To.</li>';
+    return;
+  }
+  // "|" sorts after any lease id character, so this upper bound covers the whole last year
+  const hits = leaseIndex.rangeQuery(`${from}-01-01`, `${to}-12-31|~`);
+  list.innerHTML = hits.length
+    ? hits
+        .map((n) => `<li><span class="avl-date">${escapeHtml(n.data.valid_till)}</span><span class="avl-lease">${escapeHtml(n.data.lease_id)}</span><span class="avl-company">${escapeHtml(n.data.company_name)}</span></li>`)
+        .join('')
+    : `<li class="avl-empty">No leases in the index expire between ${from} and ${to}.</li>`;
 }
 
 // SQL console history: two stacks give undo / redo over executed queries
@@ -3068,6 +3177,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initGeospatialMap();
   initDatabaseExplorer();
   initArchivalReports();
+  initLeaseExpiryIndex();
   initAuthWorkstation();
 
   // Check URL pathname or hash for direct view routing
