@@ -1,0 +1,2161 @@
+{
+ "source": "Wikidata",
+ "licence": "CC0 1.0",
+ "retrieved": "2026-10-25T17:35:13.156Z",
+ "items": [
+  {
+   "qid": "Q16509282",
+   "label": "Hingula Mine",
+   "lat": 20.9654,
+   "lon": 85.0279,
+   "classes": [
+    "mine",
+    "surface mine"
+   ],
+   "products": [
+    "coal"
+   ],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q16509603",
+   "label": "Q16509603",
+   "lat": 22.3277,
+   "lon": 82.5278,
+   "classes": [
+    "surface mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q16509675",
+   "label": "Q16509675",
+   "lat": 23.6955,
+   "lon": 68.7755,
+   "classes": [
+    "surface mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q16509678",
+   "label": "Q16509678",
+   "lat": 20.9595,
+   "lon": 85.1898,
+   "classes": [
+    "surface mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q16509677",
+   "label": "Q16509677",
+   "lat": 22.3314,
+   "lon": 82.6731,
+   "classes": [
+    "surface mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26798594",
+   "label": "Nigahi",
+   "lat": 24.1405,
+   "lon": 82.619,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26798595",
+   "label": "Dudhichua",
+   "lat": 24.16821,
+   "lon": 82.67281,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26798592",
+   "label": "Jayant",
+   "lat": 24.1583,
+   "lon": 82.6546,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26798593",
+   "label": "Q26798593",
+   "lat": 24.1483,
+   "lon": 82.7476,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26798596",
+   "label": "Sasti",
+   "lat": 19.81139,
+   "lon": 79.31972,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26798597",
+   "label": "Rajrappa",
+   "lat": 23.63194,
+   "lon": 85.71111,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26800334",
+   "label": "Kankar Pit",
+   "lat": 30.274166666,
+   "lon": 75.956666666,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Punjab"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802079",
+   "label": "Bhustoli",
+   "lat": 30.671388888,
+   "lon": 79.979444444,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802083",
+   "label": "Q26802083",
+   "lat": 30.743888888,
+   "lon": 79.901388888,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802080",
+   "label": "Gaul Kharak",
+   "lat": 30.664166666,
+   "lon": 79.981111111,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802086",
+   "label": "Barmatiya",
+   "lat": 30.710555555,
+   "lon": 79.965833333,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802085",
+   "label": "Q26802085",
+   "lat": 30.720555555,
+   "lon": 79.904166666,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802090",
+   "label": "Q26802090",
+   "lat": 30.692222222,
+   "lon": 79.948611111,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802091",
+   "label": "Q26802091",
+   "lat": 30.683055555,
+   "lon": 79.975,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802088",
+   "label": "Q26802088",
+   "lat": 30.715,
+   "lon": 79.985833333,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802092",
+   "label": "Lampak Kharak",
+   "lat": 30.664444444,
+   "lon": 79.974444444,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802101",
+   "label": "Q26802101",
+   "lat": 30.578333333,
+   "lon": 79.927777777,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802111",
+   "label": "Q26802111",
+   "lat": 30.538888888,
+   "lon": 79.825,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802108",
+   "label": "Bagsora Kharak",
+   "lat": 30.524166666,
+   "lon": 79.768611111,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802114",
+   "label": "Q26802114",
+   "lat": 30.552777777,
+   "lon": 79.834166666,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802115",
+   "label": "Q26802115",
+   "lat": 30.558333333,
+   "lon": 79.836944444,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802112",
+   "label": "Q26802112",
+   "lat": 30.543055555,
+   "lon": 79.808333333,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802116",
+   "label": "Q26802116",
+   "lat": 30.565555555,
+   "lon": 79.768055555,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802120",
+   "label": "Q26802120",
+   "lat": 30.624444444,
+   "lon": 79.824166666,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802126",
+   "label": "Q26802126",
+   "lat": 30.65,
+   "lon": 79.771111111,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802125",
+   "label": "Q26802125",
+   "lat": 30.638055555,
+   "lon": 79.784722222,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802130",
+   "label": "Tasgar",
+   "lat": 30.696944444,
+   "lon": 79.766388888,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802135",
+   "label": "Q26802135",
+   "lat": 30.720277777,
+   "lon": 79.7975,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802132",
+   "label": "Q26802132",
+   "lat": 30.702222222,
+   "lon": 79.804444444,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802133",
+   "label": "Nilgetha",
+   "lat": 30.703888888,
+   "lon": 79.779722222,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802139",
+   "label": "Tartoi",
+   "lat": 30.728888888,
+   "lon": 79.775277777,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802143",
+   "label": "Chamba Kharak",
+   "lat": 30.408611111,
+   "lon": 79.732777777,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802141",
+   "label": "Q26802141",
+   "lat": 30.428333333,
+   "lon": 79.711111111,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802159",
+   "label": "Semortoli",
+   "lat": 30.681111111,
+   "lon": 79.643333333,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802162",
+   "label": "Karmaila Kharak",
+   "lat": 30.675277777,
+   "lon": 79.623611111,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802163",
+   "label": "Q26802163",
+   "lat": 30.669166666,
+   "lon": 79.671666666,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802161",
+   "label": "Q26802161",
+   "lat": 30.6725,
+   "lon": 79.661666666,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802166",
+   "label": "Q26802166",
+   "lat": 30.655555555,
+   "lon": 79.68,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802167",
+   "label": "Q26802167",
+   "lat": 30.626388888,
+   "lon": 79.665,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802174",
+   "label": "Farsan Baink",
+   "lat": 30.596666666,
+   "lon": 79.637222222,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802175",
+   "label": "Galani Udiar",
+   "lat": 30.595833333,
+   "lon": 79.635833333,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802172",
+   "label": "Semar Kharak",
+   "lat": 30.605833333,
+   "lon": 79.648888888,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802178",
+   "label": "Maiman",
+   "lat": 30.565,
+   "lon": 79.663333333,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802176",
+   "label": "Gaunchha",
+   "lat": 30.592222222,
+   "lon": 79.629444444,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802177",
+   "label": "Jawri Kharak",
+   "lat": 30.584722222,
+   "lon": 79.624166666,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802186",
+   "label": "Q26802186",
+   "lat": 30.676388888,
+   "lon": 79.610277777,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802185",
+   "label": "Q26802185",
+   "lat": 30.675,
+   "lon": 79.618888888,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802193",
+   "label": "Tipra Kharak",
+   "lat": 30.7325,
+   "lon": 79.626388888,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26802556",
+   "label": "Khetri Copper Project",
+   "lat": 28.078611111,
+   "lon": 75.814444444,
+   "classes": [
+    "mine"
+   ],
+   "products": [
+    "copper ore"
+   ],
+   "operators": [],
+   "admins": [
+    "Rajasthan"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26805611",
+   "label": "Rohna Coal Mine",
+   "lat": 21.307777777,
+   "lon": 79.095555555,
+   "classes": [
+    "mine"
+   ],
+   "products": [
+    "coal"
+   ],
+   "operators": [],
+   "admins": [
+    "Maharashtra"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26805614",
+   "label": "Q26805614",
+   "lat": 21.296111111,
+   "lon": 79.126944444,
+   "classes": [
+    "mine"
+   ],
+   "products": [
+    "coal"
+   ],
+   "operators": [],
+   "admins": [
+    "Maharashtra"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26805612",
+   "label": "Pipla Coal Mine",
+   "lat": 21.314444444,
+   "lon": 79.083333333,
+   "classes": [
+    "mine"
+   ],
+   "products": [
+    "coal"
+   ],
+   "operators": [],
+   "admins": [
+    "Maharashtra"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26805662",
+   "label": "Teja and Chheti",
+   "lat": 27.708055555,
+   "lon": 79.127222222,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26808507",
+   "label": "Q26808507",
+   "lat": 16.586111111,
+   "lon": 76.613333333,
+   "classes": [
+    "abandoned mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Karnataka"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26810626",
+   "label": "Q26810626",
+   "lat": 20.085555555,
+   "lon": 79.033611111,
+   "classes": [
+    "quarry"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Maharashtra"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26812339",
+   "label": "Kankar Quarry",
+   "lat": 26.863333333,
+   "lon": 83.732777777,
+   "classes": [
+    "quarry"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26815048",
+   "label": "Q26815048",
+   "lat": 20.447777777,
+   "lon": 80.086111111,
+   "classes": [
+    "abandoned mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Maharashtra"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26817152",
+   "label": "Kharli Slate Quarry",
+   "lat": 32.178055555,
+   "lon": 76.6975,
+   "classes": [
+    "quarry"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Himachal Pradesh"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q26818711",
+   "label": "Kankani Mine Shaft",
+   "lat": 21.804722222,
+   "lon": 83.926944444,
+   "classes": [
+    "mine"
+   ],
+   "products": [
+    "coal"
+   ],
+   "operators": [],
+   "admins": [
+    "Odisha"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q29857291",
+   "label": "Bauxite Mines",
+   "lat": 11.83329,
+   "lon": 78.22974,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q31857669",
+   "label": "Dhaudānr Quarry",
+   "lat": 24.906944444,
+   "lon": 84.067222222,
+   "classes": [
+    "quarry"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Bihar"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q31858054",
+   "label": "Q31858054",
+   "lat": 14.356388888,
+   "lon": 77.523611111,
+   "classes": [
+    "mine"
+   ],
+   "products": [
+    "gold ore"
+   ],
+   "operators": [],
+   "admins": [
+    "Andhra Pradesh"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q31858634",
+   "label": "Q31858634",
+   "lat": 19.922222222,
+   "lon": 79.303611111,
+   "classes": [
+    "mine"
+   ],
+   "products": [
+    "coal"
+   ],
+   "operators": [],
+   "admins": [
+    "Maharashtra"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q31858632",
+   "label": "Q31858632",
+   "lat": 19.832222222,
+   "lon": 79.346388888,
+   "classes": [
+    "mine"
+   ],
+   "products": [
+    "coal"
+   ],
+   "operators": [],
+   "admins": [
+    "Maharashtra"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q31858633",
+   "label": "Sasti colliery",
+   "lat": 19.833333333,
+   "lon": 79.333611111,
+   "classes": [
+    "mine"
+   ],
+   "products": [
+    "coal"
+   ],
+   "operators": [],
+   "admins": [
+    "Maharashtra"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q31858637",
+   "label": "Q31858637",
+   "lat": 19.95,
+   "lon": 79.322777777,
+   "classes": [
+    "mine"
+   ],
+   "products": [
+    "coal"
+   ],
+   "operators": [],
+   "admins": [
+    "Maharashtra"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q31859887",
+   "label": "Q31859887",
+   "lat": 24.553333333,
+   "lon": 87.819166666,
+   "classes": [
+    "quarry"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "West Bengal"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q31859888",
+   "label": "Q31859888",
+   "lat": 24.590555555,
+   "lon": 87.838333333,
+   "classes": [
+    "quarry"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q31859948",
+   "label": "Q31859948",
+   "lat": 16.177222222,
+   "lon": 79.220277777,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Andhra Pradesh"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q31859961",
+   "label": "Q31859961",
+   "lat": 16.028888888,
+   "lon": 79.159166666,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Andhra Pradesh"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q31859973",
+   "label": "Q31859973",
+   "lat": 16.250833333,
+   "lon": 79.309722222,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Andhra Pradesh"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q31859978",
+   "label": "Q31859978",
+   "lat": 16.212777777,
+   "lon": 79.268333333,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Andhra Pradesh"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q31859991",
+   "label": "Q31859991",
+   "lat": 16.243055555,
+   "lon": 79.362777777,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Andhra Pradesh"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q31859992",
+   "label": "Q31859992",
+   "lat": 16.231944444,
+   "lon": 79.338888888,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Andhra Pradesh"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q137925088",
+   "label": "Dhangaon",
+   "lat": 23.583,
+   "lon": 80.184,
+   "classes": [
+    "mine"
+   ],
+   "products": [
+    "platinum ore",
+    "gold ore",
+    "palladium",
+    "rubidium"
+   ],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q137925201",
+   "label": "Serrajuddin Nausahi High Grade",
+   "lat": 21.882824,
+   "lon": 85.403858,
+   "classes": [
+    "mine"
+   ],
+   "products": [
+    "platinum ore",
+    "gold ore",
+    "chromium",
+    "palladium",
+    "rubidium"
+   ],
+   "operators": [
+    "Indian Metals & Ferro Alloys Ltd"
+   ],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q137942173",
+   "label": "IREL beach-sand monazite operations",
+   "lat": 10.07639453,
+   "lon": 76.2444378,
+   "classes": [
+    "mine"
+   ],
+   "products": [
+    "periodic table"
+   ],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q137942373",
+   "label": "Govindpal Area",
+   "lat": 18.7,
+   "lon": 81.9,
+   "classes": [
+    "mine"
+   ],
+   "products": [
+    "lithium ore"
+   ],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q137942928",
+   "label": "Agnigundala Pb Cu",
+   "lat": 16.219,
+   "lon": 79.665,
+   "classes": [
+    "mine"
+   ],
+   "products": [
+    "cobalt ore"
+   ],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q139848755",
+   "label": "Q139848755",
+   "lat": 22.733333333,
+   "lon": 86.144722222,
+   "classes": [
+    "mine",
+    "uranium mine"
+   ],
+   "products": [
+    "uranium ore"
+   ],
+   "operators": [
+    "Uranium Corporation of India"
+   ],
+   "admins": [
+    "Adityapur(Gamharia) block"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": null
+  },
+  {
+   "qid": "Q65052438",
+   "label": "Pootkee Balihari Area",
+   "lat": 23.7544,
+   "lon": 86.3628,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Dhanbad district"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Pootkee_Balihari_Area"
+  },
+  {
+   "qid": "Q65052446",
+   "label": "Western Jharia Area",
+   "lat": 23.7498,
+   "lon": 86.2743,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Jharkhand"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Western_Jharia_Area"
+  },
+  {
+   "qid": "Q65052452",
+   "label": "Govindpur Area",
+   "lat": 23.8012,
+   "lon": 86.2766,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Jharkhand"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Govindpur_Area"
+  },
+  {
+   "qid": "Q65052629",
+   "label": "Barora Area",
+   "lat": 23.794689,
+   "lon": 86.214789,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Jharkhand"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Barora_Area"
+  },
+  {
+   "qid": "Q65052632",
+   "label": "Block II Area",
+   "lat": 23.7893,
+   "lon": 86.1863,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Jharkhand"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Block_II_Area"
+  },
+  {
+   "qid": "Q65052726",
+   "label": "Katras Area",
+   "lat": 23.7962,
+   "lon": 86.3285,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Jharkhand"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Katras_Area"
+  },
+  {
+   "qid": "Q65052730",
+   "label": "Sijua Area",
+   "lat": 23.7935,
+   "lon": 86.3315,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Jharkhand"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Sijua_Area"
+  },
+  {
+   "qid": "Q65053148",
+   "label": "Kusunda Area",
+   "lat": 23.7831,
+   "lon": 86.3908,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Jharkhand"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Kusunda_Area"
+  },
+  {
+   "qid": "Q65053152",
+   "label": "Bastacola Area",
+   "lat": 23.7621,
+   "lon": 86.4119,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Jharkhand"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Bastacola_Area"
+  },
+  {
+   "qid": "Q65053307",
+   "label": "Eastern Jharia Area",
+   "lat": 23.6657,
+   "lon": 86.4468,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Jharkhand"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Eastern_Jharia_Area"
+  },
+  {
+   "qid": "Q65053312",
+   "label": "Chanch/ Victoria Area",
+   "lat": 23.6345,
+   "lon": 86.4506,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Jharkhand"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Chanch/_Victoria_Area"
+  },
+  {
+   "qid": "Q65089593",
+   "label": "Lodna Area",
+   "lat": 23.720111111,
+   "lon": 86.410588888,
+   "classes": [
+    "mine"
+   ],
+   "products": [
+    "metallurgical coal"
+   ],
+   "operators": [],
+   "admins": [
+    "Jharkhand"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Lodna_Area"
+  },
+  {
+   "qid": "Q104821343",
+   "label": "North Karanpura Area",
+   "lat": 23.68,
+   "lon": 85.009,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/North_Karanpura_Area"
+  },
+  {
+   "qid": "Q104829580",
+   "label": "Barka Sayal Area",
+   "lat": 23.6811,
+   "lon": 85.3258,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Barka_Sayal_Area"
+  },
+  {
+   "qid": "Q104829875",
+   "label": "Hazaribagh Area",
+   "lat": 23.853741666,
+   "lon": 85.441230555,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Hazaribagh_Area"
+  },
+  {
+   "qid": "Q104830055",
+   "label": "Rajrappa Area",
+   "lat": 23.590044444,
+   "lon": 85.677130555,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Rajrappa_Area"
+  },
+  {
+   "qid": "Q104830283",
+   "label": "Argada Area",
+   "lat": 23.6477,
+   "lon": 85.4504,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Argada_Area"
+  },
+  {
+   "qid": "Q104830482",
+   "label": "Kuju Area",
+   "lat": 23.7203,
+   "lon": 85.5028,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Kuju_Area"
+  },
+  {
+   "qid": "Q104834005",
+   "label": "Rajhara Area",
+   "lat": 24.1621,
+   "lon": 84.0442,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Rajhara_Area"
+  },
+  {
+   "qid": "Q104834351",
+   "label": "Kathara Area",
+   "lat": 23.768402777,
+   "lon": 85.892255555,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Kathara_Area"
+  },
+  {
+   "qid": "Q104834448",
+   "label": "Dhori Area",
+   "lat": 23.766978,
+   "lon": 85.985389,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Dhori_Area"
+  },
+  {
+   "qid": "Q104834467",
+   "label": "Bokaro and Kargali Area",
+   "lat": 23.768878,
+   "lon": 85.971589,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Bokaro_and_Kargali_Area"
+  },
+  {
+   "qid": "Q104882803",
+   "label": "Piparwar Area",
+   "lat": 23.6911,
+   "lon": 85.0668,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Piparwar_Area"
+  },
+  {
+   "qid": "Q105102669",
+   "label": "Magadh Sanghamitra Area",
+   "lat": 23.8442,
+   "lon": 84.9885,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Magadh_Sanghamitra_Area"
+  },
+  {
+   "qid": "Q105102710",
+   "label": "Amrapali & Chandragupta Area",
+   "lat": 23.8941,
+   "lon": 85.0005,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Amrapali_%26_Chandragupta_Area"
+  },
+  {
+   "qid": "Q107210112",
+   "label": "Turamdih Uranium Mine",
+   "lat": 22.720277777,
+   "lon": 86.185833333,
+   "classes": [
+    "mine"
+   ],
+   "products": [
+    "uranium ore"
+   ],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Turamdih_Uranium_Mine"
+  },
+  {
+   "qid": "Q1387133",
+   "label": "Donimalai Township",
+   "lat": 15.0589,
+   "lon": 76.5937,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Ballari district"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Donimalai_Township"
+  },
+  {
+   "qid": "Q3595249",
+   "label": "Tummalapalle uranium mine",
+   "lat": 14.41,
+   "lon": 78.23,
+   "classes": [
+    "mine"
+   ],
+   "products": [
+    "uranium ore"
+   ],
+   "operators": [],
+   "admins": [
+    "Vemula mandal"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Tummalapalle_uranium_mine"
+  },
+  {
+   "qid": "Q4761912",
+   "label": "Angadipuram Laterite",
+   "lat": 10.9925,
+   "lon": 76.2042,
+   "classes": [
+    "quarry"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Malappuram district"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Angadipuram_Laterite"
+  },
+  {
+   "qid": "Q6427412",
+   "label": "Kollur Mine",
+   "lat": 16.70289167,
+   "lon": 80.03145278,
+   "classes": [
+    "mine"
+   ],
+   "products": [
+    "diamond"
+   ],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Kollur_Mine"
+  },
+  {
+   "qid": "Q6741275",
+   "label": "Malanjkhand",
+   "lat": 22.00138889,
+   "lon": 80.70916667,
+   "classes": [
+    "mine"
+   ],
+   "products": [
+    "copper ore"
+   ],
+   "operators": [
+    "Hindustan Copper Limited"
+   ],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Malanjkhand"
+  },
+  {
+   "qid": "Q6785911",
+   "label": "Mata no Madh",
+   "lat": 23.542333333,
+   "lon": 68.949755555,
+   "classes": [
+    "mine",
+    "village in India"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Lakhpat Taluka"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Mata_no_Madh"
+  },
+  {
+   "qid": "Q7286648",
+   "label": "Rakha Mines",
+   "lat": 22.63333333,
+   "lon": 86.36666667,
+   "classes": [
+    "mine"
+   ],
+   "products": [
+    "copper ore"
+   ],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Rakha_Mines"
+  },
+  {
+   "qid": "Q15229130",
+   "label": "Jaduguda Uranium Mine",
+   "lat": 22.39,
+   "lon": 86.22,
+   "classes": [
+    "mine"
+   ],
+   "products": [
+    "uranium ore"
+   ],
+   "operators": [],
+   "admins": [
+    "East Singhbhum district"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Jaduguda_uranium_mine"
+  },
+  {
+   "qid": "Q16956554",
+   "label": "Rajmahal coalfield",
+   "lat": 25.04305556,
+   "lon": 87.34416667,
+   "classes": [
+    "mine"
+   ],
+   "products": [
+    "coal"
+   ],
+   "operators": [],
+   "admins": [
+    "Jharkhand"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Rajmahal_coalfield"
+  },
+  {
+   "qid": "Q29025846",
+   "label": "Sonpur Bazari open cast coal mines",
+   "lat": 23.69119444,
+   "lon": 87.21230556,
+   "classes": [
+    "mine"
+   ],
+   "products": [
+    "coal"
+   ],
+   "operators": [],
+   "admins": [
+    "Pandabeswar community development block"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Sonpur_Bazari"
+  },
+  {
+   "qid": "Q30108916",
+   "label": "Deucha Pachami coal block",
+   "lat": 23.990555555,
+   "lon": 87.524166666,
+   "classes": [
+    "mine"
+   ],
+   "products": [
+    "coal"
+   ],
+   "operators": [],
+   "admins": [
+    "Mohammad Bazar community development block"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Deucha_Pachami_coal_block"
+  },
+  {
+   "qid": "Q56277350",
+   "label": "Sripur Area",
+   "lat": 23.684888888,
+   "lon": 87.047752777,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Asansol Sadar subdivision"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Sripur_Area"
+  },
+  {
+   "qid": "Q56277452",
+   "label": "Satgram Area",
+   "lat": 23.674888888,
+   "lon": 87.082752777,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Asansol Sadar subdivision"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Satgram_Area"
+  },
+  {
+   "qid": "Q56277612",
+   "label": "Sodepur Area",
+   "lat": 23.6868,
+   "lon": 86.8732,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Asansol Sadar subdivision"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Sodepur_Area"
+  },
+  {
+   "qid": "Q56277820",
+   "label": "Salanpur Area",
+   "lat": 23.7768,
+   "lon": 86.8832,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Asansol Sadar subdivision"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Salanpur_Area"
+  },
+  {
+   "qid": "Q56278085",
+   "label": "Mugma Area",
+   "lat": 23.7761,
+   "lon": 86.7274,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Dhanbad district"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Mugma_Area"
+  },
+  {
+   "qid": "Q56278642",
+   "label": "Bankola Area",
+   "lat": 23.6685,
+   "lon": 87.2436,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Bankola_Area"
+  },
+  {
+   "qid": "Q56278944",
+   "label": "Kunustoria Area",
+   "lat": 23.645711111,
+   "lon": 87.117422222,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Asansol Sadar subdivision"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Kunustoria_Area"
+  },
+  {
+   "qid": "Q56279066",
+   "label": "Kajora Area",
+   "lat": 23.632405555,
+   "lon": 87.171594444,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Kajora_Area"
+  },
+  {
+   "qid": "Q56279453",
+   "label": "Kenda Area",
+   "lat": 23.6673,
+   "lon": 87.1793,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Asansol Sadar subdivision"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Kenda_Area"
+  },
+  {
+   "qid": "Q56280096",
+   "label": "Pandaveswar Area",
+   "lat": 23.696666666,
+   "lon": 87.273333333,
+   "classes": [
+    "mine"
+   ],
+   "products": [],
+   "operators": [],
+   "admins": [
+    "Paschim Bardhaman district"
+   ],
+   "osm_way": null,
+   "osm_relation": null,
+   "enwiki": "https://en.wikipedia.org/wiki/Pandaveswar_Area"
+  }
+ ]
+}

@@ -1,12 +1,15 @@
 {
   "name": "minerva-indian-mineral-database",
   "version": "1.0.0",
-  "description": "MINERVA — Indian Mineral Resource Management Database Authentication & Control Panel",
+  "description": "MINERVA \u2014 Indian Mineral Resource Management Database Authentication & Control Panel",
+  "type": "module",
   "main": "index.html",
   "scripts": {
     "dev": "vite --port 3000 --host",
     "start": "vite --port 3000 --host",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "import:fetch": "node scripts/import/fetch-osm.js && node scripts/import/fetch-wikidata.js",
+    "import:mines": "node scripts/import/normalise.js && node scripts/import/geocode.js && node scripts/import/load.js"
   },
   "devDependencies": {
     "vite": "^5.0.0 || ^6.0.0"

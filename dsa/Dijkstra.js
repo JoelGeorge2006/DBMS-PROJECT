@@ -8,6 +8,9 @@
  * Corridors: each mine is linked to its k nearest mines. A complete
  * graph would make every shortest path the direct edge (straight-line
  * distances obey the triangle inequality), so routing would be trivial.
+ * Nearest-neighbour links alone leave separate clusters (one per coalfield),
+ * so connectComponents() then adds the shortest link between clusters,
+ * Borůvka-style, until every mine is reachable.
  *
  * dijkstra(graph, source, target)   O((V + E) log V)
  *   Uses the binary-heap PriorityQueue from Queue.js. Stale heap
@@ -16,6 +19,7 @@
  */
 
 import { PriorityQueue } from './Queue.js';
+import { UnionFind } from './MST.js';
 
 export class Graph {
   constructor() {
@@ -84,7 +88,43 @@ export function buildNearestNeighbourGraph(mines, k = 3) {
       .slice(0, k)
       .forEach(({ o, d }) => g.addEdge(m.id, o.id, round1(d)));
   });
+  connectComponents(g, mines);
   return g;
+}
+
+/**
+ * Join the graph's connected components (union-find), Borůvka-style: each round,
+ * every component adds its shortest edge to a node in another component.
+ * Components at least halve each round, so there are O(log n) rounds of O(n²) work.
+ * Returns the number of edges added.
+ */
+export function connectComponents(g, mines) {
+  const uf = new UnionFind(mines.map((m) => m.id));
+  g.edges().forEach((e) => uf.union(e.from, e.to));
+  let added = 0;
+  while (uf.components > 1) {
+    const best = new Map(); // component root -> shortest outgoing edge
+    for (let i = 0; i < mines.length; i++) {
+      for (let j = i + 1; j < mines.length; j++) {
+        const a = mines[i];
+        const b = mines[j];
+        const ra = uf.find(a.id);
+        const rb = uf.find(b.id);
+        if (ra === rb) continue;
+        const d = haversineKm(a.lat, a.lng, b.lat, b.lng);
+        for (const r of [ra, rb]) {
+          if (!best.has(r) || d < best.get(r).d) best.set(r, { a: a.id, b: b.id, d });
+        }
+      }
+    }
+    for (const { a, b, d } of best.values()) {
+      if (uf.union(a, b)) {
+        g.addEdge(a, b, round1(d));
+        added++;
+      }
+    }
+  }
+  return added;
 }
 
 /** Complete graph: every pair of mines, weight = distance */
@@ -143,4 +183,4 @@ export function dijkstra(graph, source, target) {
   return { path, distance: round1(dist.get(target)), settledOrder };
 }
 
-export default { Graph, haversineKm, buildNearestNeighbourGraph, buildCompleteGraph, dijkstra };
+export default { Graph, haversineKm, buildNearestNeighbourGraph, buildCompleteGraph, connectComponents, dijkstra };

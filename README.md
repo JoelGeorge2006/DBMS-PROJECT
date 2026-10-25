@@ -28,8 +28,12 @@ The database contains the following seven tables:
 3. Run `02_insert_sample_data.sql`.
 4. Run the remaining SQL files to test the queries.
 
-## Data Disclaimer
-Lease and production records created for demonstration purposes are synthetic sample data and should not be interpreted as official mining statistics.
+## Data
+`minerva.db` holds **468 mines** across 20 states: 440 from OpenStreetMap, 20 from Wikidata and 8 synthetic sample records (marked "sample" in the UI). Imported mines carry their source link, licence and location precision; they have no lease, assay or production rows because public data does not provide them, and the app says so instead of guessing. Only the 8 sample records have leases and production, and those are synthetic, not official statistics.
+
+Refresh the import with `npm run import:fetch` then `npm run import:mines`. Sources, licences and scope: [data/SOURCES.md](data/SOURCES.md); counts per state: [data/processed/report.md](data/processed/report.md). The schema (v2) is in `schema.sql`; older databases are migrated on server start (`db/migrate.js`).
+
+Map data © OpenStreetMap contributors (ODbL 1.0). Wikidata content is CC0.
 
 ---
 

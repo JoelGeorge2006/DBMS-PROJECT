@@ -40,13 +40,6 @@ export const apiService = {
     return apiGet('/api/kpi/metrics');
   },
 
-  /**
-   * 2. Geospatial Nodes & Lease Polygons
-   * @param {Object} filters - { mineral, state, district, show_mines, show_hotspots, show_leases }
-   */
-  async getGisNodes(filters = {}) {
-    return apiGet('/api/gis/nodes', filters);
-  },
 
   /**
    * 3. Mines Master Grid

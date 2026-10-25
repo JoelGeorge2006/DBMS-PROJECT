@@ -138,10 +138,14 @@ function initGeospatialMap() {
     minZoom: 4.5,
     maxZoom: 16,
     zoomControl: false, // We use custom Image 1 top-right floating controls
-    attributionControl: false,
+    attributionControl: false, // added below with the data sources' required credits
   });
 
   networkLayerGroup = L.layerGroup().addTo(map);
+  L.control
+    .attribution({ position: 'bottomright', prefix: false })
+    .addAttribution('Mines © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors (ODbL), <a href="https://www.wikidata.org" target="_blank" rel="noopener">Wikidata</a> · Imagery © Esri')
+    .addTo(map);
 
   // Basemap Tiles: Esri High-Resolution World Imagery
   setBasemap('satellite');
@@ -205,13 +209,17 @@ function openNodeInspector(node) {
   const m = document.getElementById('inspectMineral');
   const l = document.getElementById('inspectLease');
   const y = document.getElementById('inspectYield');
+  const src = document.getElementById('inspectSource');
+  const chip = document.getElementById('inspectCategory');
 
   if (t) t.textContent = node.name;
   if (sub) sub.textContent = `${node.district}, ${node.state}`;
-  if (c) c.textContent = node.company;
+  if (chip) chip.textContent = node.isSample ? `${node.status} · sample record` : node.status;
+  if (c) c.textContent = node.company || 'Not recorded';
   if (m) m.textContent = node.mineral;
   if (l) l.textContent = node.leaseId;
   if (y) y.textContent = node.yield;
+  if (src) src.innerHTML = sourceLink(node.source);
 
   if (card) card.classList.remove('hidden');
 
@@ -242,9 +250,9 @@ if (btnInspectDb) {
     const card = document.getElementById('nodeInspectorCard');
     if (card) card.classList.add('hidden');
     switchView('database');
-    if (appState.activeNode) {
-      focusMineByName(appState.activeNode.name);
-    }
+    // By id: many imported mines share a name ("Unnamed coal mine")
+    const match = appState.activeNode && currentMinesList.find((m) => m.mineId === appState.activeNode.id);
+    if (match) selectMine(match);
   });
 }
 
@@ -790,7 +798,7 @@ async function fetchMinesData() {
 function filterMines(q) {
   if (!q) return currentMinesList;
   return currentMinesList.filter((m) =>
-    [m.mineId, m.mineName, m.primaryMineral, m.stateDistrict, m.operatingLessee, m.dossier?.lease?.id]
+    [m.mineId, m.mineName, m.mineralRecorded === false ? '' : m.primaryMineral, m.stateDistrict, m.operatingLessee, m.dossier?.lease?.id]
       .some((field) => String(field || '').toLowerCase().includes(q))
   );
 }
@@ -818,6 +826,8 @@ function initDatabaseExplorer() {
 
   // Fetch live API records in background
   fetchMinesData().then(() => {
+    // Map dots were drawn before the mine records arrived: recolour them by mineral
+    if (networkState.nodes.length) drawMineDots();
     renderMinesTable(filterMines(searchQuery.toLowerCase()));
     const selected = currentMinesList.find((m) => m.mineId === selectedMineId) || currentMinesList[0];
     if (selected) updateDossier(selected);
@@ -935,19 +945,19 @@ function renderMinesTable(mines) {
     const dotClass = `dot-${m.mineralDotColor || 'rust'}`;
 
     tr.innerHTML = `
-      <td class="td-mine-id">${m.mineId}</td>
-      <td class="td-mine-name">${m.mineName}</td>
+      <td class="td-mine-id">${escapeHtml(m.mineId)}</td>
+      <td class="td-mine-name">${escapeHtml(m.mineName)}${m.isSample ? ' <span class="sample-tag" title="Synthetic sample record">sample</span>' : ''}</td>
       <td>
         <div class="td-mineral">
           <span class="mineral-dot ${dotClass}"></span>
-          <span>${m.primaryMineral}</span>
+          <span class="${m.mineralRecorded === false ? 'muted' : ''}">${escapeHtml(m.primaryMineral)}</span>
         </div>
       </td>
-      <td>${m.stateDistrict}</td>
-      <td>${m.operatingLessee}</td>
-      <td class="td-lease-val">${m.leaseValidity}</td>
+      <td>${escapeHtml(m.stateDistrict)}</td>
+      <td class="${m.operatingLessee ? '' : 'muted'}">${escapeHtml(m.operatingLessee || '—')}</td>
+      <td class="td-lease-val">${escapeHtml(m.leaseValidity || '—')}</td>
       <td>
-        <span class="status-pill ${m.statusClass}">${m.status}</span>
+        <span class="status-pill ${m.statusClass}">${escapeHtml(m.status)}</span>
       </td>
       <td>
         <div class="row-actions-group">
@@ -1006,6 +1016,38 @@ function updateDossier(mine) {
   const dossierTitle = document.getElementById('dossierTitle');
   if (dossierTitle) {
     dossierTitle.textContent = d.fullName || `${mine.mineName} (${mine.mineId})`;
+  }
+
+  // Record: always shown
+  const recordList = document.getElementById('recordList');
+  if (recordList) {
+    const rows = [
+      ['Mineral', mine.mineralRecorded === false ? 'Not recorded' : mine.primaryMineral],
+      ['Grade', d.gradeDescription],
+      ['Type', mine.mineType && mine.mineType !== 'Unknown' ? mine.mineType : null],
+      ['Status', mine.isSample ? `${mine.status} (sample record)` : mine.status],
+      ['Operator', mine.operatingLessee],
+      ['Location', PRECISION_LABEL[mine.precision] || null],
+      ['Source', mine.source ? sourceLink(mine.source) : null, true],
+    ].filter(([, v]) => v);
+    recordList.innerHTML = rows
+      .map(([k, v, html]) => `<div class="lease-kv-row"><span class="kv-label">${k}:</span><span class="kv-val">${html ? v : escapeHtml(v)}</span></div>`)
+      .join('');
+  }
+
+  // Cards for facts the database may not hold for this mine
+  const hasProduction = Boolean(d.production?.history?.length);
+  const show = (id, on) => document.getElementById(id)?.classList.toggle('hidden', !on);
+  show('assayCard', Boolean(d.assay));
+  show('leaseCard', Boolean(d.lease));
+  show('productionCard', hasProduction);
+  show('clearanceCard', Boolean(d.clearance));
+  const missing = [!d.assay && 'assay', !d.lease && 'lease', !hasProduction && 'production'].filter(Boolean);
+  const missingEl = document.getElementById('dossierMissing');
+  if (missingEl) {
+    const list = missing.length > 1 ? `${missing.slice(0, -1).join(', ')} or ${missing[missing.length - 1]}` : missing[0];
+    missingEl.textContent = missing.length ? `No ${list} record${missing.length === 1 ? '' : 's'} in the database for this mine.` : '';
+    missingEl.classList.toggle('hidden', missing.length === 0);
   }
 
   // Card 1: Assay
@@ -1114,18 +1156,25 @@ function mineToInspectorNode(mine) {
     coords: mine.coords,
     company: mine.operatingLessee,
     mineral: mine.primaryMineral,
-    leaseId: mine.dossier?.lease?.id || '—',
-    yield: mine.dossier?.production?.currentOutput || '—',
+    leaseId: mine.dossier?.lease?.id || 'No lease record',
+    yield: mine.dossier?.production?.history?.length ? mine.dossier.production.currentOutput : 'No records',
+    status: mine.status,
+    isSample: mine.isSample,
+    source: mine.source,
   };
 }
 
-// Focus Mine by Name from Geospatial Map Inspector
-function focusMineByName(name) {
-  const match = currentMinesList.find((m) => m.mineName.toLowerCase().includes(name.toLowerCase()));
-  if (match) {
-    selectMine(match);
-  }
+/** "OpenStreetMap ↗" link (or plain text for the sample data) */
+function sourceLink(source) {
+  if (!source) return '—';
+  const label = escapeHtml(source.name);
+  return source.url
+    ? `<a href="${escapeHtml(source.url)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(source.licence || '')}">${label} ↗</a>`
+    : label;
 }
+
+const PRECISION_LABEL = { exact: 'Exact (mapped site)', approximate: 'Approximate', district: 'District centre only' };
+
 
 // Export Master Records to CSV (Streaming from backend API)
 function exportMasterCsv() {
@@ -1136,54 +1185,32 @@ function exportMasterCsv() {
 // Download Dossier as Text Report
 function downloadMineDossier(mine) {
   const d = mine.dossier;
-  const content = `========================================================================
-MINERVA — NATIONAL MINERAL GEOSPATIAL INTELLIGENCE DOSSIER
-========================================================================
-Mine ID:             ${mine.mineId}
-Mine Name:           ${mine.mineName}
-Primary Mineral:     ${mine.primaryMineral}
-State & District:    ${mine.stateDistrict}
-Operating Lessee:    ${mine.operatingLessee}
-Current Status:      ${mine.status}
-Coordinates:         ${mine.coords.join(', ')}
-
-------------------------------------------------------------------------
-1. MINERAL RESERVE GRADE & ASSAY
-------------------------------------------------------------------------
-Fe Grade:            ${d.assay.fe}
-SiO2 (Silica):       ${d.assay.sio2}
-Al2O3 (Alumina):     ${d.assay.al2o3}
-Phosphorus:          ${d.assay.phosphorus}
-Moisture Content:    ${d.assay.moisture}
-
-------------------------------------------------------------------------
-2. LINKED LEASE CONCESSION METRICS
-------------------------------------------------------------------------
-Lease ID:            ${d.lease.id}
-Executed:            ${d.lease.executed}
-Valid Till:          ${d.lease.validTill}
-Royalty Rate:        ${d.lease.royaltyRate}
-Concession Area:     ${d.lease.area}
-
-------------------------------------------------------------------------
-3. ANNUAL PRODUCTION (MT)
-------------------------------------------------------------------------
-Current 2024 Output: ${d.production.currentOutput}
-Historical Output:
-${d.production.history.map((h) => `  * FY ${h.year}: ${h.mt} MT`).join('\n')}
-
-------------------------------------------------------------------------
-4. ENVIRONMENTAL & REGULATORY CLEARANCE
-------------------------------------------------------------------------
-Classification:      ${d.clearance.title}
-Status:              ${d.clearance.subtitle}
-EC Compliance:       ${d.clearance.approved ? 'APPROVED & AUDITED' : 'UNDER REVIEW'}
-
-========================================================================
-Ministry of Mines & Indian Bureau of Mines Registry (WGS84 Reference)
-Generated: ${new Date().toUTCString()}
-========================================================================
-`;
+  const line = (label, value) => `${(label + ':').padEnd(20)} ${value ?? 'Not recorded'}`;
+  const section = (title, body) => `\n${title}\n${'-'.repeat(60)}\n${body}\n`;
+  const content = [
+    `MINERVA — mine dossier`,
+    '='.repeat(60),
+    line('Mine ID', mine.mineId),
+    line('Mine name', mine.mineName),
+    line('Primary mineral', mine.primaryMineral),
+    line('State & district', mine.stateDistrict),
+    line('Operator', mine.operatingLessee),
+    line('Status', mine.isSample ? `${mine.status} (synthetic sample record)` : mine.status),
+    line('Coordinates', `${mine.coords.join(', ')} (${PRECISION_LABEL[mine.precision] || 'precision not recorded'})`),
+    line('Source', mine.source ? `${mine.source.name}${mine.source.url ? ` — ${mine.source.url}` : ''}` : null),
+    line('Licence', mine.source?.licence),
+    section('ASSAY', d.assay
+      ? [line('Fe', d.assay.fe), line('SiO2', d.assay.sio2), line('Al2O3', d.assay.al2o3), line('Phosphorus', d.assay.phosphorus), line('Moisture', d.assay.moisture)].join('\n')
+      : 'No assay record.'),
+    section('LEASE', d.lease
+      ? [line('Lease ID', d.lease.id), line('Executed', d.lease.executed), line('Valid till', d.lease.validTill), line('Royalty rate', d.lease.royaltyRate), line('Area', d.lease.area)].join('\n')
+      : 'No lease record.'),
+    section('PRODUCTION', d.production?.history?.length
+      ? [line('Latest', d.production.currentOutput), ...d.production.history.map((h) => `  FY ${h.year}: ${h.mt} MT`)].join('\n')
+      : 'No production records.'),
+    `Generated ${new Date().toISOString()}`,
+    '',
+  ].join('\n');
 
   const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -1364,19 +1391,29 @@ async function initTransportNetwork() {
     networkState.edges = net.edges;
     networkState.byId = new Map(net.nodes.map((n) => [n.id, n]));
     if (sub) {
-      sub.textContent = `${net.nodes.length} mines, ${net.edges.length} corridors. Each mine links to its ${net.neighbours} nearest mines; distances are straight-line km.`;
+      sub.textContent = networkDescription(net.neighbours);
     }
   } catch (err) {
     if (sub) sub.textContent = `Could not load the network: ${err.message}`;
     return;
   }
 
-  const options = networkState.nodes
-    .map((n) => `<option value="${escapeHtml(n.id)}">${escapeHtml(n.name)} (${escapeHtml(n.state)})</option>`)
+  // Grouped by state, sorted by name, so hundreds of mines stay findable
+  const byState = new Map();
+  [...networkState.nodes]
+    .sort((a, b) => a.state.localeCompare(b.state) || a.name.localeCompare(b.name))
+    .forEach((n) => {
+      if (!byState.has(n.state)) byState.set(n.state, []);
+      byState.get(n.state).push(n);
+    });
+  const options = [...byState.entries()]
+    .map(([state, list]) => `<optgroup label="${escapeHtml(state)}">${list
+      .map((n) => `<option value="${escapeHtml(n.id)}">${escapeHtml(mineLabel(n))}</option>`)
+      .join('')}</optgroup>`)
     .join('');
   fromSel.innerHTML = options;
   toSel.innerHTML = options;
-  if (networkState.nodes.length > 1) toSel.selectedIndex = networkState.nodes.length - 1;
+  if (networkState.nodes.length > 1) toSel.selectedIndex = Math.min(networkState.nodes.length - 1, 1);
 
   drawCorridors();
 
@@ -1402,6 +1439,16 @@ async function initTransportNetwork() {
   });
 }
 
+/** Name plus district, and the id when a name repeats within its state */
+function mineLabel(n) {
+  const twins = networkState.nodes.filter((o) => o.name === n.name && o.state === n.state).length;
+  return `${n.name} · ${n.district}${twins > 1 ? ` · ${n.id}` : ''}`;
+}
+
+function networkDescription(k) {
+  return `${networkState.nodes.length} mines, ${networkState.edges.length} links: each mine to its ${k} nearest, plus the shortest links joining separate clusters. Distances are straight-line km.`;
+}
+
 function switchNetworkTab(name) {
   document.querySelectorAll('.net-tab').forEach((t) => {
     const on = t.dataset.netTab === name;
@@ -1419,7 +1466,7 @@ function switchNetworkTab(name) {
   if (sub && networkState.nodes.length) {
     sub.textContent = name === 'mst'
       ? `The shortest total set of links that connects all ${networkState.nodes.length} mines, chosen from every possible pair.`
-      : `${networkState.nodes.length} mines, ${networkState.edges.length} corridors. Each mine links to its 3 nearest mines; distances are straight-line km.`;
+      : networkDescription(3);
   }
 }
 
@@ -1454,7 +1501,7 @@ function showMst(res) {
   const run = ++networkState.mstRun;
   const steps = document.getElementById('mstSteps');
   const totalEl = document.getElementById('mstTotal');
-  const name = (id) => networkState.byId.get(id)?.name || id;
+  const name = (id) => (networkState.byId.has(id) ? mineLabel(networkState.byId.get(id)) : id);
 
   drawMineDots();
   networkState.mstLayer = L.featureGroup().addTo(map);
@@ -1466,9 +1513,11 @@ function showMst(res) {
   const extra = res.algorithm === 'kruskal'
     ? ` · ${res.cycleEdgesRejected} links skipped because they would close a loop`
     : ` · grown from ${name(res.root)}`;
-  totalEl.textContent = `${res.totalKm.toLocaleString()} km total, ${res.edges.length} links (linking every pair: ${res.allPairsKm.toLocaleString()} km)${extra}`;
+  totalEl.textContent = `${res.totalKm.toLocaleString()} km total, ${res.edges.length} links chosen from ${res.candidateEdges.toLocaleString()} possible${extra}`;
   document.getElementById('mstResult').classList.remove('hidden');
 
+  // Whole animation lasts at most about 3 s, however many links there are
+  const stepMs = Math.min(350, 3000 / Math.max(1, res.edges.length));
   res.edges.forEach((e, i) => {
     setTimeout(() => {
       if (run !== networkState.mstRun || !networkState.mstLayer) return;
@@ -1477,7 +1526,7 @@ function showMst(res) {
       L.polyline(pts, { color: '#F7F4EE', weight: 3.5, interactive: false }).addTo(networkState.mstLayer);
       raiseMineDots();
       steps.querySelector(`[data-step="${i}"]`)?.classList.add('done');
-    }, 350 * (i + 1));
+    }, stepMs * (i + 1));
   });
 }
 
@@ -1491,22 +1540,44 @@ function clearMst() {
 
 const latLng = (n) => [n.lat, n.lng];
 
+// Map dot fill per mineral family (same palette as the table's mineral dots)
+const MINERAL_FILL = {
+  rust: '#B85D36',
+  teal: '#1B7A43',
+  amber: '#D9822B',
+  brown: '#704A33',
+  gray: '#7A7269',
+  coal: '#2B2622',
+  gold: '#B8962E',
+  stone: '#CFC3B1',
+  atomic: '#5E6B8A',
+  none: '#FFFFFF',
+};
+
+const mineById = (id) => currentMinesList.find((m) => m.mineId === id);
+
+/** Inspector for a mine id; fetches the record if the full list hasn't loaded yet */
+async function openMineInspector(id) {
+  let mine = mineById(id);
+  if (!mine) {
+    try {
+      mine = (await apiService.getMineDossier(id)).data;
+    } catch (err) {
+      showToast(`Could not load ${id}: ${err.message}`, 'error');
+      return;
+    }
+  }
+  openNodeInspector(mineToInspectorNode(mine));
+}
+
 /** Fit bounds while keeping clear of the network card (left) and filter dock (bottom) */
 function fitToNetworkView(bounds) {
   map.fitBounds(bounds, { paddingTopLeft: [440, 60], paddingBottomRight: [90, 220], maxZoom: 7 });
 }
 
-function drawCorridors(highlight = new Set()) {
-  networkLayerGroup.clearLayers();
-  networkState.edges.forEach((e) => {
-    const a = networkState.byId.get(e.from);
-    const b = networkState.byId.get(e.to);
-    const on = highlight.has(`${e.from}|${e.to}`) || highlight.has(`${e.to}|${e.from}`);
-    if (on) return; // drawn by the route layer
-    L.polyline([latLng(a), latLng(b)], { color: '#F4F1EA', weight: 1.5, opacity: 0.7, dashArray: '4 6', interactive: false })
-      .addTo(networkLayerGroup);
-  });
-  drawMineDots(false);
+/** Mines only: with hundreds of mines the full corridor web would hide the map */
+function drawCorridors() {
+  drawMineDots();
 }
 
 function raiseMineDots() {
@@ -1518,12 +1589,11 @@ function raiseMineDots() {
 function drawMineDots(clear = true) {
   if (clear) networkLayerGroup.clearLayers();
   networkState.nodes.forEach((n) => {
-    L.circleMarker(latLng(n), { radius: 6, color: '#211A14', weight: 2, fillColor: '#FFFFFF', fillOpacity: 1 })
+    const mine = mineById(n.id);
+    const fill = MINERAL_FILL[mine?.mineralDotColor] || MINERAL_FILL.none;
+    L.circleMarker(latLng(n), { radius: 5, color: '#211A14', weight: 1.5, fillColor: fill, fillOpacity: 1 })
       .bindTooltip(`${n.name} · ${n.id}`, { direction: 'top', offset: [0, -6] })
-      .on('click', () => {
-        const mine = currentMinesList.find((m) => m.mineId === n.id);
-        if (mine) openNodeInspector(mineToInspectorNode(mine));
-      })
+      .on('click', () => openMineInspector(n.id))
       .addTo(networkLayerGroup);
   });
 }
@@ -1541,8 +1611,7 @@ function showRoute(res) {
   }
 
   dsaLive.route = res;
-  const highlight = new Set(res.hops.map((h) => `${h.from}|${h.to}`));
-  drawCorridors(highlight);
+  drawCorridors();
   const points = res.path.map(latLng);
   networkState.routeLayer = L.featureGroup([
     L.polyline(points, { color: '#211A14', weight: 7, opacity: 0.55, interactive: false }),
@@ -1551,7 +1620,7 @@ function showRoute(res) {
   raiseMineDots();
   fitToNetworkView(networkState.routeLayer.getBounds());
 
-  const name = (id) => networkState.byId.get(id)?.name || id;
+  const name = (id) => (networkState.byId.has(id) ? mineLabel(networkState.byId.get(id)) : id);
   hopsEl.innerHTML = res.hops
     .map((h) => `<li><span>${escapeHtml(name(h.from))} → ${escapeHtml(name(h.to))}</span><span class="net-km">${h.distanceKm.toLocaleString()} km</span></li>`)
     .join('');
@@ -2679,7 +2748,7 @@ function mstLive(algorithm) {
   const rows = [
     ['Network length', `${r.totalKm.toLocaleString()} km`],
     ['Links chosen', r.edges.length],
-    ['Linking every pair instead', `${r.allPairsKm.toLocaleString()} km`],
+    ['Possible links considered', r.candidateEdges.toLocaleString()],
   ];
   if (algorithm === 'kruskal') rows.push(['Links skipped (would close a loop)', r.cycleEdgesRejected]);
   return rows;

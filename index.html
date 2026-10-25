@@ -303,9 +303,16 @@
 
         <!-- Dossier Body Cards -->
         <div class="dossier-cards-stack">
+
+          <!-- Always present: what the record is and where it came from -->
+          <div class="dossier-card" id="recordCard">
+            <div class="dossier-card-label">RECORD</div>
+            <div class="lease-kv-list" id="recordList"></div>
+          </div>
+          <p class="dossier-missing hidden" id="dossierMissing"></p>
           
           <!-- CARD 1: Mineral Reserve Grade & Assay -->
-          <div class="dossier-card">
+          <div class="dossier-card" id="assayCard">
             <div class="dossier-card-label">MINERAL RESERVE GRADE & ASSAY</div>
             <div class="assay-metrics-grid">
               <div class="assay-metric-box">
@@ -328,7 +335,7 @@
           </div>
 
           <!-- CARD 2: Linked Lease Concession Metrics -->
-          <div class="dossier-card">
+          <div class="dossier-card" id="leaseCard">
             <div class="dossier-card-label">LINKED LEASE CONCESSION METRICS</div>
             <div class="lease-kv-list">
               <div class="lease-kv-row">
@@ -355,7 +362,7 @@
           </div>
 
           <!-- CARD 3: Annual Production (MT) -->
-          <div class="dossier-card">
+          <div class="dossier-card" id="productionCard">
             <div class="prod-card-header">
               <span class="dossier-card-label">ANNUAL PRODUCTION (MT)</span>
               <span class="prod-ytd-val" id="prodYtdVal">6.4 MT (2024 YTD)</span>
@@ -573,29 +580,33 @@
     <div id="nodeInspectorCard" class="node-inspector-card hidden" role="dialog" aria-modal="true" aria-labelledby="inspectTitle">
       <div class="inspect-header">
         <div class="inspect-badge-row">
-          <span class="inspect-type-chip" id="inspectCategory">ACTIVE EXTRACTION NODE</span>
+          <span class="inspect-type-chip" id="inspectCategory">Mine</span>
           <button type="button" class="btn-close-inspect" id="btnCloseInspect" aria-label="Close Inspector">&times;</button>
         </div>
-        <h3 class="inspect-title" id="inspectTitle">Noamundi Iron Mine</h3>
-        <p class="inspect-sub" id="inspectSubtitle">West Singhbhum, Jharkhand</p>
+        <h3 class="inspect-title" id="inspectTitle"></h3>
+        <p class="inspect-sub" id="inspectSubtitle"></p>
       </div>
 
       <div class="inspect-body">
         <div class="inspect-stat-row">
-          <span class="stat-label">OPERATING LESSEE</span>
-          <span class="stat-val" id="inspectCompany">Tata Steel Ltd.</span>
+          <span class="stat-label">OPERATOR</span>
+          <span class="stat-val" id="inspectCompany"></span>
         </div>
         <div class="inspect-stat-row">
           <span class="stat-label">PRIMARY MINERAL</span>
-          <span class="stat-val highlight" id="inspectMineral">Iron Ore (Hematite 64% Fe)</span>
+          <span class="stat-val highlight" id="inspectMineral"></span>
         </div>
         <div class="inspect-stat-row">
-          <span class="stat-label">LEASE CONCESSION ID</span>
-          <span class="stat-val mono" id="inspectLease">LEASE: 04-OR-2004</span>
+          <span class="stat-label">LEASE</span>
+          <span class="stat-val mono" id="inspectLease"></span>
         </div>
         <div class="inspect-stat-row">
           <span class="stat-label">LATEST PRODUCTION</span>
-          <span class="stat-val" id="inspectYield">18.4 Million MT/Year</span>
+          <span class="stat-val" id="inspectYield"></span>
+        </div>
+        <div class="inspect-stat-row">
+          <span class="stat-label">SOURCE</span>
+          <span class="stat-val" id="inspectSource"></span>
         </div>
       </div>
 

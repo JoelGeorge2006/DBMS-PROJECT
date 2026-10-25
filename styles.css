@@ -884,6 +884,45 @@ tr.search-empty td {
 .dot-amber { background-color: var(--dot-amber); }
 .dot-brown { background-color: var(--dot-brown); }
 .dot-gray { background-color: var(--dot-gray); }
+.dot-coal { background-color: #2B2622; }
+.dot-gold { background-color: #B8962E; }
+.dot-stone { background-color: #CFC3B1; }
+.dot-atomic { background-color: #5E6B8A; }
+.dot-none { background-color: transparent; box-shadow: inset 0 0 0 1.5px var(--text-muted); }
+
+.muted {
+  color: var(--text-muted);
+}
+
+.sample-tag {
+  margin-left: 4px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--sand-pill-bg);
+  color: var(--sand-pill-text);
+  font-size: 0.64rem;
+  font-weight: 600;
+  vertical-align: 1px;
+}
+
+.dossier-missing {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px dashed var(--border-pill);
+  border-radius: 12px;
+  font-size: 0.78rem;
+  color: var(--text-sub);
+}
+
+.kv-val a,
+.stat-val a {
+  color: var(--espresso-dark);
+}
+
+.leaflet-control-attribution {
+  font-size: 0.64rem;
+  background: rgba(255, 255, 255, 0.8) !important;
+}
 
 .td-lease-val {
   font-family: var(--font-mono);
@@ -913,6 +952,17 @@ tr.search-empty td {
 .status-pill.expiring {
   background-color: var(--status-exp-bg);
   color: var(--status-exp-text);
+}
+
+.status-pill.unknown {
+  background: #F1ECE4;
+  color: var(--text-sub);
+}
+
+.status-pill.closed,
+.status-pill.revoked {
+  background: #ECE8E3;
+  color: var(--text-muted);
 }
 
 /* Row Action Buttons */
@@ -956,7 +1006,11 @@ tr.search-empty td {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  gap: 18px;
+}
+
+.db-dossier-panel .dossier-actions-bottom {
+  margin-top: auto;
 }
 
 .dossier-header {
@@ -1436,6 +1490,8 @@ tr.search-empty td {
   list-style: none;
   margin: 0 0 8px;
   padding: 0;
+  max-height: 220px;
+  overflow-y: auto;
 }
 
 .net-hops li {

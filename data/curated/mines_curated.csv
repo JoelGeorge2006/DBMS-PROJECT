@@ -1,0 +1,4 @@
+# Hand-curated mines (tiers A/B of the plan: IBM yearbook / company reports).
+# One row per mine. source_url is required; precision is exact | approximate | district.
+# Rows are skipped unless name, mineral, lat, lng and source_url are all present.
+name,mineral,state,district,lessee,lat,lng,precision,source_url

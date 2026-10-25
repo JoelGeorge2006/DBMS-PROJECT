@@ -11,6 +11,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { BinarySearchTree } from './dsa/BinarySearchTree.js';
+import { migrate } from './db/migrate.js';
 import { buildNearestNeighbourGraph, buildCompleteGraph, dijkstra } from './dsa/Dijkstra.js';
 import { primMST, kruskalMST } from './dsa/MST.js';
 
@@ -20,7 +21,6 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3001;
 const DB_PATH = path.join(__dirname, 'minerva.db');
-const SCHEMA_PATH = path.join(__dirname, 'schema.sql');
 
 app.use(cors());
 app.use(express.json());
@@ -32,17 +32,8 @@ let db;
 try {
   db = new Database(DB_PATH);
   db.pragma('foreign_keys = ON');
-
-  // Verify database has tables; if empty, initialize from schema.sql
-  const checkTable = db.prepare("SELECT count(*) as count FROM sqlite_master WHERE type='table' AND name='MINE'").get();
-  if (!checkTable || checkTable.count === 0) {
-    console.log('[MINERVA DB] Database not initialized. Executing schema.sql...');
-    const schemaSql = fs.readFileSync(SCHEMA_PATH, 'utf8');
-    db.exec(schemaSql);
-    console.log('[MINERVA DB] Schema and seed data successfully initialized.');
-  } else {
-    console.log('[MINERVA DB] Connected to existing SQLite database at:', DB_PATH);
-  }
+  // Creates the database from schema.sql, or migrates an older one (PRAGMA user_version)
+  console.log(`[MINERVA DB] ${DB_PATH}: ${migrate(db)}`);
 } catch (err) {
   console.error('[MINERVA DB] Fatal database error:', err);
   process.exit(1);
@@ -55,7 +46,7 @@ try {
 // 1. GET /api/kpi/metrics (Dashboard Telemetry Counters)
 app.get('/api/kpi/metrics', (req, res) => {
   try {
-    const activeMinesRow = db.prepare("SELECT count(*) as count FROM MINE WHERE status != 'Revoked'").get();
+    const activeMinesRow = db.prepare("SELECT count(*) as count FROM MINE WHERE status IN ('Operational', 'Under Maintenance', 'Expiring')").get();
     const cratonsRow = db.prepare("SELECT count(DISTINCT craton_region) as count FROM LOCATION").get();
     const concessionsRow = db.prepare("SELECT count(*) as count FROM LEASE WHERE valid_till > date('now')").get();
     const annualYieldRow = db.prepare("SELECT coalesce(sum(quantity_mt), 0) as total FROM PRODUCTION WHERE fiscal_year = 2024").get();
@@ -74,106 +65,115 @@ app.get('/api/kpi/metrics', (req, res) => {
   }
 });
 
-// 2. GET /api/gis/nodes (Geospatial Telemetry Nodes & Clusters)
-app.get('/api/gis/nodes', (req, res) => {
-  try {
-    const { mineral, state, district, show_mines, show_hotspots, show_leases } = req.query;
-
-    let query = `
-      SELECT 
-        m.mine_id AS id,
-        m.mine_name AS name,
-        l.state,
-        l.district,
-        m.latitude,
-        m.longitude,
-        c.company_name AS company,
-        min.mineral_name AS mineral,
-        min.mineral_type AS mineralCategory,
-        ('LEASE: ' || le.lease_id) AS leaseId,
-        (p.quantity_mt || 'M MT/Yr') AS yield,
-        m.status,
-        l.craton_region AS craton,
-        CASE 
-          WHEN min.mineral_name LIKE '%Iron%' THEN 'amber'
-          WHEN min.mineral_name LIKE '%Copper%' THEN 'copper'
-          WHEN min.mineral_name LIKE '%Bauxite%' THEN 'amber'
-          ELSE 'copper'
-        END AS colorType,
-        CASE
-          WHEN m.mine_id = 'MN-0182' THEN 50
-          WHEN m.mine_id = 'MN-0294' THEN 83
-          WHEN m.mine_id = 'MN-0411' THEN 48
-          WHEN m.mine_id = 'MN-0523' THEN 51
-          WHEN m.mine_id = 'MN-0887' THEN 38
-          WHEN m.mine_id = 'MN-1104' THEN 44
-          WHEN m.mine_id = 'MN-1248' THEN 62
-          ELSE 45
-        END AS count,
-        50 AS sensorsOnline
-      FROM MINE m
-      JOIN LOCATION l ON m.location_id = l.location_id
-      JOIN MINING_COMPANY c ON m.company_id = c.company_id
-      JOIN LEASE le ON m.lease_id = le.lease_id
-      JOIN MINE_MINERAL mm ON m.mine_id = mm.mine_id AND mm.is_primary = 1
-      JOIN MINERAL min ON mm.mineral_id = min.mineral_id
-      LEFT JOIN PRODUCTION p ON m.mine_id = p.mine_id AND p.fiscal_year = 2024
-      WHERE 1=1
-    `;
-
-    const params = [];
-
-    if (mineral && mineral !== 'ALL') {
-      query += ` AND min.mineral_name LIKE ?`;
-      params.push(`%${mineral}%`);
-    }
-
-    if (state && state !== 'ALL') {
-      query += ` AND l.state = ?`;
-      params.push(state);
-    }
-
-    if (district && district !== 'ALL') {
-      query += ` AND l.district = ?`;
-      params.push(district);
-    }
-
-    const rows = db.prepare(query).all(...params);
-
-    const formattedNodes = rows.map((r) => ({
-      ...r,
-      coords: [r.latitude, r.longitude]
-    }));
-
-    // Bounding Box Polygons for Concessions
-    const leasePolygons = formattedNodes.map((n) => {
-      const lat = n.coords[0];
-      const lng = n.coords[1];
-      const delta = 0.045;
-      return {
-        id: `POLY-${n.id}`,
-        name: `${n.name} Cadastral Zone`,
-        coordinates: [
-          [lat - delta * 0.7, lng - delta],
-          [lat + delta * 0.9, lng - delta * 0.5],
-          [lat + delta, lng + delta * 0.8],
-          [lat - delta * 0.8, lng + delta]
-        ]
-      };
-    });
-
-    res.json({
-      success: true,
-      count: formattedNodes.length,
-      nodes: formattedNodes,
-      leasePolygons: show_leases === 'false' ? [] : leasePolygons
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
 
 // 3. GET /api/mines (Master Grid with Query Filters & Search)
+// One mine row from v_mines_master, shaped for the front end. Missing facts stay null.
+const STATUS_CLASS = {
+  Operational: 'operational',
+  'Under Maintenance': 'maintenance',
+  Expiring: 'expiring',
+  Revoked: 'revoked',
+  Closed: 'closed',
+  Unknown: 'unknown',
+};
+
+function mineralDot(name, type) {
+  const n = (name || '').toLowerCase();
+  const t = type || '';
+  if (!name) return 'none';
+  if (t.startsWith('Fuel')) return 'coal';
+  if (n.includes('copper')) return 'teal';
+  if (n.includes('lead') || n.includes('zinc')) return 'gray';
+  if (n.includes('bauxite')) return 'amber';
+  if (/chrom|manganese|tungsten/.test(n)) return 'brown';
+  if (t.includes('Ferrous') || n.includes('iron')) return 'rust';
+  if (t.includes('Precious') || t === 'Gemstone') return 'gold';
+  if (t === 'Atomic') return 'atomic';
+  return 'stone';
+}
+
+const pct = (v) => (v === null || v === undefined ? null : `${v}%`);
+
+function formatMine(r) {
+  const hasAssay = [r.fe_pct, r.sio2_pct, r.al2o3_pct, r.phosphorus_pct, r.moisture_pct].some((v) => v !== null && v !== undefined);
+  return {
+    mineId: r.mine_id,
+    mineName: r.mine_name,
+    primaryMineral: r.primary_mineral || 'Not recorded',
+    mineralRecorded: Boolean(r.primary_mineral),
+    mineralCategory: r.mineral_type || null,
+    mineralDotColor: mineralDot(r.primary_mineral, r.mineral_type),
+    state: r.state,
+    district: r.district,
+    stateDistrict: r.state_district,
+    operatingLessee: r.operating_lessee || null,
+    leaseValidity: r.lease_validity || null,
+    status: r.status,
+    statusClass: STATUS_CLASS[r.status] || 'unknown',
+    mineType: r.mine_type,
+    coords: [r.latitude, r.longitude],
+    precision: r.location_precision,
+    isSample: Boolean(r.is_sample),
+    source: { name: r.source_name, licence: r.source_licence, ref: r.source_ref, url: r.source_url },
+    dossier: {
+      fullName: `${r.mine_name} (${r.mine_id})`,
+      gradeDescription: r.ore_grade_description || null,
+      assay: hasAssay
+        ? { fe: pct(r.fe_pct), sio2: pct(r.sio2_pct), al2o3: pct(r.al2o3_pct), phosphorus: pct(r.phosphorus_pct), moisture: pct(r.moisture_pct) }
+        : null,
+      lease: r.lease_id
+        ? { id: r.lease_id, executed: r.execution_date, validTill: r.valid_till, royaltyRate: r.royalty_rate, area: r.area_formatted }
+        : null,
+      production: productionSummary(r.mine_id),
+      clearance: r.lease_id
+        ? {
+            title: r.forest_clearance_stage,
+            subtitle: `CTO valid till ${String(r.cto_valid_till || '').slice(0, 4) || '—'}`,
+            approved: r.status !== 'Under Maintenance' && r.status !== 'Revoked',
+          }
+        : null,
+    },
+  };
+}
+
+/** WHERE clause + params shared by the list and CSV routes */
+function mineFilters(query) {
+  const { search, state, mineral, status, bbox } = query;
+  const where = [];
+  const params = [];
+  if (state && state !== 'ALL') {
+    where.push('state = ?');
+    params.push(state);
+  }
+  if (mineral && mineral !== 'ALL') {
+    where.push('(primary_mineral LIKE ? OR ore_grade_description LIKE ?)');
+    params.push(`%${mineral}%`, `%${mineral}%`);
+  }
+  if (status && status !== 'ALL') {
+    where.push('status = ?');
+    params.push(status);
+  }
+  if (search) {
+    where.push(`(mine_id LIKE ? OR mine_name LIKE ? OR primary_mineral LIKE ? OR state_district LIKE ?
+      OR operating_lessee LIKE ? OR lease_id LIKE ?
+      OR mine_id IN (SELECT mine_id FROM MINE_ALIAS WHERE alias LIKE ?))`);
+    const q = `%${search}%`;
+    params.push(q, q, q, q, q, q, q);
+  }
+  if (bbox) {
+    // minLng,minLat,maxLng,maxLat -> R*Tree range query instead of scanning every mine
+    const [minLng, minLat, maxLng, maxLat] = String(bbox).split(',').map(Number);
+    if ([minLng, minLat, maxLng, maxLat].some((v) => !Number.isFinite(v))) {
+      throw Object.assign(new Error('bbox must be minLng,minLat,maxLng,maxLat'), { status: 400 });
+    }
+    // Overlap test: the R*Tree stores float32 boxes widened outwards, so a containment
+    // test would drop mines lying exactly on the bbox edge
+    where.push('mine_rowid IN (SELECT id FROM MINE_RTREE WHERE max_lng >= ? AND min_lng <= ? AND max_lat >= ? AND min_lat <= ?)');
+    params.push(minLng, maxLng, minLat, maxLat);
+  }
+  return { sql: where.length ? ` WHERE ${where.join(' AND ')}` : '', params };
+}
+
 // Yearly output of a mine's primary mineral from the PRODUCTION table
 const productionHistoryStmt = db.prepare(`
   SELECT p.fiscal_year, p.quantity_mt
@@ -194,104 +194,17 @@ function productionSummary(mineId) {
 
 app.get('/api/mines', (req, res) => {
   try {
-    const { search, state, mineral, status, limit = 50, offset = 0 } = req.query;
-
-    let query = `SELECT * FROM v_mines_master WHERE 1=1`;
-    const params = [];
-
-    if (state && state !== 'ALL') {
-      query += ` AND state = ?`;
-      params.push(state);
-    }
-
-    if (mineral && mineral !== 'ALL') {
-      query += ` AND (primary_mineral LIKE ? OR ore_grade_description LIKE ?)`;
-      params.push(`%${mineral}%`, `%${mineral}%`);
-    }
-
-    if (status && status !== 'ALL') {
-      query += ` AND status = ?`;
-      params.push(status);
-    }
-
-    if (search) {
-      query += ` AND (
-        mine_id LIKE ? OR 
-        mine_name LIKE ? OR 
-        primary_mineral LIKE ? OR 
-        state_district LIKE ? OR 
-        operating_lessee LIKE ? OR 
-        lease_id LIKE ?
-      )`;
-      const q = `%${search}%`;
-      params.push(q, q, q, q, q, q);
-    }
-
-    query += ` ORDER BY mine_id ASC LIMIT ? OFFSET ?`;
-    params.push(parseInt(limit, 10), parseInt(offset, 10));
-
-    const rows = db.prepare(query).all(...params);
-
-    // Format for frontend consumption
-    const formatted = rows.map((r) => {
-      let mineralDotColor = 'rust';
-      if (r.primary_mineral.toLowerCase().includes('copper')) mineralDotColor = 'teal';
-      else if (r.primary_mineral.toLowerCase().includes('bauxite')) mineralDotColor = 'amber';
-      else if (r.primary_mineral.toLowerCase().includes('chromite')) mineralDotColor = 'brown';
-      else if (r.primary_mineral.toLowerCase().includes('lead') || r.primary_mineral.toLowerCase().includes('zinc')) mineralDotColor = 'gray';
-
-      let statusClass = 'operational';
-      if (r.status === 'Under Maintenance') statusClass = 'maintenance';
-      else if (r.status === 'Expiring') statusClass = 'expiring';
-
-      return {
-        mineId: r.mine_id,
-        mineName: r.mine_name,
-        primaryMineral: r.primary_mineral,
-        mineralCategory: r.mineral_type,
-        mineralDotColor,
-        state: r.state,
-        district: r.district,
-        stateDistrict: r.state_district,
-        operatingLessee: r.operating_lessee,
-        leaseValidity: r.lease_validity,
-        status: r.status,
-        statusClass,
-        coords: [r.latitude, r.longitude],
-        dossier: {
-          category: 'DETAIL DOSSIER',
-          fullName: `${r.mine_name} (${r.mine_id})`,
-          assay: {
-            fe: `${r.fe_pct}%`,
-            sio2: `${r.sio2_pct}%`,
-            al2o3: `${r.al2o3_pct}%`,
-            phosphorus: `${r.phosphorus_pct}%`,
-            moisture: `${r.moisture_pct}%`
-          },
-          lease: {
-            id: r.lease_id,
-            executed: r.execution_date,
-            validTill: r.valid_till,
-            royaltyRate: r.royalty_rate,
-            area: r.area_formatted
-          },
-          production: productionSummary(r.mine_id),
-          clearance: {
-            title: r.forest_clearance_stage,
-            subtitle: `Approved • CTO Valid till ${r.cto_valid_till.substring(0, 4)}`,
-            approved: r.status !== 'Under Maintenance' && r.status !== 'Revoked'
-          }
-        }
-      };
-    });
-
-    res.json({
-      success: true,
-      count: formatted.length,
-      data: formatted
-    });
+    const { sql, params } = mineFilters(req.query);
+    // No limit by default: the map needs every mine. limit/offset still page if given.
+    const limit = Math.min(Number.parseInt(req.query.limit, 10) || 10000, 10000);
+    const offset = Number.parseInt(req.query.offset, 10) || 0;
+    const rows = db
+      .prepare(`SELECT * FROM v_mines_master${sql} ORDER BY is_sample DESC, mine_name COLLATE NOCASE LIMIT ? OFFSET ?`)
+      .all(...params, limit, offset);
+    const total = db.prepare(`SELECT COUNT(*) AS n FROM v_mines_master${sql}`).get(...params).n;
+    res.json({ success: true, count: rows.length, total, data: rows.map(formatMine) });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    res.status(err.status || 500).json({ success: false, error: err.message });
   }
 });
 
@@ -299,57 +212,10 @@ app.get('/api/mines', (req, res) => {
 app.get(['/api/mines/:id/dossier', '/api/mines/:id'], (req, res, next) => {
   if (req.params.id === 'export') return next();
   try {
-
-    const mineId = req.params.id.toUpperCase();
-    const row = db.prepare(`SELECT * FROM v_mines_master WHERE UPPER(mine_id) = ?`).get(mineId);
-
-    if (!row) {
-      return res.status(404).json({ success: false, message: `Mine with ID ${mineId} not found.` });
-    }
-
-    // Fetch multi-year production history
-    const prodRows = db
-      .prepare(`SELECT fiscal_year, quantity_mt, dispatch_mt FROM PRODUCTION WHERE mine_id = ? ORDER BY fiscal_year ASC`)
-      .all(row.mine_id);
-
-    const history = prodRows.map((p) => ({
-      year: `'${String(p.fiscal_year).substring(2)}`,
-      mt: p.quantity_mt,
-      dispatchMt: p.dispatch_mt
-    }));
-
-    const dossier = {
-      mineId: row.mine_id,
-      mineName: row.mine_name,
-      fullName: `${row.mine_name} (${row.mine_id})`,
-      category: 'DETAIL DOSSIER',
-      assay: {
-        fe: `${row.fe_pct}%`,
-        sio2: `${row.sio2_pct}%`,
-        al2o3: `${row.al2o3_pct}%`,
-        phosphorus: `${row.phosphorus_pct}%`,
-        moisture: `${row.moisture_pct}%`
-      },
-      lease: {
-        id: row.lease_id,
-        executed: row.execution_date,
-        validTill: row.valid_till,
-        royaltyRate: row.royalty_rate,
-        area: row.area_formatted
-      },
-      production: {
-        currentOutput: row.current_output_formatted,
-        history
-      },
-      clearance: {
-        title: row.forest_clearance_stage,
-        subtitle: `Approved • CTO Valid till ${row.cto_valid_till.substring(0, 4)}`,
-        approved: row.status !== 'Under Maintenance' && row.status !== 'Revoked'
-      },
-      coords: [row.latitude, row.longitude]
-    };
-
-    res.json({ success: true, data: dossier });
+    const row = db.prepare('SELECT * FROM v_mines_master WHERE UPPER(mine_id) = ?').get(req.params.id.toUpperCase());
+    if (!row) return res.status(404).json({ success: false, error: `Mine ${req.params.id} not found.` });
+    const aliases = db.prepare('SELECT alias FROM MINE_ALIAS WHERE mine_id = ? ORDER BY alias').all(row.mine_id).map((a) => a.alias);
+    res.json({ success: true, data: { ...formatMine(row), aliases } });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -358,44 +224,20 @@ app.get(['/api/mines/:id/dossier', '/api/mines/:id'], (req, res, next) => {
 // 5. GET /api/mines/export & GET /api/export/csv (Stream CSV Export)
 app.get(['/api/mines/export', '/api/export/csv'], (req, res) => {
   try {
-    const { state, mineral, status, search } = req.query;
-
-    let query = `SELECT * FROM v_mines_master WHERE 1=1`;
-    const params = [];
-
-    if (state && state !== 'ALL') {
-      query += ` AND state = ?`;
-      params.push(state);
-    }
-    if (mineral && mineral !== 'ALL') {
-      query += ` AND primary_mineral LIKE ?`;
-      params.push(`%${mineral}%`);
-    }
-    if (status && status !== 'ALL') {
-      query += ` AND status = ?`;
-      params.push(status);
-    }
-    if (search) {
-      query += ` AND (mine_id LIKE ? OR mine_name LIKE ? OR primary_mineral LIKE ? OR operating_lessee LIKE ?)`;
-      const q = `%${search}%`;
-      params.push(q, q, q, q);
-    }
-
-    const rows = db.prepare(query).all(...params);
-
-    const headers = 'MINE ID,MINE NAME,PRIMARY MINERAL,STATE & DISTRICT,OPERATING LESSEE,LEASE VALIDITY,STATUS\n';
-    const csvContent = rows
-      .map(
-        (m) =>
-          `"${m.mine_id}","${m.mine_name}","${m.primary_mineral}","${m.state_district}","${m.operating_lessee}","${m.lease_validity}","${m.status}"`
-      )
-      .join('\n');
-
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="MINERVA_Mines_Master_Export.csv"');
-    res.send(headers + csvContent);
+    const { sql, params } = mineFilters(req.query);
+    const rows = db.prepare(`SELECT * FROM v_mines_master${sql} ORDER BY is_sample DESC, mine_name COLLATE NOCASE`).all(...params);
+    const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const header = ['MINE ID', 'MINE NAME', 'PRIMARY MINERAL', 'STATE', 'DISTRICT', 'OPERATOR', 'LEASE VALIDITY', 'STATUS',
+      'LATITUDE', 'LONGITUDE', 'LOCATION PRECISION', 'SOURCE', 'SOURCE URL', 'SAMPLE RECORD'];
+    const lines = rows.map((m) => [
+      m.mine_id, m.mine_name, m.primary_mineral, m.state, m.district, m.operating_lessee, m.lease_validity, m.status,
+      m.latitude, m.longitude, m.location_precision, m.source_name, m.source_url, m.is_sample ? 'yes' : 'no',
+    ].map(cell).join(','));
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="MINERVA_mines.csv"');
+    res.send([header.join(','), ...lines].join('\n'));
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    res.status(err.status || 500).json({ success: false, error: err.message });
   }
 });
 
@@ -465,7 +307,8 @@ app.get('/api/production', (req, res) => {
 const BST_ATTRIBUTES = { fe_pct: 'Fe', sio2_pct: 'SiO2', al2o3_pct: 'Al2O3' };
 
 app.get('/api/dsa/bst/range', (req, res) => {
-  const attr = BST_ATTRIBUTES[req.query.attr] ? req.query.attr : 'fe_pct';
+  // Own keys only: 'toString' etc. would otherwise pass and reach the SQL
+  const attr = Object.hasOwn(BST_ATTRIBUTES, req.query.attr) ? req.query.attr : 'fe_pct';
   const min = Number(req.query.min ?? 0);
   const max = Number(req.query.max ?? 100);
   if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) {
@@ -473,12 +316,13 @@ app.get('/api/dsa/bst/range', (req, res) => {
   }
 
   // Insert in primary-key order, as rows come out of the table
-  const minerals = db.prepare('SELECT * FROM MINERAL ORDER BY mineral_id').all();
+  // Minerals with no recorded value for this assay are left out, not treated as 0%
+  const minerals = db.prepare(`SELECT * FROM MINERAL WHERE ${attr} IS NOT NULL ORDER BY mineral_id`).all();
   const tree = new BinarySearchTree();
-  minerals.forEach((m) => tree.insert(m[attr] ?? 0, m));
+  minerals.forEach((m) => tree.insert(m[attr], m));
 
   const { results, visited } = tree.rangeQuery(min, max);
-  const linear = BinarySearchTree.linearRangeSearch(minerals, min, max, (m) => m[attr] ?? 0);
+  const linear = BinarySearchTree.linearRangeSearch(minerals, min, max, (m) => m[attr]);
 
   res.json({
     success: true,
@@ -499,14 +343,23 @@ app.get('/api/dsa/bst/range', (req, res) => {
 // DSA: mine transport network (each mine linked to its 3 nearest mines)
 const CORRIDOR_NEIGHBOURS = 3;
 
+// The corridor graph and MST results only change when the data does. PRAGMA
+// data_version changes when another connection (e.g. the import script) writes.
+const graphCache = { version: null, value: null, mst: new Map() };
+
 function loadMineGraph() {
+  const version = `${db.pragma('data_version', { simple: true })}:${db.prepare('SELECT COUNT(*) AS n, MAX(rowid) AS r FROM MINE').get().r}`;
+  if (graphCache.version === version) return graphCache.value;
   const mines = db.prepare(`
     SELECT m.mine_id AS id, m.mine_name AS name, m.status, l.state, l.district,
            m.latitude AS lat, m.longitude AS lng
     FROM MINE m JOIN LOCATION l ON l.location_id = m.location_id
     ORDER BY m.mine_id
   `).all();
-  return { mines, graph: buildNearestNeighbourGraph(mines, CORRIDOR_NEIGHBOURS) };
+  graphCache.version = version;
+  graphCache.value = { mines, graph: buildNearestNeighbourGraph(mines, CORRIDOR_NEIGHBOURS) };
+  graphCache.mst.clear();
+  return graphCache.value;
 }
 
 app.get('/api/dsa/network', (req, res) => {
@@ -547,17 +400,25 @@ app.get('/api/dsa/shortest-route', (req, res) => {
 app.get('/api/dsa/mst', (req, res) => {
   const algorithm = req.query.algorithm === 'kruskal' ? 'kruskal' : 'prim';
   const { mines } = loadMineGraph();
-  const complete = buildCompleteGraph(mines);
   const root = mines.some((m) => m.id === req.query.root) ? req.query.root : mines[0]?.id;
-
-  const result = algorithm === 'kruskal' ? kruskalMST(complete) : primMST(complete, root);
-  const allPairsKm = Math.round(complete.edges().reduce((sum, e) => sum + e.weight, 0) * 10) / 10;
+  const cacheKey = `${algorithm}:${algorithm === 'prim' ? root : ''}`;
+  if (!graphCache.mst.has(cacheKey)) {
+    const complete = buildCompleteGraph(mines);
+    const result = algorithm === 'kruskal' ? kruskalMST(complete) : primMST(complete, root);
+    const edges = complete.edges();
+    graphCache.mst.set(cacheKey, {
+      result,
+      candidateEdges: edges.length,
+      allPairsKm: Math.round(edges.reduce((sum, e) => sum + e.weight, 0) * 10) / 10,
+    });
+  }
+  const { result, candidateEdges, allPairsKm } = graphCache.mst.get(cacheKey);
 
   res.json({
     success: true,
     algorithm,
     root: algorithm === 'prim' ? root : null,
-    candidateEdges: complete.edges().length,
+    candidateEdges,
     edges: result.edges,
     totalKm: result.totalWeight,
     allPairsKm,

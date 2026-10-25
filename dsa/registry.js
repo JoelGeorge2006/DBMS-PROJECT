@@ -101,15 +101,16 @@ export const DSA_CONCEPTS = [
     name: 'Weighted graph',
     group: 'Graphs',
     file: 'Dijkstra.js',
-    symbol: 'buildNearestNeighbourGraph',
-    usedIn: 'Map → Transport network: mines linked to their 3 nearest mines',
+    symbol: 'connectComponents',
+    usedIn: 'Map → Transport network: each mine linked to its 3 nearest mines, plus links joining separate clusters',
     summary:
-      'An undirected graph stored as an adjacency list: each mine maps to its neighbours and the distance to each. ' +
-      'Edge weights are great-circle (haversine) kilometres. Linking each mine to its nearest neighbours keeps the graph sparse, so shortest paths are not just the direct line.',
+      'An undirected graph stored as an adjacency list: each mine maps to its neighbours and the distance to each, in great-circle (haversine) kilometres. ' +
+      'Nearest-neighbour links alone leave separate clusters (one per coalfield), so union-find finds the clusters and, Borůvka-style, each round adds the shortest link from every cluster to another until all mines are connected.',
     ops: [
       ['add edge', 'O(1)', 'O(1)'],
       ['neighbours of v', 'O(deg v)', 'O(1)'],
       ['build k-nearest', 'O(n² log n)', 'O(nk)'],
+      ['join clusters', 'O(n² log n): O(log n) rounds of O(n²)', 'O(n)'],
     ],
   },
   {
