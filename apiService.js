@@ -9,27 +9,38 @@ const API_BASE = '';
 /**
  * Global helper for JSON fetches with error handling
  */
-async function apiGet(endpoint, params = {}) {
+/**
+ * fetch() wrapper: JSON in and out, errors carry .status and the server's message.
+ * A 401 from anything except the sign-in routes means the session ended; the app
+ * listens for 'minerva:unauthorized' and shows the login page.
+ */
+async function request(endpoint, { method = 'GET', params, body } = {}) {
   const url = new URL(endpoint, window.location.origin);
-  Object.entries(params).forEach(([key, val]) => {
-    if (val !== undefined && val !== null && val !== '') {
-      url.searchParams.append(key, val);
-    }
+  Object.entries(params || {}).forEach(([key, val]) => {
+    if (val !== undefined && val !== null && val !== '') url.searchParams.append(key, val);
   });
-
   const response = await fetch(url.toString(), {
-    headers: {
-      'Accept': 'application/json'
-    }
+    method,
+    headers: { Accept: 'application/json', ...(body ? { 'Content-Type': 'application/json' } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
   });
 
-  if (!response.ok) {
-    const errorBody = await response.text();
-    throw new Error(`API Error ${response.status}: ${errorBody}`);
+  if (response.status === 401 && !url.pathname.startsWith('/api/auth/')) {
+    window.dispatchEvent(new CustomEvent('minerva:unauthorized'));
   }
 
-  return response.json();
+  const type = response.headers.get('content-type') || '';
+  const data = type.includes('application/json') ? await response.json() : await response.text();
+  if (!response.ok) {
+    const err = new Error((data && (data.error || data.message)) || `HTTP ${response.status}`);
+    err.status = response.status;
+    err.body = data;
+    throw err;
+  }
+  return data;
 }
+
+const apiGet = (endpoint, params = {}) => request(endpoint, { params });
 
 export const apiService = {
   /**
@@ -111,9 +122,33 @@ export const apiService = {
 
   /** Source text of a dsa/ module (for the DSA tab) */
   async getDsaSource(file) {
-    const res = await fetch(`/api/dsa/source/${encodeURIComponent(file)}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.text();
+    return request(`/api/dsa/source/${encodeURIComponent(file)}`);
+  },
+
+  /** Live numbers for the DSA tab: session cache and sign-in limiter */
+  async getDsaStats() {
+    return apiGet('/api/dsa/stats');
+  },
+
+  // --- Authentication --------------------------------------------------------
+  async me() {
+    return apiGet('/api/auth/me');
+  },
+
+  async login(username, pin) {
+    return request('/api/auth/login', { method: 'POST', body: { username, pin } });
+  },
+
+  async logout() {
+    return request('/api/auth/logout', { method: 'POST' });
+  },
+
+  async requestPinReset(username) {
+    return request('/api/auth/reset/request', { method: 'POST', body: { username } });
+  },
+
+  async confirmPinReset(username, code, pin) {
+    return request('/api/auth/reset/confirm', { method: 'POST', body: { username, code, pin } });
   },
 
   /** Mine transport network: nodes and corridor edges */
@@ -141,20 +176,7 @@ export const apiService = {
    * @param {string} sqlQuery
    */
   async executeSql(sqlQuery) {
-    const response = await fetch('/api/sql/query', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({ query: sqlQuery })
-    });
-
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.message || data.error || `HTTP ${response.status}`);
-    }
-    return data;
+    return request('/api/sql/query', { method: 'POST', body: { query: sqlQuery } });
   },
 
   /**

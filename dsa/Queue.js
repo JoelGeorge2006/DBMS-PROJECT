@@ -199,6 +199,16 @@ export class AlertQueueManager {
   warning(message, meta) { return this.add(message, AlertPriority.WARNING, meta); }
   info(message, meta) { return this.add(message, AlertPriority.INFO, meta); }
 
+  /** Drop everything: pending, showing and history (e.g. on sign-out) */
+  clear() {
+    clearTimeout(this._timer);
+    if (this.current && this._hide) this._hide(this.current);
+    this.current = null;
+    this.pending.clear();
+    this.log.clear();
+    this._notify();
+  }
+
   /** Shown alerts, newest first */
   recent() {
     return this.log.toArray().reverse();

@@ -13,7 +13,7 @@
  *   ops      [operation, time, space] rows for the complexity table
  */
 
-export const DSA_GROUPS = ['Linear', 'Heaps', 'Trees', 'Graphs'];
+export const DSA_GROUPS = ['Linear', 'Heaps', 'Hashing', 'Trees', 'Graphs'];
 
 export const DSA_CONCEPTS = [
   {
@@ -49,6 +49,22 @@ export const DSA_CONCEPTS = [
     ],
   },
   {
+    id: 'sliding-window',
+    name: 'Sliding-window rate limiter',
+    group: 'Linear',
+    file: 'SlidingWindow.js',
+    symbol: 'SlidingWindowLimiter',
+    usedIn: 'Sign-in: 5 wrong PINs for one account from one address within 15 minutes lock that pair for 15 minutes (addresses and accounts have higher limits too)',
+    summary:
+      'Each key (account + address, an address, or an account) has a queue of the times of its recent failed sign-ins. ' +
+      'Times older than the 15-minute window are dequeued from the front; when the queue reaches the limit the key is locked for 15 minutes from that moment. ' +
+      'Each time is enqueued and dequeued once, so the work per attempt is constant on average.',
+    ops: [
+      ['record failure', 'O(1) amortised', 'O(limit) per key'],
+      ['check', 'O(1) amortised', 'O(1)'],
+    ],
+  },
+  {
     id: 'priority-queue',
     name: 'Priority queue (binary heap)',
     group: 'Heaps',
@@ -62,6 +78,39 @@ export const DSA_CONCEPTS = [
       ['enqueue (sift up)', 'O(log n)', 'O(1)'],
       ['dequeue (sift down)', 'O(log n)', 'O(1)'],
       ['peek', 'O(1)', 'O(1)'],
+    ],
+  },
+  {
+    id: 'lru-cache',
+    name: 'LRU cache',
+    group: 'Hashing',
+    file: 'LRUCache.js',
+    symbol: 'LRUCache',
+    usedIn: 'Sign-in sessions: every API request looks up its session; recent sessions are answered from the cache',
+    summary:
+      'A hash map from key to node gives O(1) lookup; a doubly linked list keeps the nodes in order of use. ' +
+      'Reading or writing a key moves its node to the front; when the cache is full the node at the back (least recently used) is evicted. ' +
+      'Entries also expire with their session.',
+    ops: [
+      ['get (move to front)', 'O(1)', 'O(1)'],
+      ['set (evict back if full)', 'O(1)', 'O(1)'],
+      ['delete', 'O(1)', 'O(1)'],
+    ],
+  },
+  {
+    id: 'hash-set',
+    name: 'Hash set (role permissions)',
+    group: 'Hashing',
+    file: 'auth.js',
+    path: 'lib/auth.js',
+    symbol: 'ROLES',
+    usedIn: 'Roles: each role has a set of permissions; the server checks set.has(permission) before admin-only routes such as the SQL console',
+    summary:
+      'A set stores unique values in a hash table, so asking whether it contains a value takes constant time on average, however many values it holds. ' +
+      'Each role (admin, inspector, surveyor, viewer) maps to a Set of permission names.',
+    ops: [
+      ['has', 'O(1) average', 'O(1)'],
+      ['add', 'O(1) average', 'O(1)'],
     ],
   },
   {

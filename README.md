@@ -46,7 +46,18 @@ A single-page front end (`index.html`, `app.js`) over an Express + SQLite API (`
 npm install
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000). The login page comes first; demo account `USR-1024` / `minerva@2026` (also `INS-4088` / `inspector@2026`, `GEO-9921` / `surveyor@2026`).
+Open [http://localhost:3000](http://localhost:3000) (the dev server listens on this machine only; add `-- --host` to expose it). The login page comes first.
+
+### Sign-in
+Demo accounts (PINs are stored as scrypt hashes, never sent to the page):
+
+| Identifier | PIN | Role |
+|---|---|---|
+| `USR-1024` | `minerva@2026` | Database administrator (SQL console) |
+| `INS-4088` | `inspector@2026` | Mining lease inspector |
+| `GEO-9921` | `surveyor@2026` | Geological field surveyor |
+
+Sessions are httpOnly cookies checked by the server on every `/api` call. Five wrong PINs for one account from one address lock that pair for 15 minutes. "Forgot PIN?" is a demo: no e-mail is sent, so the code is shown on screen, and it is refused for administrator accounts; reset those with `npm run reset-pin -- USR-1024 'new-pin'`.
 
 ### Views
 - **Map**: the mines from the `MINE` table on a satellite basemap. Click a mine for its details. The transport network card finds the shortest route between two mines and builds the minimum network that connects them all.
@@ -65,6 +76,8 @@ The search bar searches whatever view is open (the label at its left says what).
 | `AVLTree.js` | Lease expiry view: range search, next expiry, add/remove with rotations |
 | `Dijkstra.js`: weighted graph, haversine, Dijkstra | Map → Shortest route (`GET /api/dsa/network`, `GET /api/dsa/shortest-route`) |
 | `MST.js`: Prim's, Kruskal's, union-find | Map → Minimum network (`GET /api/dsa/mst`) |
-| `registry.js` | Content of the DSA tab (`GET /api/dsa/source/:file` serves the excerpts) |
+| `LRUCache.js`: hash map + doubly linked list | Session lookups on every API request |
+| `SlidingWindow.js`: queue per key | Sign-in lockout and PIN-reset limits |
+| `registry.js` | Content of the DSA tab (`GET /api/dsa/source/:file` serves the excerpts, `GET /api/dsa/stats` the live numbers) |
 
 Distances are straight-line (great-circle) kilometres between mine coordinates, not road or rail distances.

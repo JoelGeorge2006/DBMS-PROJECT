@@ -5,13 +5,13 @@
  */
 
 import express from 'express';
-import cors from 'cors';
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { BinarySearchTree } from './dsa/BinarySearchTree.js';
 import { migrate } from './db/migrate.js';
+import { createAuth, readCookie, sessionCookie, clearedCookie, clientIp, SESSION_COOKIE, ROLES } from './lib/auth.js';
 import { buildNearestNeighbourGraph, buildCompleteGraph, dijkstra } from './dsa/Dijkstra.js';
 import { primMST, kruskalMST } from './dsa/MST.js';
 
@@ -22,8 +22,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const DB_PATH = path.join(__dirname, 'minerva.db');
 
-app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '100kb' }));
 
 // ============================================================================
 // 1. Database Connection & Schema Bootstrapping
@@ -38,6 +37,74 @@ try {
   console.error('[MINERVA DB] Fatal database error:', err);
   process.exit(1);
 }
+
+// ============================================================================
+// 2. AUTHENTICATION (sessions, roles) — see lib/auth.js
+// ============================================================================
+const auth = createAuth(db);
+
+const sendAuthError = (res, r) => {
+  if (r.retryAfterMs) res.setHeader('Retry-After', Math.ceil(r.retryAfterMs / 1000));
+  res.status(r.status).json({ success: false, error: r.error, retryAfterMs: r.retryAfterMs, attemptsLeft: r.attemptsLeft });
+};
+
+app.post('/api/auth/login', (req, res) => {
+  const { username, pin } = req.body || {};
+  const ip = clientIp(req);
+  const r = auth.login(username, pin, ip);
+  if (!r.ok) return sendAuthError(res, r);
+  res.setHeader('Set-Cookie', sessionCookie(r.token, r.maxAgeMs));
+  if (r.newIp) onNewSignInAddress(r.user, ip);
+  res.json({ success: true, user: r.user });
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  auth.logout(readCookie(req, SESSION_COOKIE));
+  res.setHeader('Set-Cookie', clearedCookie());
+  res.json({ success: true });
+});
+
+app.post('/api/auth/reset/request', (req, res) => {
+  const r = auth.requestReset(req.body?.username, clientIp(req));
+  if (!r.ok) return sendAuthError(res, r);
+  res.json({ success: true, demoCode: r.demoCode, expiresInMinutes: r.expiresInMinutes });
+});
+
+app.post('/api/auth/reset/confirm', (req, res) => {
+  const { username, code, pin } = req.body || {};
+  const r = auth.confirmReset(username, code, pin, clientIp(req));
+  if (!r.ok) return sendAuthError(res, r);
+  res.json({ success: true });
+});
+
+// Who is signed in (null when nobody is): public, so a first visit isn't an error
+app.get('/api/auth/me', (req, res) => {
+  res.json({ success: true, user: auth.sessionUser(readCookie(req, SESSION_COOKIE)) });
+});
+
+// Every other /api route needs a signed-in user
+const PUBLIC_API = new Set(['/api/auth/me', '/api/auth/login', '/api/auth/logout', '/api/auth/reset/request', '/api/auth/reset/confirm', '/api/health']);
+
+app.use('/api', (req, res, next) => {
+  const route = req.originalUrl.split('?')[0].replace(/\/+$/, '') || '/';
+  if (PUBLIC_API.has(route)) return next();
+  const user = auth.sessionUser(readCookie(req, SESSION_COOKIE));
+  if (!user) return res.status(401).json({ success: false, error: 'Sign in required.' });
+  req.user = user;
+  next();
+});
+
+function requirePermission(permission) {
+  return (req, res, next) => {
+    if (req.user && ROLES[req.user.role]?.permissions.has(permission)) return next();
+    res.status(403).json({ success: false, error: `Your role (${req.user?.roleLabel || 'none'}) can't do this.` });
+  };
+}
+
+
+
+// Phase 4 turns this into a notification; for now it is recorded in the audit log only
+function onNewSignInAddress() {}
 
 // ============================================================================
 // 3. REST API ENDPOINTS
@@ -242,7 +309,7 @@ app.get(['/api/mines/export', '/api/export/csv'], (req, res) => {
 });
 
 // 7. POST /api/sql/query (Interactive Read-Only SQL Terminal)
-app.post('/api/sql/query', (req, res) => {
+app.post('/api/sql/query', requirePermission('sql'), (req, res) => {
   try {
     const { query } = req.body;
     if (!query || typeof query !== 'string') {
@@ -426,15 +493,21 @@ app.get('/api/dsa/mst', (req, res) => {
   });
 });
 
+// DSA: live numbers for the DSA tab (session LRU cache, sign-in limiter)
+app.get('/api/dsa/stats', (req, res) => res.json({ success: true, ...auth.stats() }));
+
 // DSA: source of a dsa/ module, for the excerpts on the DSA tab (read-only, dsa/ only)
 const DSA_DIR = path.join(__dirname, 'dsa');
+
+// Files outside dsa/ that the DSA tab may show (whitelist, not a path)
+const EXTRA_SOURCES = { 'auth.js': path.join(__dirname, 'lib', 'auth.js') };
 
 app.get('/api/dsa/source/:file', (req, res) => {
   const file = req.params.file;
   if (!/^[A-Za-z]+\.js$/.test(file)) {
     return res.status(400).json({ success: false, error: 'Invalid file name.' });
   }
-  const full = path.join(DSA_DIR, file);
+  const full = Object.hasOwn(EXTRA_SOURCES, file) ? EXTRA_SOURCES[file] : path.join(DSA_DIR, file);
   if (!fs.existsSync(full)) {
     return res.status(404).json({ success: false, error: 'No such module.' });
   }

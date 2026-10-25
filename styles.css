@@ -374,6 +374,69 @@ tr.search-empty td {
   margin-left: 16px;
 }
 
+.nav-user {
+  position: relative;
+  order: 2;
+}
+
+.nav-user-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--border-light);
+  background: var(--sand-pill-bg);
+  color: var(--sand-pill-text);
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.nav-user-btn:hover {
+  border-color: var(--border-pill);
+}
+
+.nav-user-panel {
+  position: absolute;
+  top: 42px;
+  right: 0;
+  min-width: 220px;
+  padding: 12px 14px;
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+  z-index: 1500;
+}
+
+.nav-user-name {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.nav-user-role {
+  margin: 2px 0 10px;
+  font-size: 0.74rem;
+  color: var(--text-sub);
+}
+
+.nav-user-signout {
+  width: 100%;
+  height: 32px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: #FFFFFF;
+  font-family: inherit;
+  font-size: 0.8rem;
+  color: var(--text-dark);
+  cursor: pointer;
+}
+
+.nav-user-signout:hover {
+  border-color: var(--border-pill);
+}
+
 .nav-alerts {
   position: relative;
 }
@@ -417,7 +480,7 @@ tr.search-empty td {
   position: absolute;
   top: 42px;
   right: 0;
-  width: 340px;
+  width: min(340px, calc(100vw - 32px));
   max-height: 360px;
   overflow-y: auto;
   background: #FFFFFF;

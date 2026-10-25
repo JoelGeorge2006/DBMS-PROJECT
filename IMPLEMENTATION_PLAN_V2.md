@@ -265,7 +265,7 @@ The three demo accounts are seeded with **hashed** PINs:
 | Sign-in | `POST /api/auth/login` sets an `httpOnly`, `SameSite=Strict` cookie containing a random 32-byte token. Only the token's SHA-256 is stored. | — |
 | Session lookup | Every API request needs its session checked. An **LRU cache** in front of `USER_SESSION`, built as a hash map plus a doubly linked list: O(1) get, put and evict, capacity about 1,000, TTL checked on read. | LRU cache |
 | Brute-force protection | A **sliding-window queue** per username and per IP holds attempt timestamps. Expired ones are dequeued from the front. Five failures in 15 minutes locks the account for 15 minutes; the remaining time is shown. | Queue |
-| Roles | `requireRole('admin')` middleware. Permissions are a **set** per role. SQL console = admin only; lease editing = admin/inspector; everyone can view. | Hash set |
+| Roles | `requirePermission()` middleware. Permissions are a **set** per role. SQL console = admin only; everyone can view. Lease editing (admin/inspector) is deferred: there is no lease-editing feature yet, so no `edit_leases` permission is defined until there is. | Hash set |
 | PIN reset | `POST /api/auth/reset/request` creates a 6-digit code (hashed, 10-minute expiry, single use). It's still a demo with no email, so the code is shown on screen, and the page says so. `POST /api/auth/reset/confirm` checks the code and sets the new PIN. | — |
 | Sign-out | `POST /api/auth/logout` deletes the session row and evicts it from the LRU. | — |
 | Client | `GET /api/auth/me` on load decides whether to show the login page or the app. The `sessionStorage` flag and `DEMO_ACCOUNTS` are removed. | — |

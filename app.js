@@ -9,6 +9,8 @@ import { QueryHistoryManager, Stack } from './dsa/Stack.js';
 import { Graph, dijkstra } from './dsa/Dijkstra.js';
 import { primMST, UnionFind } from './dsa/MST.js';
 import { DSA_CONCEPTS, DSA_GROUPS } from './dsa/registry.js';
+import { LRUCache } from './dsa/LRUCache.js';
+import { SlidingWindowLimiter } from './dsa/SlidingWindow.js';
 import { AVLTree } from './dsa/AVLTree.js';
 import { BinarySearchTree } from './dsa/BinarySearchTree.js';
 
@@ -69,11 +71,16 @@ function initAlerts() {
       })
       .join('');
   };
-  alertQueue.onChange(renderPanel);
+  alertQueue.onChange(() => {
+    if (alertQueue.log.isEmpty() && !alertQueue.current) unread = 0;
+    renderPanel();
+  });
   renderPanel();
 
   if (btn && panel) {
+    const close = () => setOpen(false);
     const setOpen = (open) => {
+      if (open) closeNavPanels(close);
       panel.classList.toggle('hidden', !open);
       btn.setAttribute('aria-expanded', String(open));
       if (open) {
@@ -81,6 +88,7 @@ function initAlerts() {
         renderPanel();
       }
     };
+    navPanelClosers.push(close);
     openAlertsPanel = () => setOpen(true);
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -153,8 +161,7 @@ function initGeospatialMap() {
   // Setup DOM Event Listeners
   setupEventListeners();
 
-  // Mines and transport network from the database
-  initTransportNetwork();
+  // The mines and transport network load after sign-in (loadAppData)
 }
 
 function setBasemap(type) {
@@ -278,7 +285,6 @@ function setupEventListeners() {
   document.getElementById('dockBtnDatabase').addEventListener('click', () => switchView('database', true));
   document.getElementById('dockBtnLeases').addEventListener('click', () => switchView('leases', true));
   document.getElementById('dockBtnDsa').addEventListener('click', () => switchView('dsa', true));
-  document.getElementById('dockBtnAuth').addEventListener('click', signOut);
 
   initSearch();
 }
@@ -286,29 +292,66 @@ function setupEventListeners() {
 // ============================================================================
 // 9. View Switcher (Mines & Concessions Master vs Geospatial Satellite Map vs Archival Reports)
 // ============================================================================
-const AUTH_SESSION_KEY = 'minerva-authenticated';
+// The signed-in user, from /api/auth/me or /api/auth/login. The session itself is an
+// httpOnly cookie the page can't read; the server checks it on every API call.
+let currentUser = null;
+let appDataLoaded = false;
 
-function isAuthenticated() {
-  try {
-    return sessionStorage.getItem(AUTH_SESSION_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
+const isAuthenticated = () => currentUser !== null;
+const can = (permission) => Boolean(currentUser?.permissions?.includes(permission));
 
-function signOut() {
-  try {
-    sessionStorage.removeItem(AUTH_SESSION_KEY);
-  } catch {}
-  mineAlertsQueued = false;
-  switchView('auth', true);
-}
-
-function markAuthenticated() {
-  try {
-    sessionStorage.setItem(AUTH_SESSION_KEY, '1');
-  } catch {}
+function startSession(user) {
+  currentUser = user;
+  renderUserMenu();
+  loadAppData();
   queueMineAlerts();
+}
+
+/**
+ * Forget the user locally and show the login page, with an optional message.
+ * keepRoute: leave the URL as it was (session expired) so signing in returns there.
+ */
+function endSession(message, keepRoute = false) {
+  // Signing back in should only need the PIN
+  const idInput = document.getElementById('authIdentifierInput');
+  if (idInput && currentUser) idInput.value = currentUser.username;
+  currentUser = null;
+  mineAlertsQueued = false;
+  // Nothing from the previous user stays on screen or in memory
+  alertQueue.clear();
+  sqlHistory.history.clear();
+  sqlHistory.redo.clear();
+  document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+  closeNavPanels();
+  renderUserMenu();
+  showAuthMessage(message);
+  switchView('auth', !keepRoute);
+}
+
+async function signOut() {
+  try {
+    await apiService.logout();
+  } catch {
+    // The server may already have dropped the session; signing out locally is enough
+  }
+  endSession(null);
+}
+
+// Any API call answered 401 (session expired or revoked): back to the login page,
+// remembering where the user was so signing in returns there
+window.addEventListener('minerva:unauthorized', () => {
+  if (!currentUser) return;
+  postLoginView = currentView;
+  endSession('Your session ended. Sign in again to continue.', true);
+});
+
+/** Data that needs a signed-in user; loaded once per page */
+function loadAppData() {
+  if (appDataLoaded) return;
+  appDataLoaded = true;
+  loadMinesData();
+  initTransportNetwork();
+  initLeaseExpiryIndex();
 }
 
 const VIEWS = {
@@ -803,6 +846,15 @@ function filterMines(q) {
   );
 }
 
+async function loadMinesData() {
+  await fetchMinesData();
+  // Map dots may have been drawn before the mine records arrived: recolour them by mineral
+  if (networkState.nodes.length) drawMineDots();
+  renderMinesTable(filterMines(searchQuery.toLowerCase()));
+  const selected = currentMinesList.find((m) => m.mineId === selectedMineId) || currentMinesList[0];
+  if (selected) updateDossier(selected);
+}
+
 function initDatabaseExplorer() {
   const masterTbody = document.getElementById('masterTableTbody');
   const btnExportCsv = document.getElementById('btnExportCsv');
@@ -824,14 +876,6 @@ function initDatabaseExplorer() {
     updateDossier(initialMine);
   }
 
-  // Fetch live API records in background
-  fetchMinesData().then(() => {
-    // Map dots were drawn before the mine records arrived: recolour them by mineral
-    if (networkState.nodes.length) drawMineDots();
-    renderMinesTable(filterMines(searchQuery.toLowerCase()));
-    const selected = currentMinesList.find((m) => m.mineId === selectedMineId) || currentMinesList[0];
-    if (selected) updateDossier(selected);
-  });
 
   // Entity switcher tabs
   const tabButtons = document.querySelectorAll('.entity-tab-btn');
@@ -2098,12 +2142,14 @@ async function executeSqlQuery(query, resultsContainer) {
 // ============================================================================
 // 13b. Auth Workstation (Prompt 1 Frontend Interactions)
 // ============================================================================
-// Demo accounts. PINs can be changed through "Forgot PIN?" for the current page session.
-const DEMO_ACCOUNTS = {
-  'USR-1024': { pin: 'minerva@2026', name: 'Joel George', role: 'Database Administrator' },
-  'INS-4088': { pin: 'inspector@2026', name: 'R. K. Sharma', role: 'Mining Lease Inspector' },
-  'GEO-9921': { pin: 'surveyor@2026', name: 'Ananya Sen', role: 'Geological Field Surveyor' },
-};
+function showAuthMessage(message) {
+  const banner = document.getElementById('authErrorBanner');
+  const text = document.getElementById('authErrorMessageText');
+  if (text && message) text.textContent = message;
+  banner?.classList.toggle('hidden', !message);
+}
+
+const minutes = (ms) => Math.max(1, Math.ceil(ms / 60000));
 
 function initAuthWorkstation() {
   const form = document.getElementById('authSignInForm');
@@ -2127,34 +2173,39 @@ function initAuthWorkstation() {
   initPinReset(idInput);
 
   if (!form) return;
-  form.addEventListener('submit', (e) => {
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const idVal = idInput ? idInput.value.trim().toUpperCase() : '';
-    const passVal = passInput ? passInput.value : '';
     const btnText = document.getElementById('authBtnText');
     const btnLoading = document.getElementById('authBtnLoading');
-    const errBanner = document.getElementById('authErrorBanner');
     const submitBtn = document.getElementById('authSubmitBtn');
 
     if (submitBtn) submitBtn.disabled = true;
-    if (btnText) btnText.classList.add('hidden');
-    if (btnLoading) btnLoading.classList.remove('hidden');
-    if (errBanner) errBanner.classList.add('hidden');
+    btnText?.classList.add('hidden');
+    btnLoading?.classList.remove('hidden');
+    showAuthMessage(null);
 
-    setTimeout(() => {
-      if (submitBtn) submitBtn.disabled = false;
-      if (btnText) btnText.classList.remove('hidden');
-      if (btnLoading) btnLoading.classList.add('hidden');
-
-      const account = DEMO_ACCOUNTS[idVal];
-      if (account && passVal === account.pin) {
-        showToast(`Welcome, ${account.name}`, 'success');
-        markAuthenticated();
-        switchView(takePostLoginView(), true);
-      } else if (errBanner) {
-        errBanner.classList.remove('hidden');
+    try {
+      const res = await apiService.login(idInput.value.trim(), passInput.value);
+      passInput.value = '';
+      startSession(res.user);
+      showToast(`Welcome, ${res.user.name}`, 'success');
+      switchView(takePostLoginView(), true);
+    } catch (err) {
+      if (err.status === 429) {
+        showAuthMessage(`Too many failed attempts. Try again in ${minutes(err.body?.retryAfterMs || 0)} min.`);
+      } else if (err.status === 401) {
+        const left = err.body?.attemptsLeft;
+        showAuthMessage(left > 0 && left <= 3
+          ? `Wrong identifier or PIN. ${left} attempt${left === 1 ? '' : 's'} left before a 15-minute lock.`
+          : 'Wrong identifier or PIN.');
+      } else {
+        showAuthMessage(`Could not sign in: ${err.message}`);
       }
-    }, 400);
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+      btnText?.classList.remove('hidden');
+      btnLoading?.classList.add('hidden');
+    }
   });
 }
 
@@ -2173,16 +2224,14 @@ function initPinReset(signInIdInput) {
   const errorEl = document.getElementById('resetError');
   if (!modal || !openBtn || !sendBtn || !saveBtn) return;
 
-  let pendingCode = null;
   let pendingId = null;
 
   const showError = (msg) => {
-    errorEl.textContent = msg;
+    errorEl.textContent = msg || '';
     errorEl.classList.toggle('hidden', !msg);
   };
 
   const reset = () => {
-    pendingCode = null;
     pendingId = null;
     idInput.value = signInIdInput?.value.trim() || '';
     idInput.disabled = false;
@@ -2200,49 +2249,110 @@ function initPinReset(signInIdInput) {
   });
   [closeBtn, cancelBtn].forEach((btn) => btn?.addEventListener('click', () => modal.close()));
 
-  sendBtn.addEventListener('click', () => {
-    const id = idInput.value.trim().toUpperCase();
-    if (!DEMO_ACCOUNTS[id]) {
-      showError('No account with that identifier.');
-      return;
+  sendBtn.addEventListener('click', async () => {
+    const id = idInput.value.trim();
+    if (!id) return showError('Enter your user identifier.');
+    sendBtn.disabled = true;
+    try {
+      const res = await apiService.requestPinReset(id);
+      pendingId = id;
+      idInput.disabled = true;
+      // Demo: there is no e-mail/SMS, so the server returns the code to show here
+      otpHint.textContent = `Your code: ${res.demoCode} (valid ${res.expiresInMinutes} min)`;
+      otpStep.classList.remove('hidden');
+      sendBtn.classList.add('hidden');
+      saveBtn.classList.remove('hidden');
+      showError('');
+      otpInput.focus();
+    } catch (err) {
+      showError(err.status === 429 ? `Too many attempts. Try again in ${minutes(err.body?.retryAfterMs || 0)} min.` : err.message);
+    } finally {
+      sendBtn.disabled = false;
     }
-    pendingId = id;
-    pendingCode = String(Math.floor(100000 + Math.random() * 900000));
-    idInput.disabled = true;
-    otpHint.textContent = `Your code: ${pendingCode}`;
-    otpStep.classList.remove('hidden');
-    sendBtn.classList.add('hidden');
-    saveBtn.classList.remove('hidden');
-    showError('');
-    otpInput.focus();
   });
 
-  saveBtn.addEventListener('click', () => {
-    if (otpInput.value.trim() !== pendingCode) {
-      showError('That code is not correct.');
-      return;
+  saveBtn.addEventListener('click', async () => {
+    saveBtn.disabled = true;
+    try {
+      await apiService.confirmPinReset(pendingId, otpInput.value.trim(), newPinInput.value);
+      if (signInIdInput) signInIdInput.value = pendingId;
+      const pass = document.getElementById('authPasscodeInput');
+      if (pass) pass.value = '';
+      modal.close();
+      showToast('PIN updated. Sign in with your new PIN.', 'success');
+    } catch (err) {
+      showError(err.message);
+    } finally {
+      saveBtn.disabled = false;
     }
-    if (newPinInput.value.length < 6) {
-      showError('The new PIN must be at least 6 characters.');
-      return;
-    }
-    DEMO_ACCOUNTS[pendingId].pin = newPinInput.value;
-    if (signInIdInput) signInIdInput.value = pendingId;
-    const pass = document.getElementById('authPasscodeInput');
-    if (pass) pass.value = '';
-    modal.close();
-    showToast('PIN updated. Sign in with your new PIN.', 'success');
   });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+// --- Top-bar panels (alerts, user menu): only one open at a time ---------------
+const navPanelClosers = [];
+
+function closeNavPanels(except = null) {
+  navPanelClosers.forEach((close) => close !== except && close());
+}
+
+// --- User menu (top bar) -----------------------------------------------------
+function initUserMenu() {
+  const btn = document.getElementById('navUserBtn');
+  const panel = document.getElementById('navUserPanel');
+  if (!btn || !panel) return;
+  const close = () => setOpen(false);
+  const setOpen = (open) => {
+    if (open) closeNavPanels(close);
+    panel.classList.toggle('hidden', !open);
+    btn.setAttribute('aria-expanded', String(open));
+  };
+  navPanelClosers.push(close);
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    setOpen(panel.classList.contains('hidden'));
+  });
+  document.addEventListener('click', (e) => {
+    if (!panel.contains(e.target)) setOpen(false);
+  });
+  document.getElementById('navSignOutBtn')?.addEventListener('click', () => {
+    setOpen(false);
+    signOut();
+  });
+  openUserMenu = () => setOpen(true);
+}
+
+let openUserMenu = () => {};
+
+function renderUserMenu() {
+  const u = currentUser;
+  const initials = u ? u.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase() : '';
+  const set = (id, text) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  };
+  set('navUserInitials', initials);
+  set('navUserName', u?.name || '');
+  set('navUserRole', u ? `${u.roleLabel} · ${u.username}` : '');
+  // The SQL console is admin-only; the server enforces it, the button just isn't offered
+  document.getElementById('btnToggleSqlConsole')?.classList.toggle('hidden', !can('sql'));
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
   initAlerts();
-  if (isAuthenticated()) queueMineAlerts();
   initGeospatialMap();
   initDatabaseExplorer();
-  initLeaseExpiryIndex();
   initAuthWorkstation();
+  initUserMenu();
   initDsaView();
+
+  // Already signed in? (the session cookie is httpOnly, so ask the server)
+  try {
+    const res = await apiService.me();
+    if (res.user) startSession(res.user);
+    else renderUserMenu();
+  } catch {
+    renderUserMenu();
+  }
 
   // Direct links: #map, #database, #leases (#reports), #dsa
   const fromHash = resolveView(window.location.hash.replace('#', ''));
@@ -2650,9 +2760,11 @@ function renderDsaDetail(c) {
   const box = document.getElementById('dsaDetail');
   if (!box) return;
   const live = DSA_LIVE[c.id]?.();
-  const liveHtml = Array.isArray(live)
-    ? `<dl class="dsa-live">${live.map(([k, v]) => `<div><dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd></div>`).join('')}</dl>`
-    : `<p class="dsa-muted">${escapeHtml(DSA_LIVE_HINT[c.id] || 'Nothing recorded yet.')}</p>`;
+  const liveRows = (rows) =>
+    Array.isArray(rows)
+      ? `<dl class="dsa-live">${rows.map(([k, v]) => `<div><dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd></div>`).join('')}</dl>`
+      : `<p class="dsa-muted">${escapeHtml(DSA_LIVE_HINT[c.id] || 'Nothing recorded yet.')}</p>`;
+  const liveHtml = live instanceof Promise ? '<p class="dsa-muted">Loading…</p>' : liveRows(live);
 
   box.innerHTML = `
     <p class="dsa-kicker">${escapeHtml(c.group)}</p>
@@ -2664,7 +2776,7 @@ function renderDsaDetail(c) {
         <h3>Where MINERVA uses it</h3>
         <p>${escapeHtml(c.usedIn)}</p>
       </div>
-      <button type="button" class="btn-bst-search" id="dsaTryBtn">Try it</button>
+      ${DSA_TRY[c.id] ? '<button type="button" class="btn-bst-search" id="dsaTryBtn">Try it</button>' : ''}
     </section>
 
     <section class="dsa-section">
@@ -2681,16 +2793,27 @@ function renderDsaDetail(c) {
     </section>
 
     <section class="dsa-section">
-      <h3>In this session</h3>
-      ${liveHtml}
+      <h3>${DSA_SERVER_WIDE.has(c.id) ? 'On this server (all sessions)' : 'In this session'}</h3>
+      <div id="dsaLive">${liveHtml}</div>
     </section>
 
     <section class="dsa-section">
-      <h3>Source <span class="dsa-file">dsa/${escapeHtml(c.file)} · ${escapeHtml(c.symbol)}</span></h3>
+      <h3>Source <span class="dsa-file">${escapeHtml(c.path || `dsa/${c.file}`)} · ${escapeHtml(c.symbol)}</span></h3>
       <pre class="dsa-code" id="dsaCode">Loading…</pre>
     </section>`;
 
-  document.getElementById('dsaTryBtn').addEventListener('click', () => DSA_TRY[c.id]?.());
+  document.getElementById('dsaTryBtn')?.addEventListener('click', () => DSA_TRY[c.id]?.());
+  if (live instanceof Promise) {
+    live
+      .then((rows) => {
+        const box = document.getElementById('dsaLive');
+        if (box && dsaSelected === c.id) box.innerHTML = liveRows(rows);
+      })
+      .catch(() => {
+        const box = document.getElementById('dsaLive');
+        if (box && dsaSelected === c.id) box.innerHTML = '<p class="dsa-muted">Could not load the numbers.</p>';
+      });
+  }
   DSA_DEMOS[c.id]?.(document.getElementById('dsaDemo'));
   loadDsaSource(c);
 }
@@ -2710,7 +2833,7 @@ async function loadDsaSource(c) {
 /** The declaration of `symbol` (class, function or method) with its doc comment, brace-matched */
 function excerptSymbol(src, symbol, maxLines = 48) {
   const lines = src.split('\n');
-  const decl = new RegExp(`^\\s*(export\\s+)?(default\\s+)?(class|function)\\s+${symbol}\\b|^\\s+${symbol}\\s*\\(`);
+  const decl = new RegExp(`^\\s*(export\\s+)?(default\\s+)?(class|function|const|let)\\s+${symbol}\\b|^\\s+${symbol}\\s*\\(`);
   const start = lines.findIndex((l) => decl.test(l));
   if (start === -1) return lines.slice(0, maxLines).join('\n');
 
@@ -2754,7 +2877,30 @@ function mstLive(algorithm) {
   return rows;
 }
 
+const serverStats = () => apiService.getDsaStats();
+// Numbers that describe the whole server rather than this browser tab
+const DSA_SERVER_WIDE = new Set(['lru-cache', 'sliding-window']);
+const pctText = (x) => (x === null || x === undefined ? 'no lookups yet' : `${Math.round(x * 100)}%`);
+
 const DSA_LIVE = {
+  'lru-cache': () =>
+    serverStats().then(({ sessionCache: c }) => [
+      ['Sessions in the cache', `${c.size} of ${c.capacity}`],
+      ['Cache hits / misses', `${c.hits} / ${c.misses}`],
+      ['Hit rate', pctText(c.hitRate)],
+    ]),
+  'sliding-window': () =>
+    serverStats().then(({ limiter: l }) => [
+      ['Rule', `${l.limit} wrong PINs within ${l.windowMinutes} min lock that account on that address for ${l.windowMinutes} min`],
+      ['Account + address pairs with recent failures', l.accountsWithFailures],
+      ['Addresses with recent failures', l.addressesWithFailures],
+    ]),
+  'hash-set': () =>
+    currentUser && [
+      ['Your role', currentUser.roleLabel],
+      ['Your permission set', `{ ${currentUser.permissions.join(', ')} }`],
+      ['Can use the SQL console', can('sql') ? 'yes' : 'no'],
+    ],
   stack: () => [
     ['Queries in the history stack', sqlHistory.history.size()],
     ['Queries in the redo stack', sqlHistory.redo.size()],
@@ -2835,7 +2981,14 @@ function runMstWith(algorithm) {
 }
 
 const DSA_TRY = {
+  // The user menu shows the session the cache is serving; open it after this click
+  'lru-cache': () => setTimeout(openUserMenu, 0),
+  'hash-set': () => DSA_TRY.stack(),
   stack: () => {
+    if (!can('sql')) {
+      showToast('The SQL console is for administrators. Sign in as USR-1024 to try it.', 'warning');
+      return;
+    }
     switchView('database', true);
     document.getElementById('sqlConsoleModal')?.showModal();
     document.getElementById('sqlInput')?.focus();
@@ -3254,7 +3407,83 @@ function kruskalDemo(container, showGroups = false) {
   draw(null);
 }
 
+function lruDemo(container) {
+  const cache = new LRUCache(3);
+  const KEYS = ['A', 'B', 'C', 'D', 'E'];
+  let next = 0;
+  const ui = demoShell(container, [
+    ['set', 'Set next key', () => {
+      const k = KEYS[next++ % KEYS.length];
+      const before = cache.evictions;
+      cache.set(k, k.toLowerCase());
+      draw(`Set ${k} at the front.${cache.evictions > before ? ' The cache was full, so the least recently used key was evicted.' : ''}`);
+    }],
+    ['getA', 'Get A', () => draw(cache.get('A') ? 'Got A: it moves to the front.' : 'A is not in the cache (miss).')],
+    ['getB', 'Get B', () => draw(cache.get('B') ? 'Got B: it moves to the front.' : 'B is not in the cache (miss).')],
+  ]);
+  function draw(message) {
+    const keys = cache.keys();
+    ui.stage.innerHTML = keys.length
+      ? `<ol class="demo-queue">${cells(keys, (i) => (i === 0 ? 'most recent' : i === keys.length - 1 ? 'next to evict' : ''))}</ol>
+         <p class="dsa-muted">capacity 3 · hits ${cache.hits}, misses ${cache.misses}, evictions ${cache.evictions}</p>`
+      : '<p class="dsa-muted">Empty cache (capacity 3)</p>';
+    ui.msg.textContent = message;
+  }
+  draw('Keys are added at the front; the back is evicted when a fourth key arrives.');
+}
+
+function slidingWindowDemo(container) {
+  // Minutes on a simulated clock, so the 15-minute window can be shown in a few clicks
+  const limiter = new SlidingWindowLimiter({ limit: 5, windowMs: 15 });
+  let now = 0;
+  const ui = demoShell(container, [
+    ['fail', 'Wrong PIN', () => {
+      const s = limiter.check('demo', now).locked ? limiter.check('demo', now) : limiter.record('demo', now);
+      draw(s.locked ? `Locked: try again in ${s.retryAfterMs} min.` : `Failure recorded at minute ${now}. ${limiter.limit - s.attempts} left before the lock.`);
+    }],
+    ['wait', 'Wait 4 minutes', () => {
+      now += 4;
+      const s = limiter.check('demo', now);
+      draw(s.locked ? `Minute ${now}: still locked for ${s.retryAfterMs} min.` : `Minute ${now}: attempts older than 15 min have left the queue.`);
+    }],
+    ['reset', 'Reset', () => {
+      limiter.reset('demo');
+      now = 0;
+      draw('Cleared.');
+    }],
+  ]);
+  function draw(message) {
+    const q = limiter.queues.get('demo');
+    const times = q ? q.toArray() : [];
+    ui.stage.innerHTML =
+      (times.length ? `<ol class="demo-queue">${cells(times.map((t) => `min ${t}`), (i) => (i === 0 ? 'front (oldest)' : ''))}</ol>` : '<p class="dsa-muted">No recent failures</p>') +
+      `<p class="dsa-muted">clock: minute ${now} · window 15 min · limit 5</p>`;
+    ui.msg.textContent = message;
+  }
+  draw('Each wrong PIN adds its time to the back of the queue.');
+}
+
+function hashSetDemo(container) {
+  const PERMS = { admin: new Set(['view', 'sql', 'manage_users']), inspector: new Set(['view']), surveyor: new Set(['view']), viewer: new Set(['view']) };
+  let role = currentUser?.role || 'inspector';
+  const ui = demoShell(container, [
+    ...Object.keys(PERMS).map((r) => [r, r, () => {
+      role = r;
+      draw();
+    }]),
+  ]);
+  function draw() {
+    const set = PERMS[role];
+    ui.stage.innerHTML = `<ol class="demo-queue">${cells([...set], () => '')}</ol>`;
+    ui.msg.textContent = `${role}: has('sql') → ${set.has('sql')}. One hash lookup, whatever the size of the set.`;
+  }
+  draw();
+}
+
 const DSA_DEMOS = {
+  'lru-cache': lruDemo,
+  'sliding-window': slidingWindowDemo,
+  'hash-set': hashSetDemo,
   stack: stackDemo,
   queue: queueDemo,
   'priority-queue': priorityQueueDemo,

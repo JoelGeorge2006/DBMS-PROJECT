@@ -1,8 +1,9 @@
 -- ============================================================================
 -- MINERVA — Indian Mineral Resource Management Database
 -- Course: BACSE202 - Database Systems
--- Schema v2: 3NF relational model (DDL, indexes, spatial index, triggers, views, seed DML)
--- DBMS target: SQLite (better-sqlite3). PRAGMA user_version = 2.
+-- Schema v3: 3NF relational model (DDL, indexes, spatial index, triggers, views, seed DML)
+-- DBMS target: SQLite (better-sqlite3). PRAGMA user_version = 3.
+-- v3: application users, sessions, PIN resets and an audit log (server-side sign-in).
 --
 -- v2: national mine import (OpenStreetMap, Wikidata). Unknown facts are NULL
 -- instead of invented values: an imported mine may have no lease, company or
@@ -34,6 +35,10 @@ DROP TABLE IF EXISTS MINERAL;
 DROP TABLE IF EXISTS MINING_COMPANY;
 DROP TABLE IF EXISTS LOCATION;
 DROP TABLE IF EXISTS DATA_SOURCE;
+DROP TABLE IF EXISTS AUDIT_LOG;
+DROP TABLE IF EXISTS PIN_RESET;
+DROP TABLE IF EXISTS USER_SESSION;
+DROP TABLE IF EXISTS APP_USER;
 
 -- ----------------------------------------------------------------------------
 -- 2. DDL (3NF relations with integrity constraints)
@@ -313,7 +318,60 @@ JOIN MINE m ON le.lease_id = m.lease_id
 LEFT JOIN MINING_COMPANY c ON le.company_id = c.company_id;
 
 -- ----------------------------------------------------------------------------
--- 6. SEED DATA (synthetic sample records; national mines come from the import scripts)
+-- 6. APPLICATION USERS & SESSIONS (v3)
+--    PINs are scrypt hashes with a per-user salt; session tokens are stored as
+--    SHA-256 hashes. Demo users are inserted by the server (it hashes the PINs).
+-- ----------------------------------------------------------------------------
+-- AUTH BEGIN
+CREATE TABLE IF NOT EXISTS APP_USER (
+    user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    display_name TEXT NOT NULL,
+    role TEXT NOT NULL CHECK(role IN ('admin', 'inspector', 'surveyor', 'viewer')),
+    password_hash TEXT NOT NULL,
+    password_salt TEXT NOT NULL,
+    failed_attempts INTEGER NOT NULL DEFAULT 0,
+    locked_until TEXT,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS USER_SESSION (
+    token_hash TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    last_seen TEXT NOT NULL,
+    ip TEXT,
+    CONSTRAINT fk_session_user FOREIGN KEY (user_id) REFERENCES APP_USER(user_id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_session_user ON USER_SESSION(user_id);
+CREATE INDEX IF NOT EXISTS idx_session_expires ON USER_SESSION(expires_at);
+
+CREATE TABLE IF NOT EXISTS PIN_RESET (
+    reset_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    code_hash TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    used INTEGER NOT NULL DEFAULT 0 CHECK(used IN (0, 1)),
+    attempts INTEGER NOT NULL DEFAULT 0,
+    CONSTRAINT fk_reset_user FOREIGN KEY (user_id) REFERENCES APP_USER(user_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS AUDIT_LOG (
+    log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    username TEXT,
+    action TEXT NOT NULL,
+    detail TEXT,
+    ip TEXT,
+    at TEXT NOT NULL,
+    CONSTRAINT fk_audit_user FOREIGN KEY (user_id) REFERENCES APP_USER(user_id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_audit_user_action ON AUDIT_LOG(user_id, action);
+-- AUTH END
+
+-- ----------------------------------------------------------------------------
+-- 7. SEED DATA (synthetic sample records; national mines come from the import scripts)
 -- ----------------------------------------------------------------------------
 
 -- 0. Data sources
@@ -441,6 +499,6 @@ INSERT INTO PRODUCTION (mine_id, mineral_id, fiscal_year, quantity_mt, dispatch_
 ('MN-1450', 1, 2023, 6.00, 5.80),
 ('MN-1450', 1, 2024, 6.20, 6.00);
 
-PRAGMA user_version = 2;
+PRAGMA user_version = 3;
 
 -- End of schema.sql

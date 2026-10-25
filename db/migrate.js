@@ -8,12 +8,29 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { ensureDemoUsers } from '../lib/auth.js';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SCHEMA_PATH = path.join(ROOT, 'schema.sql');
-const SEED_MARKER = '-- 6. SEED DATA';
+const SEED_MARKER = '-- 7. SEED DATA';
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
+
+/** The users/sessions block of schema.sql (v3), all CREATE ... IF NOT EXISTS */
+function authDdl() {
+  const sql = fs.readFileSync(SCHEMA_PATH, 'utf8');
+  const start = sql.indexOf('-- AUTH BEGIN');
+  const end = sql.indexOf('-- AUTH END');
+  if (start === -1 || end === -1) throw new Error('schema.sql has no AUTH block');
+  return sql.slice(start, end);
+}
+
+function migrateV2toV3(db) {
+  db.transaction(() => {
+    db.exec(authDdl());
+    db.pragma('user_version = 3');
+  })();
+}
 
 /** The DDL half of schema.sql (everything before the seed data) */
 function v2Ddl() {
@@ -70,7 +87,7 @@ function migrateV1toV2(db) {
 
       const broken = db.pragma('foreign_key_check');
       if (broken.length) throw new Error(`Foreign key check failed after migration: ${JSON.stringify(broken.slice(0, 3))}`);
-      db.pragma('user_version = 2');
+      db.pragma('user_version = 3');
     })();
   } finally {
     db.pragma('foreign_keys = ON');
@@ -105,7 +122,8 @@ function ensureSpatialIndex(db) {
 export function migrate(db) {
   const result = migrateSchema(db);
   ensureSpatialIndex(db);
-  return result;
+  const seeded = ensureDemoUsers(db);
+  return seeded ? `${result}, ${seeded} demo users added` : result;
 }
 
 function migrateSchema(db) {
@@ -116,6 +134,8 @@ function migrateSchema(db) {
   }
   const version = db.pragma('user_version', { simple: true });
   if (version >= SCHEMA_VERSION) return `schema v${version}`;
+  // v1 -> v2 rebuilds every table with the current DDL, which already includes v3
   if (version <= 1) migrateV1toV2(db);
+  else if (version === 2) migrateV2toV3(db);
   return `migrated v${version} -> v${SCHEMA_VERSION}`;
 }
