@@ -13,7 +13,7 @@
  *   ops      [operation, time, space] rows for the complexity table
  */
 
-export const DSA_GROUPS = ['Linear', 'Heaps', 'Hashing', 'Trees', 'Graphs', 'Dynamic programming'];
+export const DSA_GROUPS = ['Linear', 'Heaps', 'Hashing', 'Trees', 'Graphs', 'Geometry', 'Dynamic programming'];
 
 export const DSA_CONCEPTS = [
   {
@@ -235,6 +235,30 @@ export const DSA_CONCEPTS = [
       ['find', 'O(α(n))', 'O(1)'],
       ['union', 'O(α(n))', 'O(1)'],
     ],
+  },
+  {
+    id: 'grid-cluster',
+    name: 'Grid clustering',
+    group: 'Geometry',
+    file: 'ConvexHull.js',
+    symbol: 'gridCluster',
+    usedIn: 'Map: below zoom 9, mines that would overlap on screen become one numbered bubble, coloured by the most common mineral',
+    summary:
+      'Each mine is projected to screen pixels at the current zoom and dropped into the hash-map bucket of its 60-pixel grid cell. ' +
+      'Each bucket becomes one cluster. It runs again whenever the zoom changes, so clusters split as you zoom in.',
+    ops: [['cluster n points', 'O(n)', 'O(n)']],
+  },
+  {
+    id: 'convex-hull',
+    name: 'Convex hull (monotone chain)',
+    group: 'Geometry',
+    file: 'ConvexHull.js',
+    symbol: 'convexHull',
+    usedIn: 'Map: hovering a cluster outlines the area its mines cover',
+    summary:
+      'The smallest convex polygon containing all points. Points are sorted by x, then the lower and upper chains are built, ' +
+      'popping the last point whenever it would make a clockwise turn.',
+    ops: [['hull of n points', 'O(n log n)', 'O(n)']],
   },
   {
     id: 'levenshtein',

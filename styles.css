@@ -269,6 +269,23 @@ body.minerva-body {
   border-bottom: 1px solid var(--border-light);
 }
 
+.mine-cluster-icon {
+  background: none;
+  border: none;
+}
+
+.mine-cluster {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #211A14;
+  border-radius: 50%;
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .map-filter-chip {
   position: absolute;
   top: 24px;

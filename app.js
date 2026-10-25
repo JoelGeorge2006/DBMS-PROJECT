@@ -12,6 +12,7 @@ import { DSA_CONCEPTS, DSA_GROUPS } from './dsa/registry.js';
 import { LRUCache } from './dsa/LRUCache.js';
 import { SlidingWindowLimiter } from './dsa/SlidingWindow.js';
 import { Trie, levenshtein } from './dsa/Trie.js';
+import { convexHull, gridCluster } from './dsa/ConvexHull.js';
 import { AVLTree } from './dsa/AVLTree.js';
 import { BinarySearchTree } from './dsa/BinarySearchTree.js';
 
@@ -1502,6 +1503,8 @@ async function initTransportNetwork() {
   if (networkState.nodes.length > 1) toSel.selectedIndex = Math.min(networkState.nodes.length - 1, 1);
 
   drawCorridors();
+  // Clusters depend on the zoom level
+  map.on('zoomend', () => drawMineDots());
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -1672,17 +1675,75 @@ function raiseMineDots() {
   });
 }
 
+// Below this zoom, mines that would overlap on screen are drawn as one cluster
+const CLUSTER_MAX_ZOOM = 9;
+const CLUSTER_CELL_PX = 60;
+let hullLayer = null;
+
 function drawMineDots(clear = true) {
   if (clear) networkLayerGroup.clearLayers();
-  networkState.nodes.forEach((n) => {
+  const visible = networkState.nodes.filter((n) => {
     const mine = mineById(n.id);
-    if (mapMineralFilter && mine?.primaryMineral !== mapMineralFilter) return;
-    const fill = MINERAL_FILL[mine?.mineralDotColor] || MINERAL_FILL.none;
-    L.circleMarker(latLng(n), { radius: 5, color: '#211A14', weight: 1.5, fillColor: fill, fillOpacity: 1 })
-      .bindTooltip(`${n.name} · ${n.id}`, { direction: 'top', offset: [0, -6] })
-      .on('click', () => openMineInspector(n.id))
-      .addTo(networkLayerGroup);
+    return !mapMineralFilter || mine?.primaryMineral === mapMineralFilter;
   });
+
+  const clusters = map.getZoom() < CLUSTER_MAX_ZOOM
+    ? gridCluster(visible.map((n) => ({ ...map.project(latLng(n)), n })), CLUSTER_CELL_PX)
+    : visible.map((n) => ({ members: [{ n }] }));
+
+  clusters.forEach((c) => {
+    if (c.members.length === 1) {
+      const n = c.members[0].n;
+      const mine = mineById(n.id);
+      const fill = MINERAL_FILL[mine?.mineralDotColor] || MINERAL_FILL.none;
+      L.circleMarker(latLng(n), { radius: 5, color: '#211A14', weight: 1.5, fillColor: fill, fillOpacity: 1 })
+        .bindTooltip(`${n.name} · ${n.id}`, { direction: 'top', offset: [0, -6] })
+        .on('click', () => openMineInspector(n.id))
+        .addTo(networkLayerGroup);
+      return;
+    }
+    drawCluster(c.members.map((m) => m.n));
+  });
+}
+
+/** One bubble for several mines: size by count, colour by the most common mineral */
+function drawCluster(nodes) {
+  const counts = new Map();
+  nodes.forEach((n) => {
+    const mine = mineById(n.id);
+    const key = mine?.primaryMineral || 'Not recorded';
+    counts.set(key, { n: (counts.get(key)?.n || 0) + 1, dot: mine?.mineralDotColor || 'none' });
+  });
+  const [topMineral, top] = [...counts.entries()].sort((a, b) => b[1].n - a[1].n)[0];
+  const centre = L.latLng(nodes.reduce((s, n) => s + n.lat, 0) / nodes.length, nodes.reduce((s, n) => s + n.lng, 0) / nodes.length);
+  const size = Math.round(24 + Math.min(22, Math.sqrt(nodes.length) * 3));
+  const dark = ['coal', 'brown', 'rust', 'teal', 'atomic', 'gray'].includes(top.dot);
+  const icon = L.divIcon({
+    className: 'mine-cluster-icon',
+    html: `<div class="mine-cluster" style="width:${size}px;height:${size}px;background:${MINERAL_FILL[top.dot] || '#FFFFFF'};color:${dark ? '#FFFFFF' : '#211A14'}">${nodes.length}</div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+  const bounds = L.latLngBounds(nodes.map(latLng));
+  L.marker(centre, { icon, keyboard: true, title: `${nodes.length} mines` })
+    .bindTooltip(`${nodes.length} mines · mostly ${topMineral} (${top.n})`, { direction: 'top', offset: [0, -size / 2] })
+    .on('mouseover', () => {
+      // Outline the cluster's mines with their convex hull
+      hullLayer?.remove();
+      const hull = convexHull(nodes.map((n) => [n.lng, n.lat]));
+      if (hull.length >= 3) {
+        hullLayer = L.polygon(hull.map(([lng, lat]) => [lat, lng]), { color: '#F7F4EE', weight: 1.5, fillColor: '#F7F4EE', fillOpacity: 0.12, interactive: false }).addTo(map);
+      }
+    })
+    .on('mouseout', () => {
+      hullLayer?.remove();
+      hullLayer = null;
+    })
+    .on('click', () => {
+      hullLayer?.remove();
+      map.fitBounds(bounds, { padding: [60, 60], maxZoom: CLUSTER_MAX_ZOOM + 1 });
+    })
+    .addTo(networkLayerGroup);
 }
 
 function showRoute(res) {
@@ -3001,7 +3062,8 @@ function renderDsaDetail(c) {
         if (box && dsaSelected === c.id) box.innerHTML = '<p class="dsa-muted">Could not load the numbers.</p>';
       });
   }
-  DSA_DEMOS[c.id]?.(document.getElementById('dsaDemo'));
+  if (DSA_DEMOS[c.id]) DSA_DEMOS[c.id](document.getElementById('dsaDemo'));
+  else document.getElementById('dsaDemo')?.closest('.dsa-section')?.remove();
   loadDsaSource(c);
 }
 
@@ -3191,6 +3253,8 @@ function typeIntoSearch(text) {
 }
 
 const DSA_TRY = {
+  'grid-cluster': () => switchView('map', true),
+  'convex-hull': () => switchView('map', true),
   trie: () => typeIntoSearch('keo'),
   levenshtein: () => typeIntoSearch('keonjar'),
   // The user menu shows the session the cache is serving; open it after this click
