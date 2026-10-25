@@ -11,7 +11,8 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { BinarySearchTree } from './dsa/BinarySearchTree.js';
-import { buildNearestNeighbourGraph, dijkstra } from './dsa/Dijkstra.js';
+import { buildNearestNeighbourGraph, buildCompleteGraph, dijkstra } from './dsa/Dijkstra.js';
+import { primMST, kruskalMST } from './dsa/MST.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -702,6 +703,28 @@ app.get('/api/dsa/shortest-route', (req, res) => {
     hops,
     distanceKm: distance,
     nodesSettled: settledOrder.length
+  });
+});
+
+// DSA: minimum spanning tree over every pair of mines
+app.get('/api/dsa/mst', (req, res) => {
+  const algorithm = req.query.algorithm === 'kruskal' ? 'kruskal' : 'prim';
+  const { mines } = loadMineGraph();
+  const complete = buildCompleteGraph(mines);
+  const root = mines.some((m) => m.id === req.query.root) ? req.query.root : mines[0]?.id;
+
+  const result = algorithm === 'kruskal' ? kruskalMST(complete) : primMST(complete, root);
+  const allPairsKm = Math.round(complete.edges().reduce((sum, e) => sum + e.weight, 0) * 10) / 10;
+
+  res.json({
+    success: true,
+    algorithm,
+    root: algorithm === 'prim' ? root : null,
+    candidateEdges: complete.edges().length,
+    edges: result.edges,
+    totalKm: result.totalWeight,
+    allPairsKm,
+    cycleEdgesRejected: result.rejected ?? null
   });
 });
 

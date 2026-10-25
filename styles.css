@@ -1271,6 +1271,43 @@ html, body.minerva-body {
   margin-bottom: 14px;
 }
 
+.net-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  margin-bottom: 14px;
+  background: var(--sand-pill-bg);
+  border-radius: 9px;
+}
+
+.net-tab {
+  flex: 1;
+  height: 28px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-sub);
+  cursor: pointer;
+}
+
+.net-tab.active {
+  background: #FFFFFF;
+  color: var(--text-dark);
+  font-weight: 600;
+}
+
+.net-steps li {
+  opacity: 0.4;
+  transition: opacity 0.2s ease;
+}
+
+.net-steps li.done {
+  opacity: 1;
+}
+
 .net-form {
   display: flex;
   flex-direction: column;

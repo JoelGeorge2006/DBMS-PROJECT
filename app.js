@@ -2291,7 +2291,7 @@ async function renderEntityView(tabName) {
 }
 
 // Transport network on the map: corridor graph from the server, Dijkstra routes
-const networkState = { nodes: [], edges: [], byId: new Map(), corridorLayer: null, routeLayer: null };
+const networkState = { nodes: [], edges: [], byId: new Map(), routeLayer: null, mstLayer: null, mstRun: 0 };
 
 async function initTransportNetwork() {
   const form = document.getElementById('routeForm');
@@ -2338,6 +2338,97 @@ async function initTransportNetwork() {
   });
 
   if (clearBtn) clearBtn.addEventListener('click', clearRoute);
+
+  initMstPane(options);
+  document.querySelectorAll('.net-tab').forEach((tab) => {
+    tab.addEventListener('click', () => switchNetworkTab(tab.dataset.netTab));
+  });
+}
+
+function switchNetworkTab(name) {
+  document.querySelectorAll('.net-tab').forEach((t) => {
+    const on = t.dataset.netTab === name;
+    t.classList.toggle('active', on);
+    t.setAttribute('aria-selected', String(on));
+  });
+  // Show the chosen tab's form; results stay hidden until the user runs it
+  document.querySelectorAll('[data-net-pane]').forEach((el) => {
+    el.classList.toggle('hidden', !(el.dataset.netPane === name && el.tagName === 'FORM'));
+  });
+  clearRoute();
+  clearMst();
+  if (name === 'mst') drawMineDots();
+  const sub = document.getElementById('networkSub');
+  if (sub && networkState.nodes.length) {
+    sub.textContent = name === 'mst'
+      ? `The shortest total set of links that connects all ${networkState.nodes.length} mines, chosen from every possible pair.`
+      : `${networkState.nodes.length} mines, ${networkState.edges.length} corridors. Each mine links to its 3 nearest mines; distances are straight-line km.`;
+  }
+}
+
+function initMstPane(options) {
+  const form = document.getElementById('mstForm');
+  const algo = document.getElementById('mstAlgorithm');
+  const root = document.getElementById('mstRoot');
+  const rootField = document.getElementById('mstRootField');
+  if (!form || !algo || !root) return;
+
+  root.innerHTML = options;
+  algo.addEventListener('change', () => {
+    if (rootField) rootField.classList.toggle('hidden', algo.value !== 'prim');
+  });
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      const res = await apiService.getMst(algo.value, root.value);
+      showMst(res);
+    } catch (err) {
+      document.getElementById('mstSteps').innerHTML = '';
+      document.getElementById('mstTotal').textContent = `Could not build the network: ${err.message}`;
+      document.getElementById('mstResult').classList.remove('hidden');
+    }
+  });
+}
+
+/** Draw MST edges one at a time in the order the algorithm picked them */
+function showMst(res) {
+  clearMst();
+  const run = ++networkState.mstRun;
+  const steps = document.getElementById('mstSteps');
+  const totalEl = document.getElementById('mstTotal');
+  const name = (id) => networkState.byId.get(id)?.name || id;
+
+  drawMineDots();
+  networkState.mstLayer = L.featureGroup().addTo(map);
+  fitToNetworkView(L.latLngBounds(networkState.nodes.map(latLng)));
+
+  steps.innerHTML = res.edges
+    .map((e, i) => `<li data-step="${i}"><span>${i + 1}. ${escapeHtml(name(e.from))} – ${escapeHtml(name(e.to))}</span><span class="net-km">${e.weight.toLocaleString()} km</span></li>`)
+    .join('');
+  const extra = res.algorithm === 'kruskal'
+    ? ` · ${res.cycleEdgesRejected} links skipped because they would close a loop`
+    : ` · grown from ${name(res.root)}`;
+  totalEl.textContent = `${res.totalKm.toLocaleString()} km total, ${res.edges.length} links (linking every pair: ${res.allPairsKm.toLocaleString()} km)${extra}`;
+  document.getElementById('mstResult').classList.remove('hidden');
+
+  res.edges.forEach((e, i) => {
+    setTimeout(() => {
+      if (run !== networkState.mstRun || !networkState.mstLayer) return;
+      const pts = [latLng(networkState.byId.get(e.from)), latLng(networkState.byId.get(e.to))];
+      L.polyline(pts, { color: '#211A14', weight: 7, opacity: 0.55, interactive: false }).addTo(networkState.mstLayer);
+      L.polyline(pts, { color: '#F7F4EE', weight: 3.5, interactive: false }).addTo(networkState.mstLayer);
+      raiseMineDots();
+      steps.querySelector(`[data-step="${i}"]`)?.classList.add('done');
+    }, 350 * (i + 1));
+  });
+}
+
+function clearMst() {
+  networkState.mstRun++;
+  if (networkState.mstLayer) networkState.mstLayer.remove();
+  networkState.mstLayer = null;
+  const result = document.getElementById('mstResult');
+  if (result) result.classList.add('hidden');
 }
 
 const latLng = (n) => [n.lat, n.lng];
@@ -2357,6 +2448,17 @@ function drawCorridors(highlight = new Set()) {
     L.polyline([latLng(a), latLng(b)], { color: '#F4F1EA', weight: 1.5, opacity: 0.7, dashArray: '4 6', interactive: false })
       .addTo(networkLayerGroup);
   });
+  drawMineDots(false);
+}
+
+function raiseMineDots() {
+  networkLayerGroup.eachLayer((layer) => {
+    if (layer instanceof L.CircleMarker) layer.bringToFront();
+  });
+}
+
+function drawMineDots(clear = true) {
+  if (clear) networkLayerGroup.clearLayers();
   networkState.nodes.forEach((n) => {
     L.circleMarker(latLng(n), { radius: 5, color: '#211A14', weight: 2, fillColor: '#FFFFFF', fillOpacity: 1 })
       .bindTooltip(`${n.name} · ${n.id}`, { direction: 'top', offset: [0, -6] })
@@ -2383,6 +2485,7 @@ function showRoute(res) {
     L.polyline(points, { color: '#211A14', weight: 7, opacity: 0.55, interactive: false }),
     L.polyline(points, { color: '#F7F4EE', weight: 3.5, opacity: 1, interactive: false }),
   ]).addTo(map);
+  raiseMineDots();
   fitToNetworkView(networkState.routeLayer.getBounds());
 
   const name = (id) => networkState.byId.get(id)?.name || id;
@@ -2406,8 +2509,8 @@ function clearRoute() {
   if (networkState.routeLayer) networkState.routeLayer.remove();
   networkState.routeLayer = null;
   drawCorridors();
-  document.getElementById('routeResult').classList.add('hidden');
-  document.getElementById('routeClear').classList.add('hidden');
+  document.getElementById('routeResult')?.classList.add('hidden');
+  document.getElementById('routeClear')?.classList.add('hidden');
 }
 
 // Assay range search: the server builds a BST over the chosen assay column

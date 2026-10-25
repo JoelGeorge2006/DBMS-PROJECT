@@ -593,7 +593,12 @@
       <h2 class="net-title" id="networkTitle">Transport network</h2>
       <p class="net-sub" id="networkSub">Mines linked to their nearest neighbours by straight-line corridors.</p>
 
-      <form class="net-form" id="routeForm">
+      <div class="net-tabs" role="tablist">
+        <button type="button" class="net-tab active" role="tab" aria-selected="true" data-net-tab="route">Shortest route</button>
+        <button type="button" class="net-tab" role="tab" aria-selected="false" data-net-tab="mst">Minimum network</button>
+      </div>
+
+      <form class="net-form" id="routeForm" data-net-pane="route">
         <label class="net-field">
           <span>From</span>
           <select id="routeFrom"></select>
@@ -608,9 +613,31 @@
         </div>
       </form>
 
-      <div class="net-result hidden" id="routeResult">
+      <div class="net-result hidden" id="routeResult" data-net-pane="route">
         <ol class="net-hops" id="routeHops"></ol>
         <p class="net-total" id="routeTotal"></p>
+      </div>
+
+      <form class="net-form hidden" id="mstForm" data-net-pane="mst">
+        <label class="net-field">
+          <span>Algorithm</span>
+          <select id="mstAlgorithm">
+            <option value="prim">Prim's (grow from one mine)</option>
+            <option value="kruskal">Kruskal's (shortest links first)</option>
+          </select>
+        </label>
+        <label class="net-field" id="mstRootField">
+          <span>Start mine</span>
+          <select id="mstRoot"></select>
+        </label>
+        <div class="net-actions">
+          <button type="submit" class="btn-net-primary">Build network</button>
+        </div>
+      </form>
+
+      <div class="net-result hidden" id="mstResult" data-net-pane="mst">
+        <ol class="net-hops net-steps" id="mstSteps"></ol>
+        <p class="net-total" id="mstTotal"></p>
       </div>
     </section>
 
