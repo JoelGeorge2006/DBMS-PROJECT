@@ -13,7 +13,7 @@
  *   ops      [operation, time, space] rows for the complexity table
  */
 
-export const DSA_GROUPS = ['Linear', 'Heaps', 'Hashing', 'Trees', 'Graphs', 'Geometry', 'Dynamic programming'];
+export const DSA_GROUPS = ['Linear', 'Heaps', 'Hashing', 'Trees', 'Graphs'];
 
 export const DSA_CONCEPTS = [
   {
@@ -114,22 +114,6 @@ export const DSA_CONCEPTS = [
     ],
   },
   {
-    id: 'trie',
-    name: 'Trie (prefix tree) with top-k',
-    group: 'Trees',
-    file: 'Trie.js',
-    symbol: 'Trie',
-    usedIn: 'Search bar: suggestions for mines, minerals, places, companies and leases as you type',
-    summary:
-      'Every word of every name is inserted one letter per level, so all words sharing a prefix share a path. ' +
-      'Each node also keeps the best k entries below it in a small min-heap, so a prefix lookup walks only the prefix and reads that list, without visiting the subtree. ' +
-      'Several words ("north keo") are matched by checking the other words against the shortest list.',
-    ops: [
-      ['insert word', 'O(L log k)', 'O(L) new nodes at most'],
-      ['suggest prefix', 'O(P + k log k)', 'O(k)'],
-    ],
-  },
-  {
     id: 'bst',
     name: 'Binary search tree',
     group: 'Trees',
@@ -159,23 +143,6 @@ export const DSA_CONCEPTS = [
       ['insert', 'O(log n)', 'O(log n)'],
       ['delete', 'O(log n)', 'O(log n)'],
       ['range query', 'O(log n + k)', 'O(k)'],
-    ],
-  },
-  {
-    id: 'graph',
-    name: 'Weighted graph',
-    group: 'Graphs',
-    file: 'Dijkstra.js',
-    symbol: 'connectComponents',
-    usedIn: 'Map → Transport network: each mine linked to its 3 nearest mines, plus links joining separate clusters',
-    summary:
-      'An undirected graph stored as an adjacency list: each mine maps to its neighbours and the distance to each, in great-circle (haversine) kilometres. ' +
-      'Nearest-neighbour links alone leave separate clusters (one per coalfield), so union-find finds the clusters and, Borůvka-style, each round adds the shortest link from every cluster to another until all mines are connected.',
-    ops: [
-      ['add edge', 'O(1)', 'O(1)'],
-      ['neighbours of v', 'O(deg v)', 'O(1)'],
-      ['build k-nearest', 'O(n² log n)', 'O(nk)'],
-      ['join clusters', 'O(n² log n): O(log n) rounds of O(n²)', 'O(n)'],
     ],
   },
   {
@@ -219,61 +186,6 @@ export const DSA_CONCEPTS = [
     ops: [
       ['sort edges', 'O(E log E)', 'O(E)'],
       ['MST', 'O(E α(V))', 'O(V)'],
-    ],
-  },
-  {
-    id: 'union-find',
-    name: 'Union-find',
-    group: 'Graphs',
-    file: 'MST.js',
-    symbol: 'UnionFind',
-    usedIn: "Kruskal's algorithm: is this edge joining two separate groups?",
-    summary:
-      'Keeps a forest where each tree is one group. find() walks to the root; union() attaches the shorter tree under the taller one. ' +
-      'Path compression flattens the tree on every find, so operations run in near-constant time.',
-    ops: [
-      ['find', 'O(α(n))', 'O(1)'],
-      ['union', 'O(α(n))', 'O(1)'],
-    ],
-  },
-  {
-    id: 'grid-cluster',
-    name: 'Grid clustering',
-    group: 'Geometry',
-    file: 'ConvexHull.js',
-    symbol: 'gridCluster',
-    usedIn: 'Map: below zoom 9, mines that would overlap on screen become one numbered bubble, coloured by the most common mineral',
-    summary:
-      'Each mine is projected to screen pixels at the current zoom and dropped into the hash-map bucket of its 60-pixel grid cell. ' +
-      'Each bucket becomes one cluster. It runs again whenever the zoom changes, so clusters split as you zoom in.',
-    ops: [['cluster n points', 'O(n)', 'O(n)']],
-  },
-  {
-    id: 'convex-hull',
-    name: 'Convex hull (monotone chain)',
-    group: 'Geometry',
-    file: 'ConvexHull.js',
-    symbol: 'convexHull',
-    usedIn: 'Map: hovering a cluster outlines the area its mines cover',
-    summary:
-      'The smallest convex polygon containing all points. Points are sorted by x, then the lower and upper chains are built, ' +
-      'popping the last point whenever it would make a clockwise turn.',
-    ops: [['hull of n points', 'O(n log n)', 'O(n)']],
-  },
-  {
-    id: 'levenshtein',
-    name: 'Levenshtein edit distance',
-    group: 'Dynamic programming',
-    file: 'Trie.js',
-    symbol: 'levenshtein',
-    usedIn: 'Search bar: a word with no match is corrected to the closest indexed word ("keonjar" → "keonjhar")',
-    summary:
-      'The fewest single-letter insertions, deletions or substitutions that turn one word into another. ' +
-      'Cell (i, j) of the table is the distance between the first i letters of one word and the first j of the other, built from its three neighbours. ' +
-      'Only two rows are kept, and the computation stops early once every value in a row is over the allowed number of edits (1 or 2).',
-    ops: [
-      ['distance', 'O(m · n)', 'O(n): two rows'],
-      ['with cutoff d', 'stops when a row min exceeds d', 'O(n)'],
     ],
   },
 ];

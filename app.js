@@ -3674,9 +3674,9 @@ function kruskalDemo(container, showGroups = false) {
     } else if (!result) {
       ui.msg.textContent = 'Edges are tried shortest first. An edge is taken only if its ends are in different groups.';
     } else if (result.ok) {
-      ui.msg.textContent = `Took ${result.e.from}–${result.e.to} (${result.e.weight}): union() merged two groups.${uf.components === 1 ? ' One group left: done.' : ''}`;
+      ui.msg.textContent = `Took ${result.e.from}–${result.e.to} (${result.e.weight}): union() joined two separate groups.${uf.components === 1 ? ' Everything is connected: done.' : ''}`;
     } else {
-      ui.msg.textContent = `Skipped ${result.e.from}–${result.e.to} (${result.e.weight}): find() gives the same root for both ends, so it would close a loop.`;
+      ui.msg.textContent = `Skipped ${result.e.from}–${result.e.to} (${result.e.weight}): both ends are already connected, so it would close a loop.`;
     }
   }
   reset();
