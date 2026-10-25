@@ -11,6 +11,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { BinarySearchTree } from './dsa/BinarySearchTree.js';
 import { migrate } from './db/migrate.js';
+import { buildSearchIndex, suggest } from './lib/search.js';
 import { createAuth, readCookie, sessionCookie, clearedCookie, clientIp, SESSION_COOKIE, ROLES } from './lib/auth.js';
 import { buildNearestNeighbourGraph, buildCompleteGraph, dijkstra } from './dsa/Dijkstra.js';
 import { primMST, kruskalMST } from './dsa/MST.js';
@@ -493,8 +494,67 @@ app.get('/api/dsa/mst', (req, res) => {
   });
 });
 
+// ============================================================================
+// Search: Trie suggestions and per-user recent searches
+// ============================================================================
+const searchCache = { version: null, index: null, lastQueryMs: null, lastCorrection: null };
+
+function searchIndex() {
+  const version = `${db.pragma('data_version', { simple: true })}:${db.prepare('SELECT COUNT(*) AS n FROM MINE').get().n}`;
+  if (searchCache.version !== version) {
+    searchCache.index = buildSearchIndex(db);
+    searchCache.version = version;
+  }
+  return searchCache.index;
+}
+
+app.get('/api/search/suggest', (req, res) => {
+  const q = String(req.query.q || '').slice(0, 100);
+  const limit = Math.min(Number.parseInt(req.query.limit, 10) || 6, 20);
+  const result = suggest(searchIndex(), q, limit);
+  searchCache.lastQueryMs = result.tookMs;
+  if (result.corrected) searchCache.lastCorrection = { from: q.toLowerCase(), to: result.corrected };
+  res.json({ success: true, query: q, ...result });
+});
+
+const RECENT_LIMIT = 8;
+
+app.get('/api/search/recent', (req, res) => {
+  const rows = db.prepare(`SELECT entry_id AS id, type, entry_key AS key, label, sub FROM SEARCH_HISTORY
+    WHERE user_id = ? ORDER BY used_at DESC LIMIT ?`).all(req.user.id, RECENT_LIMIT);
+  res.json({ success: true, data: rows });
+});
+
+// Most recent first, no duplicates, at most 8: re-using an entry moves it to the front
+app.post('/api/search/recent', (req, res) => {
+  const { id, type, key, label, sub } = req.body || {};
+  if (![id, type, key, label].every((v) => typeof v === 'string' && v.length > 0 && v.length <= 300)) {
+    return res.status(400).json({ success: false, error: 'id, type, key and label are required.' });
+  }
+  db.transaction(() => {
+    db.prepare(`INSERT INTO SEARCH_HISTORY (user_id, entry_id, type, entry_key, label, sub, used_at) VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(user_id, entry_id) DO UPDATE SET used_at = excluded.used_at, label = excluded.label, sub = excluded.sub`)
+      .run(req.user.id, id, type, key, label, typeof sub === 'string' ? sub.slice(0, 300) : null, new Date().toISOString());
+    db.prepare(`DELETE FROM SEARCH_HISTORY WHERE user_id = ? AND entry_id NOT IN (
+      SELECT entry_id FROM SEARCH_HISTORY WHERE user_id = ? ORDER BY used_at DESC LIMIT ?)`).run(req.user.id, req.user.id, RECENT_LIMIT);
+  })();
+  res.json({ success: true });
+});
+
+app.delete('/api/search/recent', (req, res) => {
+  db.prepare('DELETE FROM SEARCH_HISTORY WHERE user_id = ?').run(req.user.id);
+  res.json({ success: true });
+});
+
 // DSA: live numbers for the DSA tab (session LRU cache, sign-in limiter)
-app.get('/api/dsa/stats', (req, res) => res.json({ success: true, ...auth.stats() }));
+app.get('/api/dsa/stats', (req, res) => {
+  const idx = searchIndex();
+  res.json({
+    success: true,
+    ...auth.stats(),
+    search: { entries: idx.entries, trieNodes: idx.nodes, words: idx.words, builtMs: idx.builtMs, lastQueryMs: searchCache.lastQueryMs, lastCorrection: searchCache.lastCorrection },
+  });
+});
 
 // DSA: source of a dsa/ module, for the excerpts on the DSA tab (read-only, dsa/ only)
 const DSA_DIR = path.join(__dirname, 'dsa');

@@ -11,6 +11,7 @@ import { primMST, UnionFind } from './dsa/MST.js';
 import { DSA_CONCEPTS, DSA_GROUPS } from './dsa/registry.js';
 import { LRUCache } from './dsa/LRUCache.js';
 import { SlidingWindowLimiter } from './dsa/SlidingWindow.js';
+import { Trie, levenshtein } from './dsa/Trie.js';
 import { AVLTree } from './dsa/AVLTree.js';
 import { BinarySearchTree } from './dsa/BinarySearchTree.js';
 
@@ -1634,6 +1635,7 @@ function drawMineDots(clear = true) {
   if (clear) networkLayerGroup.clearLayers();
   networkState.nodes.forEach((n) => {
     const mine = mineById(n.id);
+    if (mapMineralFilter && mine?.primaryMineral !== mapMineralFilter) return;
     const fill = MINERAL_FILL[mine?.mineralDotColor] || MINERAL_FILL.none;
     L.circleMarker(latLng(n), { radius: 5, color: '#211A14', weight: 1.5, fillColor: fill, fillOpacity: 1 })
       .bindTooltip(`${n.name} · ${n.id}`, { direction: 'top', offset: [0, -6] })
@@ -2363,7 +2365,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
 // ============================================================================
-// 12. Global search: the scope follows the open view
+// 12. Global search: Trie suggestions from the server, plus filtering of the open view
 // ============================================================================
 const ENTITY_SCOPE = {
   mines: 'Mines',
@@ -2374,15 +2376,23 @@ const ENTITY_SCOPE = {
   production: 'Production',
 };
 
+const GROUP_LABEL = { mine: 'Mines', mineral: 'Minerals', place: 'Places', company: 'Companies', lease: 'Leases' };
+const GROUP_ORDER = ['mine', 'mineral', 'place', 'company', 'lease'];
+
+// 'view': filter the open table and suggest; 'all': suggestions only (the map is always 'all')
+let searchMode = 'view';
 let suggestItems = [];
 let suggestIndex = -1;
 // The query the visible suggestion list was built for
 let suggestQuery = '';
+let suggestSeq = 0;
 
 const searchInput = () => document.getElementById('globalSearchInput');
 const searchText = () => (searchInput()?.value || '').trim();
+const filtersView = () => searchMode === 'view' && ['database', 'leases', 'dsa'].includes(currentView);
 
 function searchScope() {
+  if (!filtersView()) return { label: 'Everything', placeholder: 'Search mines, minerals, places, companies, leases' };
   if (currentView === 'database') {
     const label = ENTITY_SCOPE[activeEntityTab] || 'Records';
     return {
@@ -2391,14 +2401,18 @@ function searchScope() {
     };
   }
   if (currentView === 'leases') return { label: 'Leases', placeholder: 'Search leases by ID, mine or company' };
-  if (currentView === 'dsa') return { label: 'Concepts', placeholder: 'Search concepts, e.g. heap or shortest path' };
-  return { label: 'Mines', placeholder: 'Find a mine by name, mineral, place or lessee' };
+  return { label: 'Concepts', placeholder: 'Search concepts, e.g. heap or shortest path' };
 }
 
 function updateSearchScope() {
   const { label, placeholder } = searchScope();
   const chip = document.getElementById('searchScope');
-  if (chip) chip.textContent = label;
+  if (chip) {
+    chip.textContent = label;
+    const canSwitch = ['database', 'leases', 'dsa'].includes(currentView);
+    chip.disabled = !canSwitch;
+    chip.title = canSwitch ? (searchMode === 'view' ? 'Searching this view. Click to search everything.' : 'Searching everything. Click to search this view.') : 'Searching everything';
+  }
   const input = searchInput();
   if (input) {
     input.placeholder = placeholder;
@@ -2412,6 +2426,7 @@ function initSearch() {
   const kbd = document.getElementById('searchKbd');
   const toggleBtn = document.getElementById('searchToggleBtn');
   const suggest = document.getElementById('searchSuggest');
+  const scope = document.getElementById('searchScope');
   if (!input) return;
 
   const isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
@@ -2440,7 +2455,11 @@ function initSearch() {
   input.addEventListener('input', () => {
     updateSearchChrome();
     clearTimeout(debounce);
-    debounce = setTimeout(() => dispatchSearchQuery(searchText(), false), 150);
+    debounce = setTimeout(() => dispatchSearchQuery(searchText(), false), 120);
+  });
+
+  input.addEventListener('focus', () => {
+    if (!searchText()) showRecentSearches();
   });
 
   input.addEventListener('keydown', (e) => {
@@ -2455,11 +2474,9 @@ function initSearch() {
       clearTimeout(debounce);
       dispatchSearchQuery(searchText(), true);
     } else if (e.key === 'Escape') {
-      if (searchText()) {
-        clearSearch();
-      } else {
-        input.blur();
-      }
+      if (!suggest.classList.contains('hidden')) hideSuggestions();
+      else if (searchText()) clearSearch();
+      else input.blur();
     }
   });
 
@@ -2482,12 +2499,28 @@ function initSearch() {
 
   toggleBtn?.addEventListener('click', focusSearch);
 
-  // Pick a suggestion with the mouse (mousedown so the input's blur doesn't hide the list first)
+  scope?.addEventListener('click', () => {
+    searchMode = searchMode === 'view' ? 'all' : 'view';
+    // Leaving "this view": drop the table filter, keep the text for suggestions
+    if (searchMode === 'all') undoViewFilters();
+    updateSearchScope();
+    input.focus();
+    dispatchSearchQuery(searchText(), false);
+  });
+
+  // mousedown so the input's blur doesn't hide the list first
   suggest?.addEventListener('mousedown', (e) => {
-    const li = e.target.closest('[data-index]');
-    if (!li) return;
+    const clear = e.target.closest('[data-clear-recent]');
+    if (clear) {
+      e.preventDefault();
+      apiService.clearRecentSearches().catch(() => {});
+      hideSuggestions();
+      return;
+    }
+    const item = e.target.closest('[data-index]');
+    if (!item) return;
     e.preventDefault();
-    chooseMine(suggestItems[Number(li.dataset.index)]);
+    chooseEntry(suggestItems[Number(item.dataset.index)]);
   });
 
   // Any "Clear search" link inside an empty-results message
@@ -2501,6 +2534,8 @@ function initSearch() {
     if (row && e.key === 'Enter') openMineInDatabase(row.dataset.mineId);
   });
 
+  document.getElementById('mapFilterClear')?.addEventListener('click', () => setMapMineralFilter(null));
+
   updateSearchScope();
 }
 
@@ -2511,7 +2546,7 @@ function updateSearchChrome() {
   if (!has) setSearchCount(null);
 }
 
-/** "3 of 8" at the right of the bar while a query is active */
+/** "3 of 8" at the right of the bar while a table filter is active */
 function setSearchCount(shown, total) {
   const el = document.getElementById('searchCount');
   if (!el) return;
@@ -2526,20 +2561,189 @@ function setSearchCount(shown, total) {
 function dispatchSearchQuery(query, submitted) {
   const q = query.toLowerCase();
   updateSearchChrome();
-  if (currentView !== 'map') hideSuggestions();
 
-  if (currentView === 'database') {
-    searchQuery = query;
-    filterDatabaseView(q);
-  } else if (currentView === 'leases') {
-    leaseSearch = q;
-    renderLeaseRange();
-  } else if (currentView === 'dsa') {
-    dsaFilter = q;
-    renderDsaList();
-  } else if (currentView === 'map') {
-    mapSearch(q, submitted);
+  if (filtersView()) {
+    if (currentView === 'database') {
+      searchQuery = query;
+      filterDatabaseView(q);
+    } else if (currentView === 'leases') {
+      leaseSearch = q;
+      renderLeaseRange();
+    } else if (currentView === 'dsa') {
+      dsaFilter = q;
+      renderDsaList();
+    }
   }
+
+  if (submitted) {
+    // Only trust the highlighted suggestion if the list was built for this exact query
+    const pick = suggestQuery === q ? suggestItems[suggestIndex] : null;
+    if (pick) chooseEntry(pick);
+    else if (!filtersView() && q) fetchSuggestions(q, true);
+    else hideSuggestions();
+    return;
+  }
+
+  // The DSA tab only filters its own list
+  if (!q) showRecentSearches();
+  else if (currentView === 'dsa' && filtersView()) hideSuggestions();
+  else fetchSuggestions(q, false);
+}
+
+async function fetchSuggestions(q, pickFirst) {
+  const seq = ++suggestSeq;
+  try {
+    const res = await apiService.searchSuggest(q, 5);
+    if (seq !== suggestSeq || searchText().toLowerCase() !== q) return; // a newer query is in flight
+    // Groups ordered by their strongest entry: "bauxite" shows the mineral (11 mines) before single mines
+    const order = GROUP_ORDER.filter((g) => res.groups[g]?.length).sort(
+      (a, b) => Math.max(...res.groups[b].map((e) => e.weight)) - Math.max(...res.groups[a].map((e) => e.weight)) || GROUP_ORDER.indexOf(a) - GROUP_ORDER.indexOf(b)
+    );
+    const items = order.flatMap((g) => res.groups[g].map((e) => ({ ...e, group: g })));
+    if (pickFirst) {
+      if (items[0]) chooseEntry(items[0]);
+      else showToast(`Nothing matches “${q}”`, 'warning');
+      return;
+    }
+    renderSuggestions(items, q, res.corrected);
+  } catch {
+    hideSuggestions();
+  }
+}
+
+async function showRecentSearches() {
+  if (!currentUser || (currentView === 'dsa' && filtersView())) return hideSuggestions();
+  try {
+    const res = await apiService.recentSearches();
+    if (searchText()) return;
+    if (!res.data.length) return hideSuggestions();
+    renderSuggestions(res.data.map((e) => ({ ...e, group: 'recent' })), '', null, true);
+  } catch {
+    hideSuggestions();
+  }
+}
+
+function renderSuggestions(items, q, corrected, recent = false) {
+  const box = document.getElementById('searchSuggest');
+  if (!box) return;
+  suggestItems = items;
+  suggestQuery = q;
+  suggestIndex = items.length && !filtersView() ? 0 : -1;
+  // Highlight the word being typed (or its corrected spelling)
+  const last = (corrected || q).split(/\s+/).filter(Boolean).pop() || '';
+  const hl = (text) => highlightText(text, last);
+
+  let html = '';
+  if (corrected) html += `<p class="suggest-note">Showing results for <strong>${escapeHtml(corrected)}</strong></p>`;
+  if (recent) html += `<p class="suggest-group-title">Recent <button type="button" class="btn-link-inline suggest-clear" data-clear-recent>Clear</button></p>`;
+  if (!items.length) {
+    html += `<p class="search-suggest-empty">Nothing matches “${escapeHtml(q)}”</p>`;
+  } else {
+    let group = null;
+    items.forEach((e, i) => {
+      if (!recent && e.group !== group) {
+        group = e.group;
+        html += `<p class="suggest-group-title">${GROUP_LABEL[group]}</p>`;
+      }
+      html += `<div role="option" id="suggest-${i}" data-index="${i}" class="search-suggest-item">
+          <span class="suggest-name">${hl(e.label)}</span>
+          <span class="suggest-meta">${recent ? `${escapeHtml(GROUP_LABEL[e.type] || '')} · ` : ''}${escapeHtml(e.sub || '')}</span>
+        </div>`;
+    });
+  }
+  box.innerHTML = html;
+  box.classList.remove('hidden');
+  searchInput()?.setAttribute('aria-expanded', 'true');
+  renderSuggestActive();
+}
+
+function renderSuggestActive() {
+  const box = document.getElementById('searchSuggest');
+  box?.querySelectorAll('[data-index]').forEach((li) => {
+    const on = Number(li.dataset.index) === suggestIndex;
+    li.classList.toggle('active', on);
+    li.setAttribute('aria-selected', String(on));
+    if (on) li.scrollIntoView({ block: 'nearest' });
+  });
+  const input = searchInput();
+  if (input) {
+    if (suggestIndex >= 0) input.setAttribute('aria-activedescendant', `suggest-${suggestIndex}`);
+    else input.removeAttribute('aria-activedescendant');
+  }
+}
+
+function hideSuggestions() {
+  document.getElementById('searchSuggest')?.classList.add('hidden');
+  searchInput()?.setAttribute('aria-expanded', 'false');
+  searchInput()?.removeAttribute('aria-activedescendant');
+  suggestItems = [];
+  suggestQuery = '';
+  suggestIndex = -1;
+}
+
+/** Act on a chosen suggestion; each type goes where that thing is shown */
+function chooseEntry(entry) {
+  if (!entry) return;
+  hideSuggestions();
+  searchInput()?.blur();
+  apiService.addRecentSearch({ id: entry.id, type: entry.type, key: entry.key, label: entry.label, sub: entry.sub }).catch(() => {});
+
+  const setText = (text) => {
+    const input = searchInput();
+    if (input) input.value = text;
+    updateSearchChrome();
+  };
+
+  if (entry.type === 'mine') {
+    setText('');
+    const mine = mineById(entry.key);
+    if (mine) locateMineOnMap(mine);
+    else {
+      switchView('map', true);
+      openMineInspector(entry.key);
+    }
+  } else if (entry.type === 'place') {
+    setText('');
+    const [state, district] = entry.key.split('|');
+    const mines = currentMinesList.filter((m) => m.state === state && (!district || m.district === district));
+    switchView('map', true);
+    if (mines.length) {
+      setTimeout(() => fitToNetworkView(L.latLngBounds(mines.map((m) => m.coords))), 150);
+      showToast(`${mines.length} mine${mines.length === 1 ? '' : 's'} in ${entry.label}`, 'info');
+    }
+  } else if (entry.type === 'mineral') {
+    setText('');
+    switchView('map', true);
+    setTimeout(() => setMapMineralFilter(entry.key), 150);
+  } else if (entry.type === 'company') {
+    // The company's mines, in the database view's mines tab
+    switchView('database', true);
+    if (activeEntityTab !== 'mines') document.querySelector('.entity-tab-btn[data-tab="mines"]')?.click();
+    searchMode = 'view';
+    updateSearchScope();
+    setText(entry.label);
+    dispatchSearchQuery(entry.label, false);
+    hideSuggestions();
+  } else if (entry.type === 'lease') {
+    setText('');
+    if (entry.mineId) openMineInDatabase(entry.mineId);
+    else switchView('leases', true);
+  }
+}
+
+// --- Map: show only one mineral's mines ---------------------------------------
+let mapMineralFilter = null;
+
+function setMapMineralFilter(mineral) {
+  mapMineralFilter = mineral;
+  const chip = document.getElementById('mapFilterChip');
+  const shown = mineral ? currentMinesList.filter((m) => m.primaryMineral === mineral) : [];
+  if (chip) {
+    chip.classList.toggle('hidden', !mineral);
+    document.getElementById('mapFilterText').textContent = mineral ? `${mineral} · ${shown.length} mine${shown.length === 1 ? '' : 's'}` : '';
+  }
+  if (networkState.nodes.length) drawMineDots();
+  if (shown.length) fitToNetworkView(L.latLngBounds(shown.map((m) => m.coords)));
 }
 
 function filterDatabaseView(q) {
@@ -2571,86 +2775,10 @@ function filterDatabaseView(q) {
 
 /** Re-run the current query after a table re-renders (e.g. switching entity tabs) */
 function reapplySearch() {
-  if (currentView === 'database' && searchText()) dispatchSearchQuery(searchText(), false);
+  if (currentView === 'database' && filtersView() && searchText()) filterDatabaseView(searchText().toLowerCase());
 }
 
-function mapSearch(q, submitted) {
-  if (!q) {
-    hideSuggestions();
-    return;
-  }
-  const matches = filterMines(q);
-  setSearchCount(matches.length, currentMinesList.length);
-  if (submitted) {
-    // Only trust the highlighted suggestion if the list was built for this exact query
-    const pick = (suggestQuery === q && suggestItems[suggestIndex]) || matches[0];
-    if (pick) chooseMine(pick);
-    else showToast(`No mine matches “${q}”`, 'warning');
-    return;
-  }
-  showSuggestions(matches.slice(0, 5), q);
-}
-
-function showSuggestions(list, q) {
-  const box = document.getElementById('searchSuggest');
-  if (!box) return;
-  suggestItems = list;
-  suggestQuery = q;
-  suggestIndex = list.length ? 0 : -1;
-  box.innerHTML = list.length
-    ? list
-        .map((m, i) => `<li role="option" id="suggest-${i}" data-index="${i}" class="search-suggest-item">
-            <span class="suggest-name">${highlightText(m.mineName, q)}</span>
-            <span class="suggest-meta">${highlightText(m.primaryMineral, q)} · ${highlightText(m.stateDistrict, q)}</span>
-          </li>`)
-        .join('')
-    : `<li class="search-suggest-empty">No mines match “${escapeHtml(q)}”</li>`;
-  box.classList.remove('hidden');
-  searchInput()?.setAttribute('aria-expanded', 'true');
-  renderSuggestActive();
-}
-
-function renderSuggestActive() {
-  const box = document.getElementById('searchSuggest');
-  box?.querySelectorAll('[data-index]').forEach((li) => {
-    const on = Number(li.dataset.index) === suggestIndex;
-    li.classList.toggle('active', on);
-    li.setAttribute('aria-selected', String(on));
-  });
-  const input = searchInput();
-  if (input) {
-    if (suggestIndex >= 0) input.setAttribute('aria-activedescendant', `suggest-${suggestIndex}`);
-    else input.removeAttribute('aria-activedescendant');
-  }
-}
-
-function hideSuggestions() {
-  document.getElementById('searchSuggest')?.classList.add('hidden');
-  searchInput()?.setAttribute('aria-expanded', 'false');
-  searchInput()?.removeAttribute('aria-activedescendant');
-  suggestItems = [];
-  suggestQuery = '';
-  suggestIndex = -1;
-}
-
-function chooseMine(mine) {
-  if (!mine) return;
-  hideSuggestions();
-  searchInput()?.blur();
-  locateMineOnMap(mine);
-}
-
-function clearSearch() {
-  const input = searchInput();
-  if (input) input.value = '';
-  dispatchSearchQuery('', false);
-}
-
-/** Called on every view switch: empty the bar and undo any filtering it applied */
-function resetSearchForView() {
-  updateSearchScope();
-  const input = searchInput();
-  if (input) input.value = '';
+function undoViewFilters() {
   if (searchQuery) {
     searchQuery = '';
     filterDatabaseView('');
@@ -2663,8 +2791,26 @@ function resetSearchForView() {
     dsaFilter = '';
     renderDsaList();
   }
+  setSearchCount(null);
+}
+
+function clearSearch() {
+  const input = searchInput();
+  if (input) input.value = '';
+  undoViewFilters();
   hideSuggestions();
   updateSearchChrome();
+}
+
+/** Called on every view switch: empty the bar and undo any filtering it applied */
+function resetSearchForView() {
+  searchMode = 'view';
+  const input = searchInput();
+  if (input) input.value = '';
+  undoViewFilters();
+  hideSuggestions();
+  updateSearchChrome();
+  updateSearchScope();
   document.body.classList.remove('search-open');
 }
 
@@ -2879,10 +3025,23 @@ function mstLive(algorithm) {
 
 const serverStats = () => apiService.getDsaStats();
 // Numbers that describe the whole server rather than this browser tab
-const DSA_SERVER_WIDE = new Set(['lru-cache', 'sliding-window']);
+const DSA_SERVER_WIDE = new Set(['lru-cache', 'sliding-window', 'trie', 'levenshtein']);
 const pctText = (x) => (x === null || x === undefined ? 'no lookups yet' : `${Math.round(x * 100)}%`);
 
 const DSA_LIVE = {
+  levenshtein: () =>
+    serverStats().then(({ search: t }) =>
+      t.lastCorrection
+        ? [['Last correction', `“${t.lastCorrection.from}” → “${t.lastCorrection.to}”`], ['Edit budget', '1 edit for words up to 4 letters, 2 for longer']]
+        : null),
+  trie: () =>
+    serverStats().then(({ search: t }) => [
+      ['Names indexed', t.entries],
+      ['Distinct words', t.words],
+      ['Trie nodes', t.trieNodes],
+      ['Index build time', `${t.builtMs} ms`],
+      ['Last lookup', t.lastQueryMs === null ? 'no search yet' : `${t.lastQueryMs} ms`],
+    ]),
   'lru-cache': () =>
     serverStats().then(({ sessionCache: c }) => [
       ['Sessions in the cache', `${c.size} of ${c.capacity}`],
@@ -2945,6 +3104,7 @@ const DSA_LIVE = {
 };
 
 const DSA_LIVE_HINT = {
+  levenshtein: 'No typo has been corrected yet (press Try it).',
   bst: 'Run an assay search on the Minerals tab (or press Try it).',
   avl: 'Lease data is still loading.',
   graph: 'Map data is still loading.',
@@ -2980,7 +3140,18 @@ function runMstWith(algorithm) {
   document.getElementById('mstForm')?.requestSubmit();
 }
 
+function typeIntoSearch(text) {
+  switchView('map', true);
+  const input = searchInput();
+  if (!input) return;
+  input.focus();
+  input.value = text;
+  input.dispatchEvent(new Event('input'));
+}
+
 const DSA_TRY = {
+  trie: () => typeIntoSearch('keo'),
+  levenshtein: () => typeIntoSearch('keonjar'),
   // The user menu shows the session the cache is serving; open it after this click
   'lru-cache': () => setTimeout(openUserMenu, 0),
   'hash-set': () => DSA_TRY.stack(),
@@ -3480,7 +3651,69 @@ function hashSetDemo(container) {
   draw();
 }
 
+function trieDemo(container) {
+  const WORDS = ['keonjhar', 'kendujhar', 'korba', 'koraput', 'khetri', 'coal', 'copper', 'chromite'];
+  const trie = new Trie(3);
+  WORDS.forEach((w, i) => trie.add(w, { id: w, weight: WORDS.length - i }));
+  let prefix = '';
+  const ui = demoShell(container, [
+    ...['k', 'e', 'o', 'c'].map((ch) => [ch, `+ ${ch}`, () => {
+      prefix += ch;
+      draw();
+    }]),
+    ['back', '⌫', () => {
+      prefix = prefix.slice(0, -1);
+      draw();
+    }],
+  ]);
+  function draw() {
+    const path = [];
+    let node = trie.root;
+    for (const ch of prefix) {
+      node = node?.children.get(ch);
+      if (!node) break;
+      path.push({ ch, top: [...node.top].sort((a, b) => b.weight - a.weight).map((e) => e.id) });
+    }
+    ui.stage.innerHTML = `<p class="demo-caption">Words: ${WORDS.join(', ')} · k = 3</p>` +
+      (path.length
+        ? `<ol class="demo-edge-list">${path.map((p, i) => `<li class="on">${escapeHtml(prefix.slice(0, i + 1))}: ${escapeHtml(p.top.join(', '))}</li>`).join('')}</ol>`
+        : '<p class="dsa-muted">Type letters to walk down the trie.</p>');
+    const found = node && path.length === prefix.length;
+    ui.msg.textContent = !prefix
+      ? 'Each node stores the 3 best words below it, so suggestions need no subtree search.'
+      : found
+        ? `"${prefix}": walked ${prefix.length} node${prefix.length === 1 ? '' : 's'}, answer read from the last one.`
+        : `"${prefix}": no word starts with this, so the walk stops (search then tries a typo correction).`;
+  }
+  draw();
+}
+
+function levenshteinDemo(container) {
+  const PAIRS = [['keonjar', 'keonjhar'], ['hemetite', 'hematite'], ['koraput', 'korba']];
+  let at = 0;
+  const ui = demoShell(container, [['next', 'Next pair', () => {
+    at = (at + 1) % PAIRS.length;
+    draw();
+  }]]);
+  function draw() {
+    const [a, b] = PAIRS[at];
+    const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+    for (let j = 0; j <= b.length; j++) d[0][j] = j;
+    for (let i = 1; i <= a.length; i++) {
+      for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    const head = `<tr><th></th><th></th>${[...b].map((c) => `<th>${c}</th>`).join('')}</tr>`;
+    const rows = d.map((row, i) => `<tr><th>${i ? a[i - 1] : ''}</th>${row.map((v, j) => `<td class="${i === a.length && j === b.length ? 'end' : ''}">${v}</td>`).join('')}</tr>`).join('');
+    ui.stage.innerHTML = `<div class="bst-tree-wrap"><table class="demo-dp">${head}${rows}</table></div>`;
+    const cut = levenshtein(a, b, 2);
+    ui.msg.textContent = `${a} → ${b}: distance ${d[a.length][b.length]}. With a budget of 2 edits the search accepts it (${cut <= 2 ? 'within budget' : 'over budget, stopped early'}).`;
+  }
+  draw();
+}
+
 const DSA_DEMOS = {
+  trie: trieDemo,
+  levenshtein: levenshteinDemo,
   'lru-cache': lruDemo,
   'sliding-window': slidingWindowDemo,
   'hash-set': hashSetDemo,

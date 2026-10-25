@@ -45,7 +45,7 @@
           <circle cx="11" cy="11" r="8"></circle>
           <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
         </svg>
-        <span class="search-scope" id="searchScope">Mines</span>
+        <button type="button" class="search-scope" id="searchScope" title="Search this view or everything">Mines</button>
         <input
           type="search"
           id="globalSearchInput"
@@ -61,7 +61,7 @@
         <button type="button" class="search-clear hidden" id="searchClearBtn" aria-label="Clear search">&times;</button>
         <kbd class="search-kbd-badge" id="searchKbd" title="Focus search">Ctrl K</kbd>
       </div>
-      <ul class="search-suggest hidden" id="searchSuggest" role="listbox" aria-label="Matching mines"></ul>
+      <div class="search-suggest hidden" id="searchSuggest" role="listbox" aria-label="Search suggestions"></div>
     </div>
     <button type="button" class="search-toggle" id="searchToggleBtn" aria-label="Open search" aria-expanded="false">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
@@ -506,6 +506,7 @@
        ========================================================================= -->
   <main id="mapView" class="app-view map-view-wrapper active" role="main" aria-label="Geospatial Map Workspace">
     <div id="map" class="geospatial-map"></div>
+    <div class="map-filter-chip hidden" id="mapFilterChip"><span id="mapFilterText"></span><button type="button" id="mapFilterClear" aria-label="Show all mines">&times;</button></div>
 
     <!-- Top-left: mine transport network (graph algorithms) -->
     <section class="intel-card net-card" id="networkCard" aria-labelledby="networkTitle">

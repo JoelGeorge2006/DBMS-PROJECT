@@ -13,7 +13,7 @@
  *   ops      [operation, time, space] rows for the complexity table
  */
 
-export const DSA_GROUPS = ['Linear', 'Heaps', 'Hashing', 'Trees', 'Graphs'];
+export const DSA_GROUPS = ['Linear', 'Heaps', 'Hashing', 'Trees', 'Graphs', 'Dynamic programming'];
 
 export const DSA_CONCEPTS = [
   {
@@ -111,6 +111,22 @@ export const DSA_CONCEPTS = [
     ops: [
       ['has', 'O(1) average', 'O(1)'],
       ['add', 'O(1) average', 'O(1)'],
+    ],
+  },
+  {
+    id: 'trie',
+    name: 'Trie (prefix tree) with top-k',
+    group: 'Trees',
+    file: 'Trie.js',
+    symbol: 'Trie',
+    usedIn: 'Search bar: suggestions for mines, minerals, places, companies and leases as you type',
+    summary:
+      'Every word of every name is inserted one letter per level, so all words sharing a prefix share a path. ' +
+      'Each node also keeps the best k entries below it in a small min-heap, so a prefix lookup walks only the prefix and reads that list, without visiting the subtree. ' +
+      'Several words ("north keo") are matched by checking the other words against the shortest list.',
+    ops: [
+      ['insert word', 'O(L log k)', 'O(L) new nodes at most'],
+      ['suggest prefix', 'O(P + k log k)', 'O(k)'],
     ],
   },
   {
@@ -218,6 +234,22 @@ export const DSA_CONCEPTS = [
     ops: [
       ['find', 'O(α(n))', 'O(1)'],
       ['union', 'O(α(n))', 'O(1)'],
+    ],
+  },
+  {
+    id: 'levenshtein',
+    name: 'Levenshtein edit distance',
+    group: 'Dynamic programming',
+    file: 'Trie.js',
+    symbol: 'levenshtein',
+    usedIn: 'Search bar: a word with no match is corrected to the closest indexed word ("keonjar" → "keonjhar")',
+    summary:
+      'The fewest single-letter insertions, deletions or substitutions that turn one word into another. ' +
+      'Cell (i, j) of the table is the distance between the first i letters of one word and the first j of the other, built from its three neighbours. ' +
+      'Only two rows are kept, and the computation stops early once every value in a row is over the allowed number of edits (1 or 2).',
+    ops: [
+      ['distance', 'O(m · n)', 'O(n): two rows'],
+      ['with cutoff d', 'stops when a row min exceeds d', 'O(n)'],
     ],
   },
 ];

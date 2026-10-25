@@ -1,9 +1,10 @@
 -- ============================================================================
 -- MINERVA — Indian Mineral Resource Management Database
 -- Course: BACSE202 - Database Systems
--- Schema v3: 3NF relational model (DDL, indexes, spatial index, triggers, views, seed DML)
--- DBMS target: SQLite (better-sqlite3). PRAGMA user_version = 3.
+-- Schema v4: 3NF relational model (DDL, indexes, spatial index, triggers, views, seed DML)
+-- DBMS target: SQLite (better-sqlite3). PRAGMA user_version = 4.
 -- v3: application users, sessions, PIN resets and an audit log (server-side sign-in).
+-- v4: per-user recent searches.
 --
 -- v2: national mine import (OpenStreetMap, Wikidata). Unknown facts are NULL
 -- instead of invented values: an imported mine may have no lease, company or
@@ -35,6 +36,7 @@ DROP TABLE IF EXISTS MINERAL;
 DROP TABLE IF EXISTS MINING_COMPANY;
 DROP TABLE IF EXISTS LOCATION;
 DROP TABLE IF EXISTS DATA_SOURCE;
+DROP TABLE IF EXISTS SEARCH_HISTORY;
 DROP TABLE IF EXISTS AUDIT_LOG;
 DROP TABLE IF EXISTS PIN_RESET;
 DROP TABLE IF EXISTS USER_SESSION;
@@ -371,6 +373,24 @@ CREATE INDEX IF NOT EXISTS idx_audit_user_action ON AUDIT_LOG(user_id, action);
 -- AUTH END
 
 -- ----------------------------------------------------------------------------
+-- 6b. RECENT SEARCHES (v4): most recent first, at most 8 per user (LRU list)
+-- ----------------------------------------------------------------------------
+-- SEARCH BEGIN
+CREATE TABLE IF NOT EXISTS SEARCH_HISTORY (
+    user_id INTEGER NOT NULL,
+    entry_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    entry_key TEXT NOT NULL,
+    label TEXT NOT NULL,
+    sub TEXT,
+    used_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, entry_id),
+    CONSTRAINT fk_search_user FOREIGN KEY (user_id) REFERENCES APP_USER(user_id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_search_user_time ON SEARCH_HISTORY(user_id, used_at);
+-- SEARCH END
+
+-- ----------------------------------------------------------------------------
 -- 7. SEED DATA (synthetic sample records; national mines come from the import scripts)
 -- ----------------------------------------------------------------------------
 
@@ -499,6 +519,6 @@ INSERT INTO PRODUCTION (mine_id, mineral_id, fiscal_year, quantity_mt, dispatch_
 ('MN-1450', 1, 2023, 6.00, 5.80),
 ('MN-1450', 1, 2024, 6.20, 6.00);
 
-PRAGMA user_version = 3;
+PRAGMA user_version = 4;
 
 -- End of schema.sql

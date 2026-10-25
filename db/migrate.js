@@ -14,21 +14,30 @@ const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SCHEMA_PATH = path.join(ROOT, 'schema.sql');
 const SEED_MARKER = '-- 7. SEED DATA';
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 /** The users/sessions block of schema.sql (v3), all CREATE ... IF NOT EXISTS */
-function authDdl() {
+/** A marked block of schema.sql (e.g. AUTH, SEARCH), all CREATE ... IF NOT EXISTS */
+function ddlBlock(name) {
   const sql = fs.readFileSync(SCHEMA_PATH, 'utf8');
-  const start = sql.indexOf('-- AUTH BEGIN');
-  const end = sql.indexOf('-- AUTH END');
-  if (start === -1 || end === -1) throw new Error('schema.sql has no AUTH block');
+  const start = sql.indexOf(`-- ${name} BEGIN`);
+  const end = sql.indexOf(`-- ${name} END`);
+  if (start === -1 || end === -1) throw new Error(`schema.sql has no ${name} block`);
   return sql.slice(start, end);
+}
+
+function migrateV3toV4(db) {
+  db.transaction(() => {
+    db.exec(ddlBlock('SEARCH'));
+    db.pragma('user_version = 4');
+  })();
 }
 
 function migrateV2toV3(db) {
   db.transaction(() => {
-    db.exec(authDdl());
-    db.pragma('user_version = 3');
+    db.exec(ddlBlock('AUTH'));
+    db.exec(ddlBlock('SEARCH'));
+    db.pragma('user_version = 4');
   })();
 }
 
@@ -87,7 +96,7 @@ function migrateV1toV2(db) {
 
       const broken = db.pragma('foreign_key_check');
       if (broken.length) throw new Error(`Foreign key check failed after migration: ${JSON.stringify(broken.slice(0, 3))}`);
-      db.pragma('user_version = 3');
+      db.pragma('user_version = 4');
     })();
   } finally {
     db.pragma('foreign_keys = ON');
@@ -134,8 +143,9 @@ function migrateSchema(db) {
   }
   const version = db.pragma('user_version', { simple: true });
   if (version >= SCHEMA_VERSION) return `schema v${version}`;
-  // v1 -> v2 rebuilds every table with the current DDL, which already includes v3
+  // v1 -> v2 rebuilds every table with the current DDL, which already includes v3 and v4
   if (version <= 1) migrateV1toV2(db);
   else if (version === 2) migrateV2toV3(db);
+  else if (version === 3) migrateV3toV4(db);
   return `migrated v${version} -> v${SCHEMA_VERSION}`;
 }

@@ -125,6 +125,23 @@ export const apiService = {
     return request(`/api/dsa/source/${encodeURIComponent(file)}`);
   },
 
+  /** Grouped search suggestions (Trie on the server) */
+  async searchSuggest(q, limit = 6) {
+    return apiGet('/api/search/suggest', { q, limit });
+  },
+
+  async recentSearches() {
+    return apiGet('/api/search/recent');
+  },
+
+  async addRecentSearch(entry) {
+    return request('/api/search/recent', { method: 'POST', body: entry });
+  },
+
+  async clearRecentSearches() {
+    return request('/api/search/recent', { method: 'DELETE' });
+  },
+
   /** Live numbers for the DSA tab: session cache and sign-in limiter */
   async getDsaStats() {
     return apiGet('/api/dsa/stats');
