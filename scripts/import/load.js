@@ -1,25 +1,24 @@
 /**
- * Load the processed mine list into minerva.db (one transaction, re-runnable).
+ * Load the processed mine list into the Supabase database (one transaction, re-runnable).
  *   in:  data/processed/candidates.json, data/raw/admin_lookup.json, raw file dates
- *   out: rows in DATA_SOURCE, LOCATION, MINING_COMPANY, MINERAL, MINE, MINE_MINERAL, MINE_ALIAS
+ *   out: rows in data_source, state, location, mining_company, mineral, mine, mine_mineral, mine_alias
  *        data/processed/report.md (mines per state and mineral)
  *
  * Imported mines are upserted by mine_id (OSM-N/W/R..., WD-Q..., CUR-...). Imported
  * mines that are no longer in the candidate list are deleted. Sample records
- * (is_sample = 1) are never touched.
+ * (is_sample) are never touched. Run npm run db:setup first.
  */
 import fs from 'fs';
 import path from 'path';
-import Database from 'better-sqlite3';
-import { migrate } from '../../db/migrate.js';
+import { getPool, transaction } from '../../db/pool.js';
+import { commodityName, stateName } from '../../db/commodities.js';
 import { MINERALS } from './minerals.js';
 import { pointKey } from './geocode.js';
 
 const ROOT = process.cwd();
-const DB_PATH = path.join(ROOT, 'minerva.db');
 const read = (p) => JSON.parse(fs.readFileSync(path.join(ROOT, p), 'utf8'));
 
-const SOURCE_ID = { osm: 2, wikidata: 3, curated: 4 };
+const SOURCE_KEY = { osm: 'osm', wikidata: 'wikidata', curated: 'curated' };
 
 // Operators whose ownership is public knowledge; anything else is 'Unknown'
 const COMPANY_TYPES = [
@@ -62,150 +61,139 @@ function cleanDistrict(d) {
   return DISTRICT_ALIASES[name] || name;
 }
 
-function main() {
-  const db = new Database(DB_PATH);
-  db.pragma('foreign_keys = ON');
-  console.log('Schema:', migrate(db));
-
+async function main() {
   const mines = read('data/processed/candidates.json');
   const admin = fs.existsSync(path.join(ROOT, 'data/raw/admin_lookup.json')) ? read('data/raw/admin_lookup.json') : {};
   const osmDate = read('data/raw/osm_mines.json').retrieved?.slice(0, 10) || null;
   const wdDate = read('data/raw/wikidata_mines.json').retrieved?.slice(0, 10) || null;
 
-  const q = {
-    source: db.prepare('UPDATE DATA_SOURCE SET retrieved_on = ? WHERE source_id = ?'),
-    curatedSource: db.prepare(`INSERT OR IGNORE INTO DATA_SOURCE (source_id, name, url, licence) VALUES
-      (4, 'Curated (see each source_url)', NULL, 'Facts compiled from cited public documents')`),
-    mineral: db.prepare('INSERT OR IGNORE INTO MINERAL (mineral_name, mineral_type) VALUES (?, ?)'),
-    mineralId: db.prepare('SELECT mineral_id FROM MINERAL WHERE mineral_name = ?'),
-    location: db.prepare('SELECT location_id FROM LOCATION WHERE state = ? AND district = ?'),
-    addLocation: db.prepare('INSERT INTO LOCATION (state, district, craton_region, latitude, longitude) VALUES (?, ?, NULL, ?, ?)'),
-    companies: db.prepare('SELECT company_id, company_name FROM MINING_COMPANY'),
-    addCompany: db.prepare("INSERT INTO MINING_COMPANY (company_name, company_type, registered_office) VALUES (?, ?, NULL)"),
-    upsertMine: db.prepare(`
-      INSERT INTO MINE (mine_id, mine_name, location_id, company_id, lease_id, status, mine_type, latitude, longitude,
+  const stats = { inserted: 0, updated: 0, deleted: 0, locations: 0, companies: 0 };
+
+  await transaction(async (c) => {
+    const q = (sql, params) => c.query(sql, params);
+    // A bulk refresh: keep it out of row_change_log (see fn_log_change in db/schema.sql)
+    await q("SELECT set_config('minerva.seeding', 'on', true)");
+
+    await q('UPDATE data_source SET retrieved_on = $1 WHERE source_key = $2', [osmDate, 'osm']);
+    await q('UPDATE data_source SET retrieved_on = $1 WHERE source_key = $2', [wdDate, 'wikidata']);
+    if (mines.some((m) => m.source === 'curated')) {
+      await q(`INSERT INTO data_source (source_key, name, licence) VALUES ('curated', 'Curated (see each source_url)', 'Facts compiled from cited public documents')
+        ON CONFLICT (source_key) DO NOTHING`);
+    }
+    const sourceId = Object.fromEntries((await q('SELECT source_key, source_id FROM data_source')).rows.map((r) => [r.source_key, r.source_id]));
+
+    // Every step below is one set-based statement: row-by-row round trips to a remote
+    // database would take minutes. Rows travel as JSON and are unpacked with jsonb_to_recordset.
+    await q(`INSERT INTO mineral (mineral_name, mineral_type, commodity_id)
+      SELECT x.name, x.type, c.commodity_id FROM jsonb_to_recordset($1) AS x(name text, type text, commodity text)
+      JOIN commodity c ON c.commodity_name = x.commodity
+      ON CONFLICT (mineral_name) DO NOTHING`,
+    [JSON.stringify(Object.values(MINERALS).map((m) => ({ name: m.name, type: m.type, commodity: commodityName(m.name) })))]);
+    const mineralId = new Map((await q('SELECT mineral_id, mineral_name FROM mineral')).rows.map((r) => [r.mineral_name, r.mineral_id]));
+
+    // Resolve each mine's state, district and operator first
+    const prepared = mines.map((m) => {
+      const hit = admin[pointKey(m.lat, m.lng)] || {};
+      return { m, state: stateName(m.state || hit.state || 'Unknown state'), district: cleanDistrict(m.district || hit.district), company: canonicalCompany(m.operator) };
+    });
+
+    // Companies: add the missing ones
+    const companies = [...new Map(prepared.filter((p) => p.company).map((p) => [p.company.toLowerCase(), p.company])).values()];
+    const added = await q(`INSERT INTO mining_company (company_name, company_type)
+      SELECT x.name, x.type::company_kind FROM jsonb_to_recordset($1) AS x(name text, type text)
+      WHERE NOT EXISTS (SELECT 1 FROM mining_company c WHERE lower(c.company_name) = lower(x.name))`,
+    [JSON.stringify(companies.map((name) => ({ name, type: companyType(name) })))]);
+    stats.companies = added.rowCount;
+    const companyByName = new Map((await q('SELECT company_id, company_name FROM mining_company')).rows.map((r) => [r.company_name.toLowerCase(), r.company_id]));
+
+    // States and districts: add the missing ones, placed at their first mine for now
+    const places = [...new Map(prepared.map((p) => [`${p.state}|${p.district}`, { state: p.state, district: p.district, lat: p.m.lat, lng: p.m.lng }])).values()];
+    await q('INSERT INTO state (state_name) SELECT DISTINCT unnest($1::text[]) ON CONFLICT (state_name) DO NOTHING', [places.map((p) => p.state)]);
+    const newLocations = (await q(`INSERT INTO location (state_id, district, latitude, longitude)
+      SELECT s.state_id, x.district, x.lat, x.lng FROM jsonb_to_recordset($1) AS x(state text, district text, lat float8, lng float8)
+      JOIN state s ON s.state_name = x.state
+      ON CONFLICT (state_id, district) DO NOTHING RETURNING location_id`, [JSON.stringify(places)])).rows.map((r) => r.location_id);
+    stats.locations = newLocations.length;
+    const locationByPlace = new Map((await q(`SELECT l.location_id, s.state_name, l.district FROM location l JOIN state s ON s.state_id = l.state_id`))
+      .rows.map((r) => [`${r.state_name}|${r.district}`, r.location_id]));
+
+    const existing = new Set((await q('SELECT mine_id FROM mine WHERE NOT is_sample')).rows.map((r) => r.mine_id));
+    const rows = prepared.map(({ m, state, district, company }) => ({
+      mine_id: m.mine_id,
+      mine_name: m.name || (m.mineral_name ? `Unnamed ${m.mineral_name.toLowerCase()} mine` : 'Unnamed mine'),
+      location_id: locationByPlace.get(`${state}|${district}`),
+      company_id: company ? companyByName.get(company.toLowerCase()) : null,
+      status: m.status,
+      mine_type: m.mine_type,
+      lat: m.lat,
+      lng: m.lng,
+      precision: m.precision,
+      source_id: sourceId[SOURCE_KEY[m.source]],
+      source_ref: m.source_ref,
+      source_url: m.source_url,
+    }));
+    await q(`INSERT INTO mine (mine_id, mine_name, location_id, company_id, lease_id, status, mine_type, latitude, longitude,
                         location_precision, source_id, source_ref, source_url, is_sample)
-      VALUES (@mine_id, @mine_name, @location_id, @company_id, NULL, @status, @mine_type, @lat, @lng,
-              @precision, @source_id, @source_ref, @source_url, 0)
-      ON CONFLICT(mine_id) DO UPDATE SET
+      SELECT x.mine_id, x.mine_name, x.location_id, x.company_id, NULL, x.status::mine_status, x.mine_type::mine_kind, x.lat, x.lng,
+             x.precision::location_precision, x.source_id, x.source_ref, x.source_url, FALSE
+      FROM jsonb_to_recordset($1) AS x(mine_id text, mine_name text, location_id int, company_id int, status text, mine_type text,
+                                       lat float8, lng float8, precision text, source_id smallint, source_ref text, source_url text)
+      ON CONFLICT (mine_id) DO UPDATE SET
         mine_name = excluded.mine_name, location_id = excluded.location_id, company_id = excluded.company_id,
         status = excluded.status, mine_type = excluded.mine_type, latitude = excluded.latitude,
         longitude = excluded.longitude, location_precision = excluded.location_precision,
         source_id = excluded.source_id, source_ref = excluded.source_ref, source_url = excluded.source_url
-      WHERE MINE.is_sample = 0`),
-    clearMinerals: db.prepare('DELETE FROM MINE_MINERAL WHERE mine_id = ?'),
-    addMineral: db.prepare('INSERT OR IGNORE INTO MINE_MINERAL (mine_id, mineral_id, is_primary, ore_grade_description) VALUES (?, ?, ?, ?)'),
-    unusedCompanies: db.prepare(`DELETE FROM MINING_COMPANY WHERE company_id NOT IN (SELECT company_id FROM MINE WHERE company_id IS NOT NULL)
-        AND company_id NOT IN (SELECT company_id FROM LEASE)`),
-    clearAliases: db.prepare('DELETE FROM MINE_ALIAS WHERE mine_id = ?'),
-    addAlias: db.prepare('INSERT OR IGNORE INTO MINE_ALIAS (mine_id, alias) VALUES (?, ?)'),
-    imported: db.prepare('SELECT mine_id FROM MINE WHERE is_sample = 0'),
-    deleteMine: db.prepare('DELETE FROM MINE WHERE mine_id = ? AND is_sample = 0'),
-    recentre: db.prepare(`UPDATE LOCATION SET
-        latitude = (SELECT AVG(latitude) FROM MINE WHERE MINE.location_id = LOCATION.location_id),
-        longitude = (SELECT AVG(longitude) FROM MINE WHERE MINE.location_id = LOCATION.location_id)
-      WHERE location_id = ?`),
-    unusedLocations: db.prepare(`DELETE FROM LOCATION WHERE location_id NOT IN (SELECT location_id FROM MINE)
-        AND craton_region IS NULL`),
-  };
+      WHERE NOT mine.is_sample`, [JSON.stringify(rows)]);
+    rows.forEach((r) => stats[existing.has(r.mine_id) ? 'updated' : 'inserted']++);
+    const ids = rows.map((r) => r.mine_id);
 
-  const stats = { inserted: 0, updated: 0, deleted: 0, locations: 0, companies: 0 };
+    // Minerals and aliases: replace each imported mine's rows
+    await q('DELETE FROM mine_mineral WHERE mine_id = ANY($1)', [ids]);
+    const mineralRows = prepared.flatMap(({ m }) => (m.mineral_names || (m.mineral_name ? [m.mineral_name] : [])).map((name, i) => ({
+      mine_id: m.mine_id,
+      mineral_id: mineralId.get(name),
+      is_primary: i === 0,
+      note: i === 0 && m.mineral_inferred === 'operator' ? 'Mineral inferred from the operator' : null,
+    })));
+    await q(`INSERT INTO mine_mineral (mine_id, mineral_id, is_primary, ore_grade_description)
+      SELECT DISTINCT ON (x.mine_id, x.mineral_id) x.mine_id, x.mineral_id, x.is_primary, x.note
+      FROM jsonb_to_recordset($1) AS x(mine_id text, mineral_id int, is_primary boolean, note text)
+      ORDER BY x.mine_id, x.mineral_id, x.is_primary DESC`, [JSON.stringify(mineralRows)]);
+    await q('DELETE FROM mine_alias WHERE mine_id = ANY($1)', [ids]);
+    await q(`INSERT INTO mine_alias (mine_id, alias)
+      SELECT DISTINCT x.mine_id, x.alias FROM jsonb_to_recordset($1) AS x(mine_id text, alias text)`,
+    [JSON.stringify(prepared.flatMap(({ m }) => m.aliases.map((alias) => ({ mine_id: m.mine_id, alias }))))]);
 
-  db.transaction(() => {
-    q.source.run(osmDate, 2);
-    q.source.run(wdDate, 3);
-    if (mines.some((m) => m.source === 'curated')) q.curatedSource.run();
-
-    Object.values(MINERALS).forEach((m) => q.mineral.run(m.name, m.type));
-
-    const companyByName = new Map(q.companies.all().map((c) => [c.company_name.toLowerCase(), c.company_id]));
-    const companyId = (raw) => {
-      const name = canonicalCompany(raw);
-      if (!name) return null;
-      const key = name.toLowerCase();
-      if (!companyByName.has(key)) {
-        companyByName.set(key, Number(q.addCompany.run(name, companyType(name)).lastInsertRowid));
-        stats.companies++;
-      }
-      return companyByName.get(key);
-    };
-
-    const newLocations = new Set();
-    const locationId = (state, district, lat, lng) => {
-      const row = q.location.get(state, district);
-      if (row) return row.location_id;
-      const id = Number(q.addLocation.run(state, district, lat, lng).lastInsertRowid);
-      newLocations.add(id);
-      stats.locations++;
-      return id;
-    };
-
-    const existing = new Set(q.imported.all().map((r) => r.mine_id));
-    const seen = new Set();
-
-    for (const m of mines) {
-      const hit = admin[pointKey(m.lat, m.lng)] || {};
-      const state = m.state || hit.state || 'Unknown state';
-      const district = cleanDistrict(m.district || hit.district);
-      const mineralName = m.mineral_name;
-      const row = {
-        mine_id: m.mine_id,
-        mine_name: m.name || (mineralName ? `Unnamed ${mineralName.toLowerCase()} mine` : 'Unnamed mine'),
-        location_id: locationId(state, district, m.lat, m.lng),
-        company_id: companyId(m.operator),
-        status: m.status,
-        mine_type: m.mine_type,
-        lat: m.lat,
-        lng: m.lng,
-        precision: m.precision,
-        source_id: SOURCE_ID[m.source],
-        source_ref: m.source_ref,
-        source_url: m.source_url,
-      };
-      q.upsertMine.run(row);
-      stats[existing.has(m.mine_id) ? 'updated' : 'inserted']++;
-      seen.add(m.mine_id);
-
-      q.clearMinerals.run(m.mine_id);
-      (m.mineral_names || (mineralName ? [mineralName] : [])).forEach((name, i) => {
-        const note = i === 0 && m.mineral_inferred === 'operator' ? 'Mineral inferred from the operator' : null;
-        q.addMineral.run(m.mine_id, q.mineralId.get(name).mineral_id, i === 0 ? 1 : 0, note);
-      });
-      q.clearAliases.run(m.mine_id);
-      m.aliases.forEach((a) => q.addAlias.run(m.mine_id, a));
-    }
-
-    for (const id of existing) {
-      if (!seen.has(id)) {
-        q.deleteMine.run(id);
-        stats.deleted++;
-      }
-    }
+    // Imported mines no longer in the candidate list
+    stats.deleted = (await q('DELETE FROM mine WHERE NOT is_sample AND NOT (mine_id = ANY($1))', [ids])).rowCount;
 
     // A district created by the import is placed at the mean of its mines
-    newLocations.forEach((id) => q.recentre.run(id));
-    q.unusedLocations.run();
-    q.unusedCompanies.run();
+    if (newLocations.length) {
+      await q(`UPDATE location l SET latitude = a.lat, longitude = a.lng
+        FROM (SELECT location_id, AVG(latitude) AS lat, AVG(longitude) AS lng FROM mine GROUP BY location_id) a
+        WHERE a.location_id = l.location_id AND l.location_id = ANY($1)`, [newLocations]);
+    }
+    await q('DELETE FROM location WHERE location_id NOT IN (SELECT location_id FROM mine) AND craton_region IS NULL');
+    await q(`DELETE FROM mining_company WHERE company_id NOT IN (SELECT company_id FROM mine WHERE company_id IS NOT NULL)
+      AND company_id NOT IN (SELECT company_id FROM lease) AND company_id NOT IN (SELECT preferred_bidder_id FROM block_auction)`);
+  });
 
-    const broken = db.pragma('foreign_key_check');
-    if (broken.length) throw new Error(`Foreign key check failed: ${JSON.stringify(broken.slice(0, 3))}`);
-  })();
-
-  writeReport(db);
+  await writeReport();
   console.log('Load:', stats);
-  db.close();
+  await getPool().end();
 }
 
-function writeReport(db) {
-  const rows = db.prepare(`
-    SELECT l.state, COALESCE(mn.mineral_name, 'Not recorded') AS mineral, COUNT(*) AS n
-    FROM MINE m JOIN LOCATION l ON l.location_id = m.location_id
-    LEFT JOIN MINE_MINERAL mm ON mm.mine_id = m.mine_id AND mm.is_primary = 1
-    LEFT JOIN MINERAL mn ON mn.mineral_id = mm.mineral_id
-    GROUP BY l.state, mineral ORDER BY l.state, n DESC`).all();
-  const totals = db.prepare(`
-    SELECT ds.name AS source, COUNT(*) AS n FROM MINE m JOIN DATA_SOURCE ds ON ds.source_id = m.source_id
-    GROUP BY ds.name ORDER BY n DESC`).all();
+async function writeReport() {
+  const pool = getPool();
+  const { rows } = await pool.query(`
+    SELECT s.state_name AS state, COALESCE(mn.mineral_name, 'Not recorded') AS mineral, COUNT(*) AS n
+    FROM mine m JOIN location l ON l.location_id = m.location_id JOIN state s ON s.state_id = l.state_id
+    LEFT JOIN mine_mineral mm ON mm.mine_id = m.mine_id AND mm.is_primary
+    LEFT JOIN mineral mn ON mn.mineral_id = mm.mineral_id
+    GROUP BY s.state_name, 2 ORDER BY s.state_name, n DESC, 2`);
+  const { rows: totals } = await pool.query(`
+    SELECT ds.name AS source, COUNT(*) AS n FROM mine m JOIN data_source ds ON ds.source_id = m.source_id
+    GROUP BY ds.name ORDER BY n DESC`);
   const byState = new Map();
   rows.forEach((r) => {
     if (!byState.has(r.state)) byState.set(r.state, []);
@@ -215,7 +203,7 @@ function writeReport(db) {
   const lines = [
     '# Mine import report',
     '',
-    `Generated ${new Date().toISOString().slice(0, 10)} by \`npm run import:mines\`. ${total} mines in minerva.db.`,
+    `Generated ${new Date().toISOString().slice(0, 10)} by \`npm run import:mines\`. ${total} mines in the database.`,
     '',
     '| Source | Mines |',
     '|---|---|',
@@ -232,4 +220,8 @@ function writeReport(db) {
   console.log(lines.slice(4, 4 + totals.length + 2).join('\n'));
 }
 
-main();
+main().catch((err) => {
+  console.error('Load failed:', err.message);
+  process.exitCode = 1;
+  getPool().end();
+});

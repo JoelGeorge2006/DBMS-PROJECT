@@ -1,0 +1,107 @@
+commodity,grade,basis,rate_pct,rate_rs,schedule_year,rate_text,source_key
+Apatite,,pct_asp,5,,2015,5% of average sale price,csep_royalty
+Apatite,,pct_asp,5,,2009,5% of average sale price,csep_royalty
+Phosphorite,Above 25% P2O5,pct_asp,12.5,,2015,12.5% of average sale price,csep_royalty
+Phosphorite,Above 25% P2O5,pct_asp,11,,2009,11% of average sale price,csep_royalty
+Phosphorite,Up to 25% P2O5,pct_asp,6,,2015,6% of average sale price,csep_royalty
+Phosphorite,Up to 25% P2O5,pct_asp,6,,2009,6% of average sale price,csep_royalty
+Asbestos,Chrysotile,rs_per_tonne,,880,2015,Rs 880 per tonne,csep_royalty
+Asbestos,Chrysotile,rs_per_tonne,,880,2009,Rs 880 per tonne,csep_royalty
+Asbestos,Amphibole,pct_asp,15,,2015,15% of average sale price,csep_royalty
+Asbestos,Amphibole,pct_asp,15,,2009,15% of average sale price,csep_royalty
+Bauxite,Metallurgical,pct_metal_price,0.6,,2015,0.60% of LME aluminium metal price on contained aluminium metal,csep_royalty
+Bauxite,Metallurgical,pct_metal_price,0.05,,2009,0.05% of LME aluminium metal price on contained aluminium metal,csep_royalty
+Bauxite,Non-metallurgical,pct_asp,25,,2015,25% for dispatches other than alumina/aluminium extraction and for export,csep_royalty
+Bauxite,Non-metallurgical,pct_asp,25,,2009,25% of average sale price,csep_royalty
+Ilmenite,"Brown ilmenite, ilmenite, rutile, zircon",pct_asp,2,,2015,2% of average sale price,csep_royalty
+Ilmenite,"Brown ilmenite, ilmenite, rutile, zircon",pct_asp,2,,2009,2% of average sale price,csep_royalty
+Cadmium,,pct_asp,15,,2015,15% of average sale price,csep_royalty
+Cadmium,,pct_asp,15,,2009,15% of average sale price,csep_royalty
+Chromite,,pct_asp,15,,2015,15% of average sale price,csep_royalty
+Chromite,,pct_asp,10,,2009,10% of average sale price,csep_royalty
+Copper,,pct_metal_price,4.62,,2015,4.62% of LME copper metal price on contained copper metal,csep_royalty
+Copper,,pct_metal_price,4.2,,2009,4.2% of LME copper metal price on contained copper metal,csep_royalty
+Diamond,,pct_asp,11.5,,2015,11.5% of average sale price,csep_royalty
+Diamond,,pct_asp,11.5,,2009,11.5% of average sale price,csep_royalty
+Fluorite,,pct_asp,8,,2015,8% of average sale price,csep_royalty
+Fluorite,,pct_asp,6.5,,2009,6.5% of average sale price,csep_royalty
+Garnet,Abrasive,pct_asp,4,,2015,4% of average sale price,csep_royalty
+Garnet,Abrasive,pct_asp,3,,2009,3% of average sale price,csep_royalty
+Garnet,Gem,pct_asp,10,,2015,10% of average sale price,csep_royalty
+Garnet,Gem,pct_asp,10,,2009,10% of average sale price,csep_royalty
+Gold,Primary,pct_metal_price,4,,2015,4% of LBMA gold price on contained gold metal in ore,csep_royalty
+Gold,Primary,pct_metal_price,2,,2009,2% of LBMA gold price on contained gold metal in ore,csep_royalty
+Gold,By-product,pct_metal_price,3.3,,2015,3.3% of LBMA gold price on by-product gold actually produced,csep_royalty
+Gold,By-product,pct_metal_price,3.3,,2009,3.3% of LBMA gold price on by-product gold actually produced,csep_royalty
+Graphite,80% or more fixed carbon,rs_per_tonne,,225,2015,Rs 225 per tonne,csep_royalty
+Graphite,80% or more fixed carbon,pct_asp,2,,2009,2% of average sale price,csep_royalty
+Graphite,40-80% fixed carbon,rs_per_tonne,,150,2015,Rs 150 per tonne,csep_royalty
+Graphite,40-80% fixed carbon,pct_asp,12,,2009,12% of average sale price,csep_royalty
+Graphite,20-40% fixed carbon,rs_per_tonne,,65,2015,Rs 65 per tonne,csep_royalty
+Graphite,20-40% fixed carbon,pct_asp,10,,2009,10% of average sale price,csep_royalty
+Graphite,Less than 20% fixed carbon,rs_per_tonne,,25,2015,Rs 25 per tonne,csep_royalty
+Graphite,Less than 20% fixed carbon,pct_asp,10,,2009,10% of average sale price,csep_royalty
+Iron Ore,"CLO, lumps, fines and concentrates, all grades",pct_asp,15,,2015,15% of average sale price,csep_royalty
+Iron Ore,"CLO, lumps, fines and concentrates, all grades",pct_asp,10,,2009,10% of average sale price,csep_royalty
+Kyanite,,pct_asp,12,,2015,12% of average sale price,csep_royalty
+Kyanite,,pct_asp,10,,2009,10% of average sale price,csep_royalty
+Lead,Ore,pct_metal_price,8.5,,2015,8.5% of LME lead metal price on contained lead metal in ore,csep_royalty
+Lead,Ore,pct_metal_price,7,,2009,7% of LME lead metal price on contained lead metal in ore,csep_royalty
+Lead,Concentrate,pct_metal_price,14.5,,2015,14.5% of LME lead metal price on contained lead metal in concentrate,csep_royalty
+Lead,Concentrate,pct_metal_price,12.7,,2009,12.7% of LME lead metal price on contained lead metal in concentrate,csep_royalty
+Limestone,L.D. grade (less than 1.5% silica),rs_per_tonne,,90,2015,Rs 90 per tonne,csep_royalty
+Limestone,L.D. grade (less than 1.5% silica),rs_per_tonne,,72,2009,Rs 72 per tonne,csep_royalty
+Limestone,Others,rs_per_tonne,,80,2015,Rs 80 per tonne,csep_royalty
+Limestone,Others,rs_per_tonne,,63,2009,Rs 63 per tonne,csep_royalty
+Limeshell,,rs_per_tonne,,80,2015,Rs 80 per tonne,csep_royalty
+Limeshell,,rs_per_tonne,,63,2009,Rs 63 per tonne,csep_royalty
+Magnesite,,pct_asp,3,,2015,3% of average sale price,csep_royalty
+Magnesite,,pct_asp,3,,2009,3% of average sale price,csep_royalty
+Manganese Ore,Ore,pct_asp,5,,2015,5% of average sale price,csep_royalty
+Manganese Ore,Ore,pct_asp,4.2,,2009,4.2% of average sale price,csep_royalty
+Manganese Ore,Concentrate,pct_asp,1.7,,2015,1.70% of average sale price,csep_royalty
+Manganese Ore,Concentrate,pct_asp,1.4,,2009,1.4% of average sale price,csep_royalty
+Monazite,,rs_per_tonne,,125,2015,Rs 125 per tonne,csep_royalty
+Monazite,,rs_per_tonne,,125,2009,Rs 125 per tonne,csep_royalty
+Nickel,,pct_metal_price,0.12,,2015,0.12% of LME nickel metal price on contained nickel metal in ore,csep_royalty
+Nickel,,pct_metal_price,0.12,,2009,0.12% of LME nickel metal price on contained nickel metal in ore,csep_royalty
+Sillimanite,,pct_asp,2.5,,2015,2.5% of average sale price,csep_royalty
+Sillimanite,,pct_asp,2.5,,2009,2.5% of average sale price,csep_royalty
+Silver,Primary,pct_metal_price,5,,2015,5% of LME silver price on contained silver metal in ore,csep_royalty
+Silver,Primary,pct_metal_price,5,,2009,5% of LME silver price on contained silver metal in ore,csep_royalty
+Silver,By-product,pct_metal_price,7,,2015,7% of LME silver price on by-product silver actually produced,csep_royalty
+Silver,By-product,pct_metal_price,7,,2009,7% of LME silver price on by-product silver actually produced,csep_royalty
+Tin,,pct_metal_price,7.5,,2015,7.5% of LME tin metal price on contained tin metal in ore,csep_royalty
+Tin,,pct_metal_price,7.5,,2009,7.5% of LME tin metal price on contained tin metal in ore,csep_royalty
+Tungsten,,rs_per_tonne,,,2015,Rs 20 (schedule annex) or Rs 25 (summary table) per unit per cent of contained WO3 per tonne of ore; the source disagrees,csep_royalty
+Tungsten,,rs_per_tonne,,,2009,Rs 20 (schedule annex) or Rs 25 (summary table) per unit per cent of contained WO3 per tonne of ore; the source disagrees,csep_royalty
+Uranium,,other,2,,2015,2% of the annual compensation received by Uranium Corporation of India Ltd,csep_royalty
+Uranium,,other,2,,2009,2% of the annual compensation received by Uranium Corporation of India Ltd,csep_royalty
+Vermiculite,,pct_asp,5,,2015,5% of average sale price,csep_royalty
+Vermiculite,,pct_asp,3,,2009,3% of average sale price,csep_royalty
+Wollastonite,,pct_asp,15,,2015,15% of average sale price,csep_royalty
+Wollastonite,,pct_asp,12,,2009,12% of average sale price,csep_royalty
+Zinc,Ore,pct_metal_price,9.5,,2015,9.5% of LME zinc metal price on contained zinc metal in ore,csep_royalty
+Zinc,Ore,pct_metal_price,8,,2009,8% of LME zinc metal price on contained zinc metal in ore,csep_royalty
+Zinc,Concentrate,pct_metal_price,10,,2015,10% of LME zinc metal price on contained zinc metal in concentrate,csep_royalty
+Zinc,Concentrate,pct_metal_price,8.4,,2009,8.4% of LME zinc metal price on contained zinc metal in concentrate,csep_royalty
+Beryllium,,pct_metal_price,2,,2024,2% of ASP of metal on metal contained in ore produced,pib_royalty_2024
+Indium,,pct_metal_price,2,,2024,2% of ASP of metal on metal contained in ore produced,pib_royalty_2024
+Rhenium,,pct_metal_price,2,,2024,2% of ASP of metal on metal contained in ore produced,pib_royalty_2024
+Tellurium,,pct_metal_price,2,,2024,2% of ASP of metal on metal contained in ore produced,pib_royalty_2024
+Cadmium,Primary,pct_metal_price,4,,2024,4% of ASP of metal on metal contained in ore produced,pib_royalty_2024
+Cadmium,By-product,pct_metal_price,2,,2024,2% of ASP of metal on by-product metal contained in ore produced,pib_royalty_2024
+Cobalt,Primary,pct_metal_price,4,,2024,4% of ASP of metal on metal contained in ore produced,pib_royalty_2024
+Cobalt,By-product,pct_metal_price,2,,2024,2% of ASP of metal on by-product metal contained in ore produced,pib_royalty_2024
+Gallium,Primary,pct_metal_price,4,,2024,4% of ASP of metal on metal contained in ore produced,pib_royalty_2024
+Gallium,By-product,pct_metal_price,2,,2024,2% of ASP of metal on by-product metal contained in ore produced,pib_royalty_2024
+Selenium,Primary,pct_metal_price,4,,2024,4% of ASP of metal on metal contained in ore produced,pib_royalty_2024
+Selenium,By-product,pct_metal_price,2,,2024,2% of ASP of metal on by-product metal contained in ore produced,pib_royalty_2024
+Tantalum,Primary,pct_metal_price,4,,2024,4% of ASP of metal on metal contained in ore produced,pib_royalty_2024
+Tantalum,By-product,pct_metal_price,2,,2024,2% of ASP of metal on by-product metal contained in ore produced,pib_royalty_2024
+Titanium,Primary,pct_metal_price,4,,2024,4% of ASP of metal on metal contained in ore produced,pib_royalty_2024
+Titanium,By-product,pct_metal_price,2,,2024,2% of ASP of metal on by-product metal contained in ore produced,pib_royalty_2024
+Tungsten,,pct_asp,3,,2024,"3% of ASP of WO3 on contained WO3 per tonne of ore, pro rata",pib_royalty_2024
+Vanadium,Primary,pct_asp,4,,2024,"4% of ASP of V2O5 on contained V2O5 per tonne of ore, pro rata",pib_royalty_2024
+Vanadium,By-product,pct_asp,2,,2024,"2% of ASP of V2O5 on contained V2O5 per tonne of ore, pro rata",pib_royalty_2024
+(Any mineral not listed),Item 55 default,pct_asp,12,,2024,"12% of average sale price (Item 55, default rate)",pib_royalty_2024

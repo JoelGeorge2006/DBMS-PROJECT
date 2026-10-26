@@ -1,0 +1,19 @@
+tranche,announced_on,source_key,block_name,state,minerals,concession_type,preferred_bidder,final_price_offer_pct
+5,2025-05-27,pib_tranche_5,Oranga-Revatipur Graphite and Vanadium Block,Chhattisgarh,Graphite;Vanadium,ML,Coal India Limited,189.75
+5,2025-05-27,pib_tranche_5,Salepali Graphite Block,Odisha,Graphite,CL,Vinmir Resources Pvt Ltd,179.00
+5,2025-05-27,pib_tranche_5,Ganacharpura Graphite Block,Karnataka,Graphite,CL,R K Mineral Development Private Limited,271.00
+5,2025-05-27,pib_tranche_5,Surajpura Phosphorite Block,Madhya Pradesh,Phosphorite,CL,Sunflag Iron and Steel Company Limited,70.27
+5,2025-05-27,pib_tranche_5,Raipura Phosphorite and Limestone Block,Chhattisgarh,Phosphorite;Limestone,CL,NLC India Limited,8.60
+5,2025-05-27,pib_tranche_5,Semhardih Phosphorite and Limestone Block,Chhattisgarh,Phosphorite;Limestone,CL,NLC India Limited,11.05
+5,2025-05-27,pib_tranche_5,Dombarahalli Phosphate and REE Block,Karnataka,Phosphorite;Rare Earth Elements,CL,Ramgad Minerals and Mining Limited,2.30
+5,2025-05-27,pib_tranche_5,Jhandawali-Satipura Amalgamated Potash and Halite Block,Rajasthan,Potash;Halite,CL,Hindustan Zinc Limited,3.05
+5,2025-05-27,pib_tranche_5,Jorkian-Satipura-Khunja Amalgamated Potash and Halite Block,Rajasthan,Potash;Halite,CL,Oil India Limited,15.15
+5,2025-05-27,pib_tranche_5,Nawatola-Laband REE Block,Uttar Pradesh,Rare Earth Elements,CL,Hindustan Zinc Limited,3.55
+4,2024-11-07,pib_tranche_4,Balepalyam Tungsten and Associated Mineral Block,Andhra Pradesh,Tungsten;Molybdenum;Gold;Lead;Zinc,CL,Hindustan Zinc Limited,6.55
+4,2024-11-07,pib_tranche_4,Depo Vanadium and Graphite Block,Arunachal Pradesh,Vanadium;Graphite,CL,Vedanta Limited,2.55
+4,2024-11-07,pib_tranche_4,Endolin-Isholin Graphite Block,Arunachal Pradesh,Graphite,CL,Mamco Mining Private Limited,237.50
+4,2024-11-07,pib_tranche_4,Phop Graphite and Vanadium Block,Arunachal Pradesh,Graphite;Vanadium,CL,Oil India Limited,76.05
+4,2024-11-07,pib_tranche_4,Radhpu Graphite and Vanadium Block,Arunachal Pradesh,Graphite;Vanadium,CL,Orissa Metaliks Private Limited,95.00
+4,2024-11-07,pib_tranche_4,"Sanyasikoppa Cobalt, Manganese and Iron Block",Karnataka,Cobalt;Manganese Ore;Iron Ore,CL,Vedanta Limited,45.00
+4,2024-11-07,pib_tranche_4,Nayakkarpatti Tungsten Block,Tamil Nadu,Tungsten,CL,Hindustan Zinc Limited,5.05
+4,2024-11-07,pib_tranche_4,Barwar Phosphorite Block,Uttar Pradesh,Phosphorite,CL,Mamco Mining Private Limited,320.00

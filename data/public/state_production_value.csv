@@ -1,0 +1,116 @@
+state,fiscal_year,value_rs_crore,excludes_fuel
+Andhra Pradesh,2018-19,1303,false
+Andhra Pradesh,2019-20,1094,false
+Andhra Pradesh,2020-21,979,true
+Andhra Pradesh,2021-22,1222,true
+Andhra Pradesh,2022-23,1326,true
+Assam,2018-19,53,false
+Assam,2019-20,50,false
+Assam,2020-21,47,true
+Assam,2021-22,54,true
+Assam,2022-23,49,true
+Bihar,2018-19,14,false
+Bihar,2019-20,26,false
+Bihar,2020-21,30,true
+Bihar,2021-22,35,true
+Bihar,2022-23,33,true
+Chhattisgarh,2018-19,10828,false
+Chhattisgarh,2019-20,11098,false
+Chhattisgarh,2020-21,14311,true
+Chhattisgarh,2021-22,23514,true
+Chhattisgarh,2022-23,18400,true
+Goa,2018-19,0,false
+Goa,2019-20,0,false
+Goa,2020-21,90,true
+Goa,2021-22,0,true
+Goa,2022-23,0,true
+Gujarat,2018-19,740,false
+Gujarat,2019-20,696,false
+Gujarat,2020-21,652,true
+Gujarat,2021-22,704,true
+Gujarat,2022-23,820,true
+Haryana,2018-19,0,false
+Haryana,2019-20,0,false
+Haryana,2020-21,0,true
+Haryana,2021-22,0,true
+Haryana,2022-23,0,true
+Himachal Pradesh,2018-19,252,false
+Himachal Pradesh,2019-20,275,false
+Himachal Pradesh,2020-21,263,true
+Himachal Pradesh,2021-22,298,true
+Himachal Pradesh,2022-23,270,true
+Jammu & Kashmir,2018-19,36,false
+Jammu & Kashmir,2019-20,28,false
+Jammu & Kashmir,2020-21,30,true
+Jammu & Kashmir,2021-22,29,true
+Jammu & Kashmir,2022-23,30,true
+Jharkhand,2018-19,3119,false
+Jharkhand,2019-20,3188,false
+Jharkhand,2020-21,3044,true
+Jharkhand,2021-22,5769,true
+Jharkhand,2022-23,5815,true
+Karnataka,2018-19,8480,false
+Karnataka,2019-20,8268,false
+Karnataka,2020-21,10832,true
+Karnataka,2021-22,17816,true
+Karnataka,2022-23,13423,true
+Kerala,2018-19,33,false
+Kerala,2019-20,36,false
+Kerala,2020-21,33,true
+Kerala,2021-22,37,true
+Kerala,2022-23,32,true
+Madhya Pradesh,2018-19,2609,false
+Madhya Pradesh,2019-20,2603,false
+Madhya Pradesh,2020-21,2657,true
+Madhya Pradesh,2021-22,3358,true
+Madhya Pradesh,2022-23,3361,true
+Maharashtra,2018-19,1311,false
+Maharashtra,2019-20,1137,false
+Maharashtra,2020-21,1205,true
+Maharashtra,2021-22,1937,true
+Maharashtra,2022-23,3357,true
+Meghalaya,2018-19,295,false
+Meghalaya,2019-20,299,false
+Meghalaya,2020-21,269,true
+Meghalaya,2021-22,297,true
+Meghalaya,2022-23,411,true
+Orissa,2018-19,30445,false
+Orissa,2019-20,34126,false
+Orissa,2020-21,30044,true
+Orissa,2021-22,62542,true
+Orissa,2022-23,50291,true
+Punjab,2018-19,0,false
+Punjab,2019-20,0,false
+Punjab,2020-21,0,true
+Punjab,2021-22,0,true
+Punjab,2022-23,0,true
+Rajasthan,2018-19,13000,false
+Rajasthan,2019-20,13500,false
+Rajasthan,2020-21,15731,true
+Rajasthan,2021-22,18399,true
+Rajasthan,2022-23,21037,true
+Tamil Nadu,2018-19,723,false
+Tamil Nadu,2019-20,747,false
+Tamil Nadu,2020-21,625,true
+Tamil Nadu,2021-22,721,true
+Tamil Nadu,2022-23,804,true
+Telangana,2018-19,614,false
+Telangana,2019-20,530,false
+Telangana,2020-21,497,true
+Telangana,2021-22,599,true
+Telangana,2022-23,572,true
+Uttar Pradesh,2018-19,85,false
+Uttar Pradesh,2019-20,93,false
+Uttar Pradesh,2020-21,90,true
+Uttar Pradesh,2021-22,85,true
+Uttar Pradesh,2022-23,68,true
+Uttaranchal,2018-19,15,false
+Uttaranchal,2019-20,8,false
+Uttaranchal,2020-21,5,true
+Uttaranchal,2021-22,5,true
+Uttaranchal,2022-23,7,true
+West Bengal,2018-19,0,false
+West Bengal,2019-20,0,false
+West Bengal,2020-21,0,true
+West Bengal,2021-22,0,true
+West Bengal,2022-23,0,true

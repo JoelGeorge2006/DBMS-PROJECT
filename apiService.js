@@ -120,39 +120,30 @@ export const apiService = {
     return apiGet('/api/analytics/lease-compliance');
   },
 
-  /** Source text of a dsa/ module (for the DSA tab) */
-  async getDsaSource(file) {
-    return request(`/api/dsa/source/${encodeURIComponent(file)}`);
+  /** Public statistics through the database views: states, commodities, auctions, royalty, reserves, national-production */
+  async getDataset(name) {
+    return apiGet(`/api/data/${encodeURIComponent(name)}`);
   },
 
-  async notifications() {
-    return apiGet('/api/notifications');
+  // --- Backend visibility -----------------------------------------------------
+  /** Tables, views, columns, constraints and enum types from the live catalog */
+  async getSchema() {
+    return apiGet('/api/backend/schema');
   },
 
-  async markNotificationsRead(ids) {
-    return request('/api/notifications/read', { method: 'POST', body: { ids } });
+  /** View definitions, triggers (with function source) and indexes */
+  async getSchemaObjects() {
+    return apiGet('/api/backend/objects');
   },
 
-  /** Grouped search suggestions (Trie on the server) */
-  async searchSuggest(q, limit = 6) {
-    return apiGet('/api/search/suggest', { q, limit });
+  /** First rows of a table or view */
+  async getRelationRows(name, limit = 50) {
+    return apiGet(`/api/backend/relations/${encodeURIComponent(name)}/rows`, { limit });
   },
 
-  async recentSearches() {
-    return apiGet('/api/search/recent');
-  },
-
-  async addRecentSearch(entry) {
-    return request('/api/search/recent', { method: 'POST', body: entry });
-  },
-
-  async clearRecentSearches() {
-    return request('/api/search/recent', { method: 'DELETE' });
-  },
-
-  /** Live numbers for the DSA tab: session cache and sign-in limiter */
-  async getDsaStats() {
-    return apiGet('/api/dsa/stats');
+  /** SQL statements run by the backend after entry `after` */
+  async getSqlLog(after = 0) {
+    return apiGet('/api/backend/sql-log', { after });
   },
 
   // --- Authentication --------------------------------------------------------
@@ -174,26 +165,6 @@ export const apiService = {
 
   async confirmPinReset(username, code, pin) {
     return request('/api/auth/reset/confirm', { method: 'POST', body: { username, code, pin } });
-  },
-
-  /** Mine transport network: nodes and corridor edges */
-  async getMineNetwork() {
-    return apiGet('/api/dsa/network');
-  },
-
-  /** Dijkstra shortest route between two mines */
-  async getShortestRoute(from, to) {
-    return apiGet('/api/dsa/shortest-route', { from, to });
-  },
-
-  /** Minimum spanning tree (algorithm: 'prim' | 'kruskal') */
-  async getMst(algorithm, root) {
-    return apiGet('/api/dsa/mst', { algorithm, root });
-  },
-
-  /** BST range search over a mineral assay column */
-  async getBstRange(attr, min, max) {
-    return apiGet('/api/dsa/bst/range', { attr, min, max });
   },
 
   /**

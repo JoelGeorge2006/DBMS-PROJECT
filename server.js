@@ -1,158 +1,110 @@
 /**
  * MINERVA — National Mineral Geospatial Intelligence Grid
  * Course: BACSE202 - Database Systems
- * Backend REST API Service (Node.js, Express, better-sqlite3)
+ * Backend REST API Service (Node.js, Express, PostgreSQL on Supabase)
  */
 
 import express from 'express';
-import Database from 'better-sqlite3';
 import path from 'path';
-import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { BinarySearchTree } from './dsa/BinarySearchTree.js';
-import { migrate } from './db/migrate.js';
-import { buildSearchIndex, suggest } from './lib/search.js';
-import { createNotifications } from './lib/notifications.js';
+import { query, requestContext, sqlLog, getPool } from './db/pool.js';
 import { createAuth, readCookie, sessionCookie, clearedCookie, clientIp, SESSION_COOKIE, ROLES } from './lib/auth.js';
-import { buildNearestNeighbourGraph, buildCompleteGraph, dijkstra } from './dsa/Dijkstra.js';
-import { primMST, kruskalMST } from './dsa/MST.js';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const DB_PATH = path.join(__dirname, 'minerva.db');
 
 app.use(express.json({ limit: '100kb' }));
 
-// ============================================================================
-// 1. Database Connection & Schema Bootstrapping
-// ============================================================================
-let db;
-try {
-  db = new Database(DB_PATH);
-  db.pragma('foreign_keys = ON');
-  // Creates the database from schema.sql, or migrates an older one (PRAGMA user_version)
-  console.log(`[MINERVA DB] ${DB_PATH}: ${migrate(db)}`);
-} catch (err) {
-  console.error('[MINERVA DB] Fatal database error:', err);
-  process.exit(1);
-}
+// Every query run while handling a request is tagged with that request in the SQL log.
+// The log's own endpoint is left out, or polling it would fill the log.
+app.use('/api', (req, res, next) => {
+  const route = `${req.method} ${req.baseUrl}${req.path}`;
+  requestContext.run({ route, skipLog: req.path === '/backend/sql-log' }, next);
+});
 
 // ============================================================================
-// 2. AUTHENTICATION (sessions, roles) — see lib/auth.js
+// 1. AUTHENTICATION (sessions, roles) — see lib/auth.js
 // ============================================================================
-const auth = createAuth(db);
+const auth = createAuth();
 
 const sendAuthError = (res, r) => {
   if (r.retryAfterMs) res.setHeader('Retry-After', Math.ceil(r.retryAfterMs / 1000));
   res.status(r.status).json({ success: false, error: r.error, retryAfterMs: r.retryAfterMs, attemptsLeft: r.attemptsLeft });
 };
 
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   const { username, pin } = req.body || {};
-  const ip = clientIp(req);
-  const r = auth.login(username, pin, ip);
+  const r = await auth.login(username, pin, clientIp(req));
   if (!r.ok) return sendAuthError(res, r);
   res.setHeader('Set-Cookie', sessionCookie(r.token, r.maxAgeMs));
-  if (r.newIp) onNewSignInAddress(r.user, ip);
   res.json({ success: true, user: r.user });
 });
 
-app.post('/api/auth/logout', (req, res) => {
-  auth.logout(readCookie(req, SESSION_COOKIE));
+app.post('/api/auth/logout', async (req, res) => {
+  await auth.logout(readCookie(req, SESSION_COOKIE));
   res.setHeader('Set-Cookie', clearedCookie());
   res.json({ success: true });
 });
 
-app.post('/api/auth/reset/request', (req, res) => {
-  const r = auth.requestReset(req.body?.username, clientIp(req));
+app.post('/api/auth/reset/request', async (req, res) => {
+  const r = await auth.requestReset(req.body?.username, clientIp(req));
   if (!r.ok) return sendAuthError(res, r);
   res.json({ success: true, demoCode: r.demoCode, expiresInMinutes: r.expiresInMinutes });
 });
 
-app.post('/api/auth/reset/confirm', (req, res) => {
+app.post('/api/auth/reset/confirm', async (req, res) => {
   const { username, code, pin } = req.body || {};
-  const r = auth.confirmReset(username, code, pin, clientIp(req));
+  const r = await auth.confirmReset(username, code, pin, clientIp(req));
   if (!r.ok) return sendAuthError(res, r);
   res.json({ success: true });
 });
 
 // Who is signed in (null when nobody is): public, so a first visit isn't an error
-app.get('/api/auth/me', (req, res) => {
-  res.json({ success: true, user: auth.sessionUser(readCookie(req, SESSION_COOKIE)) });
+app.get('/api/auth/me', async (req, res) => {
+  res.json({ success: true, user: await auth.sessionUser(readCookie(req, SESSION_COOKIE)) });
 });
 
 // Every other /api route needs a signed-in user
 const PUBLIC_API = new Set(['/api/auth/me', '/api/auth/login', '/api/auth/logout', '/api/auth/reset/request', '/api/auth/reset/confirm', '/api/health']);
 
-app.use('/api', (req, res, next) => {
+app.use('/api', async (req, res, next) => {
   const route = req.originalUrl.split('?')[0].replace(/\/+$/, '') || '/';
   if (PUBLIC_API.has(route)) return next();
-  const user = auth.sessionUser(readCookie(req, SESSION_COOKIE));
+  const user = await auth.sessionUser(readCookie(req, SESSION_COOKIE));
   if (!user) return res.status(401).json({ success: false, error: 'Sign in required.' });
   req.user = user;
+  const ctx = requestContext.getStore();
+  if (ctx) ctx.user = user.username;
   next();
 });
 
+const can = (req, permission) => Boolean(req.user && ROLES[req.user.role]?.permissions.has(permission));
+
 function requirePermission(permission) {
   return (req, res, next) => {
-    if (req.user && ROLES[req.user.role]?.permissions.has(permission)) return next();
+    if (can(req, permission)) return next();
     res.status(403).json({ success: false, error: `Your role (${req.user?.roleLabel || 'none'}) can't do this.` });
   };
 }
 
-
-
 // ============================================================================
-// Notifications (rules over the data, see lib/notifications.js)
+// 2. MINES, LEASES AND THE ENTITY TABLES
 // ============================================================================
-const notifications = createNotifications(db);
 
-function onNewSignInAddress(user, ip) {
-  notifications.newSignInAddress(user, ip);
-}
-
-app.get('/api/notifications', (req, res) => {
-  res.json({ success: true, ...notifications.list(req.user.id) });
+app.get('/api/kpi/metrics', async (req, res) => {
+  const { rows: [r] } = await query(`SELECT
+      (SELECT COUNT(*) FROM mine WHERE status IN ('Operational', 'Under Maintenance', 'Expiring')) AS active_mines,
+      (SELECT COUNT(DISTINCT craton_region) FROM location) AS craton_regions,
+      (SELECT COUNT(*) FROM lease WHERE valid_till > CURRENT_DATE) AS active_leases,
+      (SELECT COALESCE(SUM(quantity_mt), 0) FROM production WHERE fiscal_year = 2024) AS production_2024`);
+  res.json({
+    success: true,
+    data: { activeMines: r.active_mines, cratonRegions: r.craton_regions, activeLeases: r.active_leases, production2024MT: r.production_2024 },
+  });
 });
 
-app.post('/api/notifications/read', (req, res) => {
-  const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(Number.isInteger).slice(0, 500) : [];
-  notifications.markRead(req.user.id, ids);
-  res.json({ success: true, ...notifications.list(req.user.id) });
-});
-
-// ============================================================================
-// 3. REST API ENDPOINTS
-// ============================================================================
-
-// 1. GET /api/kpi/metrics (Dashboard Telemetry Counters)
-app.get('/api/kpi/metrics', (req, res) => {
-  try {
-    const activeMinesRow = db.prepare("SELECT count(*) as count FROM MINE WHERE status IN ('Operational', 'Under Maintenance', 'Expiring')").get();
-    const cratonsRow = db.prepare("SELECT count(DISTINCT craton_region) as count FROM LOCATION").get();
-    const concessionsRow = db.prepare("SELECT count(*) as count FROM LEASE WHERE valid_till > date('now')").get();
-    const annualYieldRow = db.prepare("SELECT coalesce(sum(quantity_mt), 0) as total FROM PRODUCTION WHERE fiscal_year = 2024").get();
-
-    res.json({
-      success: true,
-      data: {
-        activeMines: activeMinesRow.count,
-        cratonRegions: cratonsRow.count,
-        activeLeases: concessionsRow.count,
-        production2024MT: annualYieldRow.total
-      }
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-
-// 3. GET /api/mines (Master Grid with Query Filters & Search)
-// One mine row from v_mines_master, shaped for the front end. Missing facts stay null.
 const STATUS_CLASS = {
   Operational: 'operational',
   'Under Maintenance': 'maintenance',
@@ -178,8 +130,10 @@ function mineralDot(name, type) {
 }
 
 const pct = (v) => (v === null || v === undefined ? null : `${v}%`);
+const isoDate = (d) => (d instanceof Date ? d.toISOString().slice(0, 10) : d);
 
-function formatMine(r) {
+/** One v_mines_master row, shaped for the front end. Missing facts stay null. */
+function formatMine(r, productionByMine) {
   const hasAssay = [r.fe_pct, r.sio2_pct, r.al2o3_pct, r.phosphorus_pct, r.moisture_pct].some((v) => v !== null && v !== undefined);
   return {
     mineId: r.mine_id,
@@ -187,6 +141,7 @@ function formatMine(r) {
     primaryMineral: r.primary_mineral || 'Not recorded',
     mineralRecorded: Boolean(r.primary_mineral),
     mineralCategory: r.mineral_type || null,
+    commodity: r.commodity_name || null,
     mineralDotColor: mineralDot(r.primary_mineral, r.mineral_type),
     state: r.state,
     district: r.district,
@@ -198,7 +153,7 @@ function formatMine(r) {
     mineType: r.mine_type,
     coords: [r.latitude, r.longitude],
     precision: r.location_precision,
-    isSample: Boolean(r.is_sample),
+    isSample: r.is_sample,
     source: { name: r.source_name, licence: r.source_licence, ref: r.source_ref, url: r.source_url },
     dossier: {
       fullName: `${r.mine_name} (${r.mine_id})`,
@@ -207,13 +162,19 @@ function formatMine(r) {
         ? { fe: pct(r.fe_pct), sio2: pct(r.sio2_pct), al2o3: pct(r.al2o3_pct), phosphorus: pct(r.phosphorus_pct), moisture: pct(r.moisture_pct) }
         : null,
       lease: r.lease_id
-        ? { id: r.lease_id, executed: r.execution_date, validTill: r.valid_till, royaltyRate: r.royalty_rate, area: r.area_formatted }
+        ? {
+            id: r.lease_id,
+            executed: isoDate(r.execution_date),
+            validTill: isoDate(r.valid_till),
+            royaltyRate: `${r.royalty_rate_pct}% ASP`,
+            area: r.area_formatted,
+          }
         : null,
-      production: productionSummary(r.mine_id),
+      production: productionSummary(productionByMine.get(r.mine_id) || []),
       clearance: r.lease_id
         ? {
             title: r.forest_clearance_stage,
-            subtitle: `CTO valid till ${String(r.cto_valid_till || '').slice(0, 4) || '—'}`,
+            subtitle: `CTO valid till ${String(isoDate(r.cto_valid_till) || '').slice(0, 4) || '—'}`,
             approved: r.status !== 'Under Maintenance' && r.status !== 'Revoked',
           }
         : null,
@@ -221,408 +182,329 @@ function formatMine(r) {
   };
 }
 
+function productionSummary(rows) {
+  const latest = rows[rows.length - 1];
+  return {
+    currentOutput: latest ? `${latest.quantity_mt} MT (${latest.fiscal_year})` : 'No records',
+    history: rows.map((row) => ({ year: `'${String(row.fiscal_year).slice(2)}`, mt: row.quantity_mt })),
+  };
+}
+
+/** Yearly output of each mine's primary mineral, for many mines in one query */
+async function productionFor(mineIds) {
+  const byMine = new Map();
+  if (!mineIds.length) return byMine;
+  const { rows } = await query(`SELECT p.mine_id, p.fiscal_year, p.quantity_mt
+    FROM production p
+    JOIN mine_mineral mm ON mm.mine_id = p.mine_id AND mm.mineral_id = p.mineral_id AND mm.is_primary
+    WHERE p.mine_id = ANY($1)
+    ORDER BY p.mine_id, p.fiscal_year`, [mineIds]);
+  rows.forEach((r) => {
+    if (!byMine.has(r.mine_id)) byMine.set(r.mine_id, []);
+    byMine.get(r.mine_id).push(r);
+  });
+  return byMine;
+}
+
 /** WHERE clause + params shared by the list and CSV routes */
-function mineFilters(query) {
-  const { search, state, mineral, status, bbox } = query;
+function mineFilters(q) {
+  const { search, state, mineral, status, bbox } = q;
   const where = [];
   const params = [];
-  if (state && state !== 'ALL') {
-    where.push('state = ?');
-    params.push(state);
-  }
+  const add = (v) => {
+    params.push(v);
+    return `$${params.length}`;
+  };
+  if (state && state !== 'ALL') where.push(`state = ${add(state)}`);
   if (mineral && mineral !== 'ALL') {
-    where.push('(primary_mineral LIKE ? OR ore_grade_description LIKE ?)');
-    params.push(`%${mineral}%`, `%${mineral}%`);
+    const p = add(`%${mineral}%`);
+    where.push(`(primary_mineral ILIKE ${p} OR ore_grade_description ILIKE ${p})`);
   }
-  if (status && status !== 'ALL') {
-    where.push('status = ?');
-    params.push(status);
-  }
+  if (status && status !== 'ALL') where.push(`status::text = ${add(status)}`);
   if (search) {
-    where.push(`(mine_id LIKE ? OR mine_name LIKE ? OR primary_mineral LIKE ? OR state_district LIKE ?
-      OR operating_lessee LIKE ? OR lease_id LIKE ?
-      OR mine_id IN (SELECT mine_id FROM MINE_ALIAS WHERE alias LIKE ?))`);
-    const q = `%${search}%`;
-    params.push(q, q, q, q, q, q, q);
+    const p = add(`%${search}%`);
+    where.push(`(mine_id ILIKE ${p} OR mine_name ILIKE ${p} OR primary_mineral ILIKE ${p} OR state_district ILIKE ${p}
+      OR operating_lessee ILIKE ${p} OR lease_id ILIKE ${p}
+      OR mine_id IN (SELECT mine_id FROM mine_alias WHERE alias ILIKE ${p}))`);
   }
   if (bbox) {
-    // minLng,minLat,maxLng,maxLat -> R*Tree range query instead of scanning every mine
-    const [minLng, minLat, maxLng, maxLat] = String(bbox).split(',').map(Number);
-    if ([minLng, minLat, maxLng, maxLat].some((v) => !Number.isFinite(v))) {
+    // minLng,minLat,maxLng,maxLat -> PostGIS bounding-box test, served by the GiST index on mine.geom
+    const box = String(bbox).split(',').map(Number);
+    if (box.length !== 4 || box.some((v) => !Number.isFinite(v))) {
       throw Object.assign(new Error('bbox must be minLng,minLat,maxLng,maxLat'), { status: 400 });
     }
-    // Overlap test: the R*Tree stores float32 boxes widened outwards, so a containment
-    // test would drop mines lying exactly on the bbox edge
-    where.push('mine_rowid IN (SELECT id FROM MINE_RTREE WHERE max_lng >= ? AND min_lng <= ? AND max_lat >= ? AND min_lat <= ?)');
-    params.push(minLng, maxLng, minLat, maxLat);
+    where.push(`mine_id IN (SELECT mine_id FROM mine WHERE geom && ST_MakeEnvelope(${box.map(add).join(', ')}, 4326))`);
   }
   return { sql: where.length ? ` WHERE ${where.join(' AND ')}` : '', params };
 }
 
-// Yearly output of a mine's primary mineral from the PRODUCTION table
-const productionHistoryStmt = db.prepare(`
-  SELECT p.fiscal_year, p.quantity_mt
-  FROM PRODUCTION p
-  JOIN MINE_MINERAL mm ON mm.mine_id = p.mine_id AND mm.mineral_id = p.mineral_id AND mm.is_primary = 1
-  WHERE p.mine_id = ?
-  ORDER BY p.fiscal_year
-`);
-
-function productionSummary(mineId) {
-  const rows = productionHistoryStmt.all(mineId);
-  const latest = rows[rows.length - 1];
-  return {
-    currentOutput: latest ? `${latest.quantity_mt} MT (${latest.fiscal_year})` : 'No records',
-    history: rows.map((row) => ({ year: `'${String(row.fiscal_year).slice(2)}`, mt: row.quantity_mt }))
-  };
-}
-
-app.get('/api/mines', (req, res) => {
-  try {
-    const { sql, params } = mineFilters(req.query);
-    // No limit by default: the map needs every mine. limit/offset still page if given.
-    const limit = Math.min(Number.parseInt(req.query.limit, 10) || 10000, 10000);
-    const offset = Number.parseInt(req.query.offset, 10) || 0;
-    const rows = db
-      .prepare(`SELECT * FROM v_mines_master${sql} ORDER BY is_sample DESC, mine_name COLLATE NOCASE LIMIT ? OFFSET ?`)
-      .all(...params, limit, offset);
-    const total = db.prepare(`SELECT COUNT(*) AS n FROM v_mines_master${sql}`).get(...params).n;
-    res.json({ success: true, count: rows.length, total, data: rows.map(formatMine) });
-  } catch (err) {
-    res.status(err.status || 500).json({ success: false, error: err.message });
-  }
+app.get('/api/mines', async (req, res) => {
+  const { sql, params } = mineFilters(req.query);
+  // No limit by default: the map needs every mine. limit/offset still page if given.
+  const limit = Math.min(Number.parseInt(req.query.limit, 10) || 10000, 10000);
+  const offset = Number.parseInt(req.query.offset, 10) || 0;
+  const n = params.length;
+  const [{ rows }, { rows: [count] }] = await Promise.all([
+    query(`SELECT * FROM v_mines_master${sql} ORDER BY is_sample DESC, lower(mine_name), mine_id LIMIT $${n + 1} OFFSET $${n + 2}`, [...params, limit, offset]),
+    query(`SELECT COUNT(*) AS n FROM v_mines_master${sql}`, params),
+  ]);
+  const production = await productionFor(rows.map((r) => r.mine_id));
+  res.json({ success: true, count: rows.length, total: count.n, data: rows.map((r) => formatMine(r, production)) });
 });
 
-// 4. GET /api/mines/:id/dossier & GET /api/mines/:id (Single Detailed Dossier Specification)
-app.get(['/api/mines/:id/dossier', '/api/mines/:id'], (req, res, next) => {
+app.get(['/api/mines/:id/dossier', '/api/mines/:id'], async (req, res, next) => {
   if (req.params.id === 'export') return next();
-  try {
-    const row = db.prepare('SELECT * FROM v_mines_master WHERE UPPER(mine_id) = ?').get(req.params.id.toUpperCase());
-    if (!row) return res.status(404).json({ success: false, error: `Mine ${req.params.id} not found.` });
-    const aliases = db.prepare('SELECT alias FROM MINE_ALIAS WHERE mine_id = ? ORDER BY alias').all(row.mine_id).map((a) => a.alias);
-    res.json({ success: true, data: { ...formatMine(row), aliases } });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+  const { rows: [row] } = await query('SELECT * FROM v_mines_master WHERE upper(mine_id) = upper($1)', [req.params.id]);
+  if (!row) return res.status(404).json({ success: false, error: `Mine ${req.params.id} not found.` });
+  const [{ rows: aliases }, production] = await Promise.all([
+    query('SELECT alias FROM mine_alias WHERE mine_id = $1 ORDER BY alias', [row.mine_id]),
+    productionFor([row.mine_id]),
+  ]);
+  res.json({ success: true, data: { ...formatMine(row, production), aliases: aliases.map((a) => a.alias) } });
 });
 
-// 5. GET /api/mines/export & GET /api/export/csv (Stream CSV Export)
-app.get(['/api/mines/export', '/api/export/csv'], (req, res) => {
-  try {
-    const { sql, params } = mineFilters(req.query);
-    const rows = db.prepare(`SELECT * FROM v_mines_master${sql} ORDER BY is_sample DESC, mine_name COLLATE NOCASE`).all(...params);
-    const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    const header = ['MINE ID', 'MINE NAME', 'PRIMARY MINERAL', 'STATE', 'DISTRICT', 'OPERATOR', 'LEASE VALIDITY', 'STATUS',
-      'LATITUDE', 'LONGITUDE', 'LOCATION PRECISION', 'SOURCE', 'SOURCE URL', 'SAMPLE RECORD'];
-    const lines = rows.map((m) => [
-      m.mine_id, m.mine_name, m.primary_mineral, m.state, m.district, m.operating_lessee, m.lease_validity, m.status,
-      m.latitude, m.longitude, m.location_precision, m.source_name, m.source_url, m.is_sample ? 'yes' : 'no',
-    ].map(cell).join(','));
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename="MINERVA_mines.csv"');
-    res.send([header.join(','), ...lines].join('\n'));
-  } catch (err) {
-    res.status(err.status || 500).json({ success: false, error: err.message });
-  }
+app.get(['/api/mines/export', '/api/export/csv'], async (req, res) => {
+  const { sql, params } = mineFilters(req.query);
+  const { rows } = await query(`SELECT * FROM v_mines_master${sql} ORDER BY is_sample DESC, lower(mine_name), mine_id`, params);
+  const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const header = ['MINE ID', 'MINE NAME', 'PRIMARY MINERAL', 'STATE', 'DISTRICT', 'OPERATOR', 'LEASE VALIDITY', 'STATUS',
+    'LATITUDE', 'LONGITUDE', 'LOCATION PRECISION', 'SOURCE', 'SOURCE URL', 'SAMPLE RECORD'];
+  const lines = rows.map((m) => [
+    m.mine_id, m.mine_name, m.primary_mineral, m.state, m.district, m.operating_lessee, m.lease_validity, m.status,
+    m.latitude, m.longitude, m.location_precision, m.source_name, m.source_url, m.is_sample ? 'yes' : 'no',
+  ].map(cell).join(','));
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="MINERVA_mines.csv"');
+  res.send([header.join(','), ...lines].join('\n'));
 });
 
-// 7. POST /api/sql/query (Interactive Read-Only SQL Terminal)
-app.post('/api/sql/query', requirePermission('sql'), (req, res) => {
+// Read-only SQL console: one statement, in a read-only transaction, as a role that
+// can read the data but not account secrets, with a time limit
+const SQL_ROW_LIMIT = 1000;
+
+app.post('/api/sql/query', requirePermission('sql'), async (req, res) => {
+  const text = typeof req.body?.query === 'string' ? req.body.query.trim().replace(/;\s*$/, '') : '';
+  if (!text) return res.status(400).json({ success: false, error: 'SQL query string required.' });
+
+  const client = await getPool().connect();
   try {
-    const { query } = req.body;
-    if (!query || typeof query !== 'string') {
-      return res.status(400).json({ success: false, message: 'SQL query string required.' });
-    }
-
-    const trimmed = query.trim();
-    const stmt = db.prepare(trimmed);
-    // better-sqlite3 knows whether a statement writes; only allow pure reads
-    if (!stmt.readonly || !stmt.reader) {
-      return res.status(403).json({
-        success: false,
-        error: 'The SQL console is read-only. Only SELECT, EXPLAIN and read-only PRAGMA queries are allowed.'
-      });
-    }
-
+    await query('BEGIN READ ONLY', [], client);
+    await query('SET LOCAL ROLE minerva_reader', [], client);
+    await query("SET LOCAL statement_timeout = '5s'", [], client);
     const start = performance.now();
-    const rows = stmt.all();
+    // The extended protocol runs exactly one statement: "SELECT 1; DELETE ..." is rejected
+    const result = await query({ text, queryMode: 'extended' }, [], client);
     const durationMs = (performance.now() - start).toFixed(2);
-
-    const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
-
+    const rows = result.rows || [];
     res.json({
       success: true,
-      columns,
+      columns: (result.fields || []).map((f) => f.name),
       rowCount: rows.length,
+      truncated: rows.length > SQL_ROW_LIMIT,
       executionTimeMs: durationMs,
-      rows
+      rows: rows.slice(0, SQL_ROW_LIMIT),
     });
   } catch (err) {
-    res.status(400).json({ success: false, error: err.message });
+    const readOnly = err.code === '25006' ? 'The SQL console is read-only. ' : '';
+    res.status(400).json({ success: false, error: readOnly + err.message });
+  } finally {
+    await query('ROLLBACK', [], client).catch(() => {});
+    client.release();
   }
 });
 
-// 8. Entity Switcher API Routes (3NF Tables)
-app.get('/api/minerals', (req, res) => {
-  const rows = db.prepare('SELECT * FROM MINERAL ORDER BY mineral_id ASC').all();
-  res.json({ success: true, count: rows.length, data: rows });
-});
+// Entity tables for the database view's tabs
+const ENTITY_SQL = {
+  minerals: `SELECT m.mineral_id, m.mineral_name, m.mineral_type, c.commodity_name, m.fe_pct, m.sio2_pct, m.al2o3_pct, m.phosphorus_pct, m.moisture_pct
+    FROM mineral m JOIN commodity c ON c.commodity_id = m.commodity_id ORDER BY m.mineral_id`,
+  locations: `SELECT l.location_id, s.state_name AS state, l.district, l.craton_region, l.latitude, l.longitude
+    FROM location l JOIN state s ON s.state_id = l.state_id ORDER BY s.state_name, l.district`,
+  companies: 'SELECT * FROM mining_company ORDER BY company_id',
+  leases: 'SELECT * FROM lease ORDER BY valid_till',
+  production: 'SELECT * FROM production ORDER BY fiscal_year DESC, quantity_mt DESC',
+};
 
-app.get('/api/locations', (req, res) => {
-  const rows = db.prepare('SELECT * FROM LOCATION ORDER BY state, district ASC').all();
-  res.json({ success: true, count: rows.length, data: rows });
-});
-
-app.get('/api/companies', (req, res) => {
-  const rows = db.prepare('SELECT * FROM MINING_COMPANY ORDER BY company_id ASC').all();
-  res.json({ success: true, count: rows.length, data: rows });
-});
-
-app.get('/api/leases', (req, res) => {
-  const rows = db.prepare('SELECT * FROM LEASE ORDER BY valid_till ASC').all();
-  res.json({ success: true, count: rows.length, data: rows });
-});
-
-app.get('/api/production', (req, res) => {
-  const rows = db.prepare('SELECT * FROM PRODUCTION ORDER BY fiscal_year DESC, quantity_mt DESC').all();
-  res.json({ success: true, count: rows.length, data: rows });
-});
-
-// DSA: BST range search over mineral assay values
-const BST_ATTRIBUTES = { fe_pct: 'Fe', sio2_pct: 'SiO2', al2o3_pct: 'Al2O3' };
-
-app.get('/api/dsa/bst/range', (req, res) => {
-  // Own keys only: 'toString' etc. would otherwise pass and reach the SQL
-  const attr = Object.hasOwn(BST_ATTRIBUTES, req.query.attr) ? req.query.attr : 'fe_pct';
-  const min = Number(req.query.min ?? 0);
-  const max = Number(req.query.max ?? 100);
-  if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) {
-    return res.status(400).json({ success: false, error: 'min and max must be numbers with min <= max.' });
-  }
-
-  // Insert in primary-key order, as rows come out of the table
-  // Minerals with no recorded value for this assay are left out, not treated as 0%
-  const minerals = db.prepare(`SELECT * FROM MINERAL WHERE ${attr} IS NOT NULL ORDER BY mineral_id`).all();
-  const tree = new BinarySearchTree();
-  minerals.forEach((m) => tree.insert(m[attr], m));
-
-  const { results, visited } = tree.rangeQuery(min, max);
-  const linear = BinarySearchTree.linearRangeSearch(minerals, min, max, (m) => m[attr]);
-
-  res.json({
-    success: true,
-    attribute: attr,
-    attributeLabel: BST_ATTRIBUTES[attr],
-    min,
-    max,
-    size: tree.size(),
-    height: tree.height(),
-    tree: tree.toJSON((n) => n.data.mineral_name),
-    visited,
-    matches: results.map((n) => ({ id: n.id, key: n.key, mineral: n.data })),
-    bstComparisons: visited.length,
-    linearComparisons: linear.comparisons
+Object.entries(ENTITY_SQL).forEach(([name, sql]) => {
+  app.get(`/api/${name}`, async (req, res) => {
+    const { rows } = await query(sql);
+    res.json({ success: true, count: rows.length, data: rows });
   });
 });
 
-// DSA: mine transport network (each mine linked to its 3 nearest mines)
-const CORRIDOR_NEIGHBOURS = 3;
+// Public statistics, through the views that join them (see db/schema.sql)
+const DATASETS = {
+  states: 'SELECT * FROM v_state_mining_profile ORDER BY value_rank NULLS LAST, state_name',
+  commodities: `SELECT * FROM v_commodity_overview
+    ORDER BY production_value_2023_24_crore DESC NULLS LAST, mining_leases DESC NULLS LAST, commodity_name`,
+  auctions: 'SELECT * FROM v_auction_results ORDER BY announced_on DESC, final_price_offer_pct DESC',
+  royalty: `SELECT r.schedule_year, COALESCE(c.commodity_name, '(any other mineral)') AS commodity, r.grade, r.basis, r.rate_pct, r.rate_rs, r.rate_text
+    FROM royalty_rate r LEFT JOIN commodity c ON c.commodity_id = r.commodity_id
+    ORDER BY r.schedule_year DESC, c.commodity_name NULLS LAST, r.grade`,
+  reserves: `SELECT c.commodity_name, r.form, r.unit, r.reserves, r.remaining_resources, r.total_resources, r.as_on
+    FROM mineral_reserve r JOIN commodity c ON c.commodity_id = r.commodity_id ORDER BY c.commodity_name, r.form`,
+  'national-production': `SELECT p.product_name, c.commodity_name, p.unit, n.fiscal_year, n.quantity, n.value_rs_thousand, n.is_provisional
+    FROM national_production n JOIN mineral_product p ON p.product_id = n.product_id JOIN commodity c ON c.commodity_id = p.commodity_id
+    ORDER BY n.fiscal_year DESC, n.value_rs_thousand DESC NULLS LAST`,
+};
 
-// The corridor graph and MST results only change when the data does. PRAGMA
-// data_version changes when another connection (e.g. the import script) writes.
-const graphCache = { version: null, value: null, mst: new Map() };
-
-function loadMineGraph() {
-  const version = `${db.pragma('data_version', { simple: true })}:${db.prepare('SELECT COUNT(*) AS n, MAX(rowid) AS r FROM MINE').get().r}`;
-  if (graphCache.version === version) return graphCache.value;
-  const mines = db.prepare(`
-    SELECT m.mine_id AS id, m.mine_name AS name, m.status, l.state, l.district,
-           m.latitude AS lat, m.longitude AS lng
-    FROM MINE m JOIN LOCATION l ON l.location_id = m.location_id
-    ORDER BY m.mine_id
-  `).all();
-  graphCache.version = version;
-  graphCache.value = { mines, graph: buildNearestNeighbourGraph(mines, CORRIDOR_NEIGHBOURS) };
-  graphCache.mst.clear();
-  return graphCache.value;
-}
-
-app.get('/api/dsa/network', (req, res) => {
-  const { mines, graph } = loadMineGraph();
-  res.json({ success: true, neighbours: CORRIDOR_NEIGHBOURS, nodes: mines, edges: graph.edges() });
+app.get('/api/data/:dataset', async (req, res) => {
+  const sql = Object.hasOwn(DATASETS, req.params.dataset) ? DATASETS[req.params.dataset] : null;
+  if (!sql) return res.status(404).json({ success: false, error: 'No such dataset.' });
+  const { rows } = await query(sql);
+  res.json({ success: true, count: rows.length, sql: sql.replace(/\s+/g, ' '), data: rows });
 });
 
-app.get('/api/dsa/shortest-route', (req, res) => {
-  const { from, to } = req.query;
-  const { mines, graph } = loadMineGraph();
-  const byId = new Map(mines.map((m) => [m.id, m]));
-  if (!byId.has(from) || !byId.has(to)) {
-    return res.status(400).json({ success: false, error: 'from and to must be valid mine IDs.' });
-  }
-
-  const { path, distance, settledOrder } = dijkstra(graph, from, to);
-  if (path.length === 0) {
-    return res.json({ success: true, reachable: false, path: [], hops: [], distanceKm: null });
-  }
-
-  const hops = path.slice(1).map((id, i) => ({
-    from: path[i],
-    to: id,
-    distanceKm: graph.neighbours(path[i]).get(id)
-  }));
-
-  res.json({
-    success: true,
-    reachable: true,
-    path: path.map((id) => byId.get(id)),
-    hops,
-    distanceKm: distance,
-    nodesSettled: settledOrder.length
-  });
-});
-
-// DSA: minimum spanning tree over every pair of mines
-app.get('/api/dsa/mst', (req, res) => {
-  const algorithm = req.query.algorithm === 'kruskal' ? 'kruskal' : 'prim';
-  const { mines } = loadMineGraph();
-  const root = mines.some((m) => m.id === req.query.root) ? req.query.root : mines[0]?.id;
-  const cacheKey = `${algorithm}:${algorithm === 'prim' ? root : ''}`;
-  if (!graphCache.mst.has(cacheKey)) {
-    const complete = buildCompleteGraph(mines);
-    const result = algorithm === 'kruskal' ? kruskalMST(complete) : primMST(complete, root);
-    const edges = complete.edges();
-    graphCache.mst.set(cacheKey, {
-      result,
-      candidateEdges: edges.length,
-      allPairsKm: Math.round(edges.reduce((sum, e) => sum + e.weight, 0) * 10) / 10,
+// Analytical views
+['district-occurrences:v_district_mineral_occurrence', 'cross-state-production:v_cross_state_production', 'lease-compliance:v_lease_lifecycle_compliance']
+  .forEach((pair) => {
+    const [route, view] = pair.split(':');
+    app.get(`/api/analytics/${route}`, async (req, res) => {
+      const { rows } = await query(`SELECT * FROM ${view}`);
+      res.json({ success: true, count: rows.length, data: rows });
     });
-  }
-  const { result, candidateEdges, allPairsKm } = graphCache.mst.get(cacheKey);
-
-  res.json({
-    success: true,
-    algorithm,
-    root: algorithm === 'prim' ? root : null,
-    candidateEdges,
-    edges: result.edges,
-    totalKm: result.totalWeight,
-    allPairsKm,
-    cycleEdgesRejected: result.rejected ?? null
   });
-});
 
 // ============================================================================
-// Search: Trie suggestions and per-user recent searches
+// 3. BACKEND VISIBILITY: schema (ER diagram), objects, rows, SQL log
 // ============================================================================
-const searchCache = { version: null, index: null, lastQueryMs: null, lastCorrection: null };
 
-function searchIndex() {
-  const version = `${db.pragma('data_version', { simple: true })}:${db.prepare('SELECT COUNT(*) AS n FROM MINE').get().n}`;
-  if (searchCache.version !== version) {
-    searchCache.index = buildSearchIndex(db);
-    searchCache.version = version;
-  }
-  return searchCache.index;
+// Tables whose rows only an administrator may browse; hashes are always masked
+const ADMIN_ONLY_RELATIONS = new Set(['app_user', 'user_session', 'pin_reset', 'audit_log']);
+const SECRET_COLUMNS = new Set(['password_hash', 'password_salt', 'token_hash', 'code_hash']);
+
+const quoteIdent = (name) => `"${String(name).replace(/"/g, '""')}"`;
+
+/** Tables and views of the minerva schema, with their columns (cached for a minute) */
+let catalogCache = { at: 0, value: null };
+async function catalog() {
+  if (catalogCache.value && Date.now() - catalogCache.at < 60000) return catalogCache.value;
+  const [{ rows: relations }, { rows: columns }] = await Promise.all([
+    query(`SELECT c.relname AS name, CASE c.relkind WHEN 'v' THEN 'view' ELSE 'table' END AS kind, obj_description(c.oid, 'pg_class') AS comment
+      FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'minerva' AND c.relkind IN ('r', 'v') ORDER BY c.relname`),
+    query(`SELECT table_name, column_name, ordinal_position, data_type, udt_name, is_nullable = 'YES' AS nullable,
+        column_default, is_identity = 'YES' AS identity, col_description(format('minerva.%I', table_name)::regclass, ordinal_position) AS comment
+      FROM information_schema.columns WHERE table_schema = 'minerva' ORDER BY table_name, ordinal_position`),
+  ]);
+  const byRelation = new Map(relations.map((r) => [r.name, { ...r, columns: [] }]));
+  columns.forEach((c) => {
+    byRelation.get(c.table_name)?.columns.push({
+      name: c.column_name,
+      type: c.data_type === 'USER-DEFINED' ? c.udt_name : c.data_type,
+      nullable: c.nullable,
+      default: c.column_default,
+      identity: c.identity,
+      comment: c.comment,
+    });
+  });
+  catalogCache = { at: Date.now(), value: byRelation };
+  return byRelation;
 }
 
-app.get('/api/search/suggest', (req, res) => {
-  const q = String(req.query.q || '').slice(0, 100);
-  const limit = Math.min(Number.parseInt(req.query.limit, 10) || 6, 20);
-  const result = suggest(searchIndex(), q, limit);
-  searchCache.lastQueryMs = result.tookMs;
-  if (result.corrected) searchCache.lastCorrection = { from: q.toLowerCase(), to: result.corrected };
-  res.json({ success: true, query: q, ...result });
-});
-
-const RECENT_LIMIT = 8;
-
-app.get('/api/search/recent', (req, res) => {
-  const rows = db.prepare(`SELECT entry_id AS id, type, entry_key AS key, label, sub FROM SEARCH_HISTORY
-    WHERE user_id = ? ORDER BY used_at DESC LIMIT ?`).all(req.user.id, RECENT_LIMIT);
-  res.json({ success: true, data: rows });
-});
-
-// Most recent first, no duplicates, at most 8: re-using an entry moves it to the front
-app.post('/api/search/recent', (req, res) => {
-  const { id, type, key, label, sub } = req.body || {};
-  if (![id, type, key, label].every((v) => typeof v === 'string' && v.length > 0 && v.length <= 300)) {
-    return res.status(400).json({ success: false, error: 'id, type, key and label are required.' });
-  }
-  db.transaction(() => {
-    db.prepare(`INSERT INTO SEARCH_HISTORY (user_id, entry_id, type, entry_key, label, sub, used_at) VALUES (?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(user_id, entry_id) DO UPDATE SET used_at = excluded.used_at, label = excluded.label, sub = excluded.sub`)
-      .run(req.user.id, id, type, key, label, typeof sub === 'string' ? sub.slice(0, 300) : null, new Date().toISOString());
-    db.prepare(`DELETE FROM SEARCH_HISTORY WHERE user_id = ? AND entry_id NOT IN (
-      SELECT entry_id FROM SEARCH_HISTORY WHERE user_id = ? ORDER BY used_at DESC LIMIT ?)`).run(req.user.id, req.user.id, RECENT_LIMIT);
-  })();
-  res.json({ success: true });
-});
-
-app.delete('/api/search/recent', (req, res) => {
-  db.prepare('DELETE FROM SEARCH_HISTORY WHERE user_id = ?').run(req.user.id);
-  res.json({ success: true });
-});
-
-// DSA: live numbers for the DSA tab (session LRU cache, sign-in limiter)
-app.get('/api/dsa/stats', (req, res) => {
-  const idx = searchIndex();
+app.get('/api/backend/schema', async (req, res) => {
+  const relations = await catalog();
+  const tables = [...relations.values()].filter((r) => r.kind === 'table');
+  const [{ rows: constraints }, { rows: enums }, { rows: [db] }, { rows: counts }] = await Promise.all([
+    query(`SELECT con.conname AS name, con.contype AS type, rel.relname AS table_name,
+        ARRAY(SELECT a.attname::text FROM unnest(con.conkey) WITH ORDINALITY k(attnum, ord)
+              JOIN pg_attribute a ON a.attrelid = con.conrelid AND a.attnum = k.attnum ORDER BY k.ord) AS columns,
+        frel.relname AS ref_table,
+        ARRAY(SELECT a.attname::text FROM unnest(con.confkey) WITH ORDINALITY k(attnum, ord)
+              JOIN pg_attribute a ON a.attrelid = con.confrelid AND a.attnum = k.attnum ORDER BY k.ord) AS ref_columns,
+        CASE con.confdeltype WHEN 'c' THEN 'CASCADE' WHEN 'n' THEN 'SET NULL' WHEN 'r' THEN 'RESTRICT' WHEN 'a' THEN 'NO ACTION' END AS on_delete,
+        pg_get_constraintdef(con.oid) AS definition
+      FROM pg_constraint con
+      JOIN pg_class rel ON rel.oid = con.conrelid
+      JOIN pg_namespace n ON n.oid = rel.relnamespace
+      LEFT JOIN pg_class frel ON frel.oid = con.confrelid
+      WHERE n.nspname = 'minerva' ORDER BY rel.relname, con.contype, con.conname`),
+    query(`SELECT t.typname AS name, array_agg(e.enumlabel::text ORDER BY e.enumsortorder) AS labels
+      FROM pg_type t JOIN pg_enum e ON e.enumtypid = t.oid JOIN pg_namespace n ON n.oid = t.typnamespace
+      WHERE n.nspname = 'minerva' GROUP BY t.typname ORDER BY t.typname`),
+    query(`SELECT version() AS version, pg_size_pretty(pg_database_size(current_database())) AS database_size,
+        (SELECT pg_size_pretty(SUM(pg_total_relation_size(c.oid))) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE n.nspname = 'minerva' AND c.relkind = 'r') AS schema_size`),
+    // Exact row counts, one UNION ALL query for every table
+    query(tables.map((t) => `SELECT '${t.name}' AS name, COUNT(*) AS n FROM ${quoteIdent(t.name)}`).join(' UNION ALL ')),
+  ]);
+  const rowCount = new Map(counts.map((c) => [c.name, c.n]));
   res.json({
     success: true,
-    ...auth.stats(),
-    search: { entries: idx.entries, trieNodes: idx.nodes, words: idx.words, builtMs: idx.builtMs, lastQueryMs: searchCache.lastQueryMs, lastCorrection: searchCache.lastCorrection },
+    database: { engine: 'PostgreSQL (Supabase)', version: db.version.split(' on ')[0], schema: 'minerva', size: db.database_size, schemaSize: db.schema_size },
+    relations: [...relations.values()].map((r) => ({ ...r, rows: rowCount.get(r.name) ?? null, adminOnly: ADMIN_ONLY_RELATIONS.has(r.name) })),
+    constraints,
+    enums,
   });
 });
 
-// DSA: source of a dsa/ module, for the excerpts on the DSA tab (read-only, dsa/ only)
-const DSA_DIR = path.join(__dirname, 'dsa');
+app.get('/api/backend/objects', async (req, res) => {
+  const [{ rows: views }, { rows: triggers }, { rows: indexes }] = await Promise.all([
+    query(`SELECT c.relname AS name, obj_description(c.oid, 'pg_class') AS comment, pg_get_viewdef(c.oid, true) AS definition
+      FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'minerva' AND c.relkind = 'v' ORDER BY c.relname`),
+    query(`SELECT t.tgname AS name, c.relname AS table_name, pg_get_triggerdef(t.oid, true) AS definition,
+        p.proname AS function_name, pg_get_functiondef(p.oid) AS function_definition
+      FROM pg_trigger t
+      JOIN pg_class c ON c.oid = t.tgrelid
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      JOIN pg_proc p ON p.oid = t.tgfoid
+      WHERE n.nspname = 'minerva' AND NOT t.tgisinternal ORDER BY p.proname, c.relname`),
+    query(`SELECT i.indexname AS name, i.tablename AS table_name, i.indexdef AS definition,
+        pg_size_pretty(pg_relation_size(format('minerva.%I', i.indexname)::regclass)) AS size,
+        s.idx_scan AS scans
+      FROM pg_indexes i
+      LEFT JOIN pg_stat_user_indexes s ON s.schemaname = i.schemaname AND s.indexrelname = i.indexname
+      WHERE i.schemaname = 'minerva' ORDER BY i.tablename, i.indexname`),
+  ]);
+  res.json({ success: true, views, triggers, indexes });
+});
 
-// Files outside dsa/ that the DSA tab may show (whitelist, not a path)
-const EXTRA_SOURCES = { 'auth.js': path.join(__dirname, 'lib', 'auth.js') };
-
-app.get('/api/dsa/source/:file', (req, res) => {
-  const file = req.params.file;
-  if (!/^[A-Za-z]+\.js$/.test(file)) {
-    return res.status(400).json({ success: false, error: 'Invalid file name.' });
+// First rows of one table or view (the name must be in the catalog: never raw input in SQL)
+app.get('/api/backend/relations/:name/rows', async (req, res) => {
+  const relation = (await catalog()).get(req.params.name);
+  if (!relation) return res.status(404).json({ success: false, error: 'No such table or view.' });
+  if (ADMIN_ONLY_RELATIONS.has(relation.name) && !can(req, 'sql')) {
+    return res.status(403).json({ success: false, error: 'Only an administrator can browse account tables.' });
   }
-  const full = Object.hasOwn(EXTRA_SOURCES, file) ? EXTRA_SOURCES[file] : path.join(DSA_DIR, file);
-  if (!fs.existsSync(full)) {
-    return res.status(404).json({ success: false, error: 'No such module.' });
-  }
-  res.type('text/plain').send(fs.readFileSync(full, 'utf8'));
-});
-
-// 9. Analytical Aggregation Routes
-app.get('/api/analytics/district-occurrences', (req, res) => {
-  const rows = db.prepare('SELECT * FROM v_district_mineral_occurrence').all();
-  res.json({ success: true, count: rows.length, data: rows });
-});
-
-app.get('/api/analytics/cross-state-production', (req, res) => {
-  const rows = db.prepare('SELECT * FROM v_cross_state_production').all();
-  res.json({ success: true, count: rows.length, data: rows });
-});
-
-app.get('/api/analytics/lease-compliance', (req, res) => {
-  const rows = db.prepare('SELECT * FROM v_lease_lifecycle_compliance').all();
-  res.json({ success: true, count: rows.length, data: rows });
-});
-
-// 10. Health Check Ping
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'HEALTHY',
-    service: 'MINERVA Mineral Resource Management Backend',
-    database: 'SQLite (3NF Normalized)',
-    timestamp: new Date().toISOString()
+  const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 50, 1), 200);
+  const select = relation.columns.map((c) => {
+    if (SECRET_COLUMNS.has(c.name)) return `'••••' AS ${quoteIdent(c.name)}`;
+    if (c.type === 'geometry') return `ST_AsText(${quoteIdent(c.name)}) AS ${quoteIdent(c.name)}`;
+    return quoteIdent(c.name);
   });
+  const sql = `SELECT ${select.join(', ')} FROM ${quoteIdent(relation.name)} LIMIT ${limit}`;
+  const start = performance.now();
+  const { rows } = await query(sql);
+  res.json({ success: true, name: relation.name, kind: relation.kind, sql, ms: Math.round((performance.now() - start) * 100) / 100, rows });
+});
+
+app.get('/api/backend/sql-log', (req, res) => {
+  res.json({ success: true, entries: sqlLog(Number.parseInt(req.query.after, 10) || 0) });
+});
+
+app.get('/api/health', async (req, res) => {
+  let database = 'unreachable';
+  try {
+    await query('SELECT 1');
+    database = 'PostgreSQL (Supabase) reachable';
+  } catch {
+    // Reported below
+  }
+  res.json({ status: database === 'unreachable' ? 'DEGRADED' : 'HEALTHY', service: 'MINERVA Mineral Resource Management Backend', database, timestamp: new Date().toISOString() });
+});
+
+// Errors from async routes (Express 5 forwards rejected promises here)
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  console.error(`[MINERVA API] ${req.method} ${req.originalUrl}:`, err.message);
+  res.status(err.status || 500).json({ success: false, error: err.status ? err.message : 'Database error. See the server log.' });
 });
 
 // Boot Server when run directly
-if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+if (process.argv[1] && __filename === path.resolve(process.argv[1])) {
   app.listen(PORT, () => {
     console.log(`[MINERVA BACKEND] REST API active on http://localhost:${PORT}`);
   });
 }
 
 export default app;
-

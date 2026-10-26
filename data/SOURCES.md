@@ -6,7 +6,7 @@
 | OpenStreetMap boundaries (Overpass `is_in`) | State (admin level 4) and district (admin level 5) for each mine | ODbL 1.0 | `raw/admin_lookup.json` |
 | Wikidata (SPARQL) | Items that are a mine in India, with coordinates, product, operator | CC0 1.0 | `raw/wikidata_mines.json` |
 | Curated (`curated/*.csv`) | Hand-sourced rows (IBM yearbooks, company reports); each row must cite `source_url` | Facts only, cited | `curated/mines_curated.csv` |
-| MINERVA sample data | The 8 original records with leases and production | Synthetic, for demonstration | `../schema.sql` |
+| MINERVA sample data | The 8 original records with leases and production | Synthetic, for demonstration | `seed/core.json` |
 
 ## Scope
 
@@ -35,7 +35,10 @@ Every mine stores its source, a link to the source record, and its location prec
 
 ```bash
 npm run import:fetch   # download OSM + Wikidata extracts (network)
-npm run import:mines   # normalise + dedupe, look up districts (network, cached), load into minerva.db
+npm run import:mines   # normalise + dedupe, look up districts (network, cached), load into the Supabase database
 ```
 
 `processed/report.md` lists mines per state and mineral after each load.
+
+Official statistics (production, reserves, leases, royalty rates, auctions) are
+described in [public/README.md](public/README.md).
