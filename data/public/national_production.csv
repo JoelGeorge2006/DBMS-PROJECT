@@ -1,0 +1,95 @@
+product,unit,fiscal_year,quantity,value_rs_thousand,provisional
+Bauxite,tonne,2021-22,22494049,25284169,false
+Bauxite,tonne,2022-23,23844337,27371722,true
+Bauxite,tonne,2023-24,23930965,26873705,true
+Chromite,tonne,2021-22,3785625,47969167,false
+Chromite,tonne,2022-23,3557289,46202493,true
+Chromite,tonne,2023-24,3147954,48863434,true
+Copper Concentrate,tonne,2021-22,115313,11024312,false
+Copper Concentrate,tonne,2022-23,112745,11438445,true
+Copper Concentrate,tonne,2023-24,125230,13141478,true
+Copper Ore,tonne,2021-22,3569632,,false
+Copper Ore,tonne,2022-23,2419108,,true
+Copper Ore,tonne,2023-24,3484808,,true
+Fluorite,tonne,2021-22,1237,9430,false
+Fluorite,tonne,2022-23,1155,6468,true
+Fluorite,tonne,2023-24,6042,5716,true
+Garnet,tonne,2021-22,8182,24660,false
+Garnet,tonne,2022-23,9859,36217,true
+Garnet,tonne,2023-24,23838,95837,true
+Gold Ore,tonne,2021-22,474994,,false
+Gold Ore,tonne,2022-23,602486,,true
+Gold Ore,tonne,2023-24,726565,,true
+Gold Primary,kg,2021-22,1407,6761018,false
+Gold Primary,kg,2022-23,1433,7654670,true
+Gold Primary,kg,2023-24,1552,9654301,true
+Graphite,tonne,2021-22,62888,122147,false
+Graphite,tonne,2022-23,94789,180152,true
+Graphite,tonne,2023-24,168341,224542,true
+Iron Ore,thousand tonne,2021-22,254099,1008264608,false
+Iron Ore,thousand tonne,2022-23,258364,832693047,true
+Iron Ore,thousand tonne,2023-24,274324,980105195,true
+Kyanite,tonne,2021-22,9320,17267,false
+Kyanite,tonne,2022-23,2765,5320,true
+Kyanite,tonne,2023-24,3324,10514,true
+Lead & Zinc Ore,tonne,2021-22,16338564,,false
+Lead & Zinc Ore,tonne,2022-23,16744080,,true
+Lead & Zinc Ore,tonne,2023-24,16521284,,true
+Lead Concentrate,tonne,2021-22,368040,22025747,false
+Lead Concentrate,tonne,2022-23,376666,24761930,true
+Lead Concentrate,tonne,2023-24,380800,25473522,true
+Limeshell,tonne,2021-22,100,231,false
+Limeshell,tonne,2022-23,240,628,true
+Limeshell,tonne,2023-24,891,2633,true
+Limestone,thousand tonne,2021-22,392034,102022622,false
+Limestone,thousand tonne,2022-23,405551,111111497,true
+Limestone,thousand tonne,2023-24,450434,118537422,true
+Magnesite,tonne,2021-22,113497,554772,false
+Magnesite,tonne,2022-23,107525,502587,true
+Magnesite,tonne,2023-24,132005,611500,true
+Manganese Ore,tonne,2021-22,2692408,22067826,false
+Manganese Ore,tonne,2022-23,2826481,23050549,true
+Manganese Ore,tonne,2023-24,3380889,24787707,true
+Marl,tonne,2021-22,1853482,383279,false
+Marl,tonne,2022-23,1461668,316762,true
+Marl,tonne,2023-24,1606380,301431,true
+Moulding Sand,tonne,2021-22,17583,5256,false
+Moulding Sand,tonne,2022-23,17260,5322,true
+Moulding Sand,tonne,2023-24,24494,7277,true
+Phosphorite,tonne,2021-22,1394959,6648069,false
+Phosphorite,tonne,2022-23,1978450,12354618,true
+Phosphorite,tonne,2023-24,1557783,11309762,true
+Rock Salt,tonne,2021-22,286,712,false
+Rock Salt,tonne,2022-23,1002,4849,true
+Rock Salt,tonne,2023-24,0,0,true
+Selenite,tonne,2021-22,716,902,false
+Selenite,tonne,2022-23,327,442,true
+Selenite,tonne,2023-24,14136,19566,true
+Siliceous Earth,tonne,2021-22,33898,22837,false
+Siliceous Earth,tonne,2022-23,32070,17368,true
+Siliceous Earth,tonne,2023-24,58047,33720,true
+Sillimanite,tonne,2021-22,3432,8283,false
+Sillimanite,tonne,2022-23,1437,3757,true
+Sillimanite,tonne,2023-24,771,2616,true
+Vermiculite,tonne,2021-22,3060,3765,false
+Vermiculite,tonne,2022-23,2303,1610,true
+Vermiculite,tonne,2023-24,1129,781,true
+Wollastonite,tonne,2021-22,108335,149156,false
+Wollastonite,tonne,2022-23,110793,151761,true
+Wollastonite,tonne,2023-24,110596,156108,true
+Zinc Concentrate,tonne,2021-22,1594085,78727814,false
+Zinc Concentrate,tonne,2022-23,1670208,92306379,true
+Zinc Concentrate,tonne,2023-24,1710144,85654297,true
+Tin Concentrate,kg,2021-22,26301,32619,false
+Tin Concentrate,kg,2022-23,45431,51850,true
+Tin Concentrate,kg,2023-24,22335,17341,true
+Silver,kg,2021-22,647156,42126921,false
+Silver,kg,2022-23,713771,43814575,true
+Silver,kg,2023-24,745969,53559386,true
+Diamond,carat,2021-22,266,18051,false
+Diamond,carat,2022-23,388,61473,true
+Diamond,carat,2023-24,349,23859,true
+Sulphur,tonne,2021-22,880857,,false
+Sulphur,tonne,2022-23,925663,,true
+Sulphur,tonne,2023-24,976616,,true
+Iolite,kg,2021-22,27,191,false

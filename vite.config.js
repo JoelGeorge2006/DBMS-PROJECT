@@ -1,8 +1,8 @@
 import { defineConfig } from 'vite';
 import backendApp from './server.js';
 
-// Vite serves the project folder, which also holds minerva.db, server code and
-// import scripts. Only these paths reach the browser; everything else is a 404.
+// Vite serves the project folder, which also holds .env, the CA certificate, server
+// code and import scripts. Only these paths reach the browser; everything else is a 404.
 const PUBLIC_PATHS = [
   /^\/$/,
   /^\/(index|database|reports)\.html$/,

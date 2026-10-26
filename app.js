@@ -49,6 +49,12 @@ function initGeospatialMap() {
     zoom: DEFAULT_VIEW.zoom,
     minZoom: 4.5,
     maxZoom: 16,
+    // Smooth wheel/trackpad zoom: fractional levels, and more scrolling per level
+    // (the defaults jump a whole level per small trackpad movement)
+    zoomSnap: 0.25,
+    zoomDelta: 0.5,
+    wheelPxPerZoomLevel: 120,
+    wheelDebounceTime: 60,
     zoomControl: false, // We use custom Image 1 top-right floating controls
     attributionControl: false, // added below with the data sources' required credits
   });
@@ -172,8 +178,8 @@ if (btnInspectDb) {
 // ============================================================================
 function setupEventListeners() {
   // Top-right map controls
-  document.getElementById('ctrlZoomIn').addEventListener('click', () => map.zoomIn());
-  document.getElementById('ctrlZoomOut').addEventListener('click', () => map.zoomOut());
+  document.getElementById('ctrlZoomIn').addEventListener('click', () => map.zoomIn(1));
+  document.getElementById('ctrlZoomOut').addEventListener('click', () => map.zoomOut(1));
   document.getElementById('ctrlRecenter').addEventListener('click', () => {
     map.flyTo(DEFAULT_VIEW.center, DEFAULT_VIEW.zoom, { duration: 1.2 });
   });
@@ -188,6 +194,7 @@ function setupEventListeners() {
   document.getElementById('dockBtnMap').addEventListener('click', () => switchView('map', true));
   document.getElementById('dockBtnDatabase').addEventListener('click', () => switchView('database', true));
   document.getElementById('dockBtnLeases').addEventListener('click', () => switchView('leases', true));
+  document.getElementById('dockBtnSchema').addEventListener('click', () => switchView('schema', true));
 
   initSearch();
 }
@@ -221,6 +228,7 @@ function endSession(message, keepRoute = false) {
   // Nothing from the previous user stays on screen
   clearToast();
   clearSqlConsole();
+  closeSqlLog(true);
   document.querySelectorAll('dialog[open]').forEach((d) => d.close());
   closeNavPanels();
   renderUserMenu();
@@ -229,6 +237,8 @@ function endSession(message, keepRoute = false) {
 }
 
 async function signOut() {
+  // Stop polling first: the session is gone once the server answers
+  closeSqlLog(true);
   try {
     await apiService.logout();
   } catch {
@@ -257,6 +267,7 @@ const VIEWS = {
   map: { view: 'mapView', dock: 'dockBtnMap' },
   database: { view: 'databaseExplorerView', dock: 'dockBtnDatabase' },
   leases: { view: 'leasesView', dock: 'dockBtnLeases' },
+  schema: { view: 'schemaView', dock: 'dockBtnSchema' },
   auth: { view: 'authView', dock: null },
 };
 
@@ -304,6 +315,7 @@ function switchView(requested, updateHistory = true) {
   }
 
   currentView = viewName;
+  if (viewName === 'schema') openSchemaView();
 
   // A search typed in one view shouldn't silently filter the next one
   resetSearchForView();
@@ -1177,8 +1189,13 @@ async function renderEntityView(tabName) {
   const pill = document.getElementById('masterRecordsPill');
   if (!table || !thead || !tbody) return;
 
+  document.getElementById('datasetCaption')?.classList.toggle('hidden', !tabName.startsWith('ds-'));
   if (tabName === 'mines') {
     renderMinesTable(filterMines(searchQuery.toLowerCase()));
+    return;
+  }
+  if (tabName.startsWith('ds-')) {
+    await renderDataset(tabName.slice(3));
     return;
   }
 
@@ -1551,7 +1568,8 @@ async function executeSqlQuery(query, resultsContainer) {
             .map((col) => {
               const val = row[col];
               const isId = col.toLowerCase().includes('id');
-              const displayVal = val !== null && val !== undefined ? escapeHtml(String(val)) : '<span style="color:#A0988E">NULL</span>';
+              const text = val !== null && typeof val === 'object' ? JSON.stringify(val) : String(val);
+              const displayVal = val !== null && val !== undefined ? escapeHtml(text) : '<span style="color:#A0988E">NULL</span>';
               return `<td class="${isId ? 'td-mine-id' : ''}">${displayVal}</td>`;
             })
             .join('')}
@@ -1561,7 +1579,7 @@ async function executeSqlQuery(query, resultsContainer) {
       .join('');
 
     resultsContainer.innerHTML = `
-      <div class="sql-results-meta">Query executed in ${res.executionTimeMs}ms &bull; ${res.rowCount} rows returned</div>
+      <div class="sql-results-meta">Query executed in ${res.executionTimeMs}ms &bull; ${res.rowCount} rows returned${res.truncated ? ' (first 1,000 shown)' : ''}</div>
       <div style="overflow-x: auto; max-height: 280px;">
         <table class="db-master-table" style="font-size:0.75rem;">
           <thead><tr>${theadHtml}</tr></thead>
@@ -1784,6 +1802,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   initDatabaseExplorer();
   initAuthWorkstation();
   initUserMenu();
+  initSchemaView();
+  initSqlLog();
 
   // Already signed in? (the session cookie is httpOnly, so ask the server)
   try {
@@ -1794,7 +1814,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderUserMenu();
   }
 
-  // Direct links: #map, #database, #leases (#reports)
+  // Direct links: #map, #database, #leases (#reports), #schema
   const fromHash = resolveView(window.location.hash.replace('#', ''));
   const fromPath = resolveView(window.location.pathname.replace(/^\/|\.html$/g, ''));
   // Signed out with no deep link: just show the login (sign-in then goes to the database)
@@ -1812,6 +1832,12 @@ const ENTITY_SCOPE = {
   companies: 'Companies',
   leases: 'Leases',
   production: 'Production',
+  'ds-states': 'States',
+  'ds-commodities': 'Commodities',
+  'ds-auctions': 'Auctions',
+  'ds-royalty': 'Royalty rates',
+  'ds-reserves': 'Reserves',
+  'ds-national-production': 'National output',
 };
 
 const searchInput = () => document.getElementById('globalSearchInput');
@@ -2048,4 +2074,650 @@ function highlightMatches(container, q) {
     frag.append(text.slice(from));
     node.replaceWith(frag);
   });
+}
+
+// ============================================================================
+// 14. Public statistics tabs (database views over official publications)
+// ============================================================================
+const fmtNum = (v, digits = 0) => (v === null || v === undefined ? '—' : Number(v).toLocaleString('en-IN', { maximumFractionDigits: digits }));
+const fmtPct = (v) => (v === null || v === undefined ? '—' : `${v}%`);
+const fmtYes = (v) => (v ? 'Yes' : '—');
+
+// [column, label, 'num' for right-aligned numbers, formatter]
+const DATASETS = {
+  states: {
+    view: 'v_state_mining_profile',
+    source: 'Indian Bureau of Mines, Indian Mineral Industry at a Glance 2022-23 (Tables 3, 5 and 9). Mines on map: this database.',
+    columns: [
+      ['value_rank', 'Rank', 'num'],
+      ['state_name', 'State'],
+      ['production_value_2022_23_crore', 'Production value 2022-23 (₹ cr)', 'num', fmtNum],
+      ['share_of_india_pct', 'Share of India', 'num', fmtPct],
+      ['lease_count', 'Mining leases', 'num', fmtNum],
+      ['lease_area_ha', 'Lease area (ha)', 'num', fmtNum],
+      ['reporting_mines_2022_23', 'Reporting mines', 'num', fmtNum],
+      ['mines_on_map', 'Mines on map', 'num', fmtNum],
+      ['critical_blocks_auctioned', 'Critical blocks auctioned', 'num', fmtNum],
+    ],
+  },
+  commodities: {
+    view: 'v_commodity_overview',
+    source: 'Economic Survey 2023-24 (production value), MMDR Act Second Schedule (royalty), IBM 2022-23 (leases), PIB (auctions). Critical: Ministry of Mines list (2023).',
+    columns: [
+      ['commodity_name', 'Commodity'],
+      ['category', 'Category'],
+      ['is_critical', 'Critical', '', fmtYes],
+      ['production_value_2023_24_crore', 'Production value 2023-24 (₹ cr)', 'num', (v) => fmtNum(v, 1)],
+      ['current_royalty', 'Current royalty rate'],
+      ['mining_leases', 'Mining leases', 'num', fmtNum],
+      ['mines_on_map', 'Mines on map', 'num', fmtNum],
+      ['blocks_auctioned', 'Blocks auctioned', 'num', fmtNum],
+    ],
+  },
+  auctions: {
+    view: 'v_auction_results',
+    source: 'Press Information Bureau: Tranche IV (7 Nov 2024) and Tranche V (27 May 2025) results. A preferred bidder still has conditions to meet before the licence is granted.',
+    columns: [
+      ['block_name', 'Block'],
+      ['state', 'State'],
+      ['minerals', 'Minerals'],
+      ['preferred_bidder', 'Preferred bidder'],
+      ['final_price_offer_pct', 'Final price offer', 'num', fmtPct],
+      ['bidder_type', 'Bidder type'],
+      ['concession_type', 'Type', '', (v) => (v === 'ML' ? 'Mining lease' : 'Composite licence')],
+      ['tranche', 'Tranche', 'num'],
+      ['announced_on', 'Announced'],
+    ],
+  },
+  royalty: {
+    view: 'royalty_rate',
+    source: 'MMDR Act, 1957, Second Schedule: 2009 and 2015 rates as compiled by CSEP (2020), Annex-B; 2024 critical-mineral rates from PIB (29 Feb 2024).',
+    columns: [
+      ['schedule_year', 'Schedule', 'num'],
+      ['commodity', 'Commodity'],
+      ['grade', 'Grade'],
+      ['rate_text', 'Rate'],
+    ],
+  },
+  reserves: {
+    view: 'mineral_reserve',
+    source: 'National Mineral Inventory as on 1 April 2020 (IBM, Table 1). Blank: none estimated in that category.',
+    columns: [
+      ['commodity_name', 'Commodity'],
+      ['form', 'Form'],
+      ['unit', 'Unit'],
+      ['reserves', 'Reserves', 'num', fmtNum],
+      ['remaining_resources', 'Remaining resources', 'num', fmtNum],
+      ['total_resources', 'Total resources', 'num', fmtNum],
+    ],
+  },
+  'national-production': {
+    view: 'national_production',
+    source: 'Economic Survey 2023-24, Statistical Appendix, Table 1.32 (major minerals under MCDR). 2022-23 and 2023-24 are provisional.',
+    columns: [
+      ['fiscal_year', 'Year'],
+      ['product_name', 'Product'],
+      ['commodity_name', 'Commodity'],
+      ['quantity', 'Quantity', 'num', fmtNum],
+      ['unit', 'Unit'],
+      ['value_rs_thousand', 'Value (₹ cr)', 'num', (v) => (v === null ? '—' : fmtNum(v / 10000, 1))],
+      ['is_provisional', 'Provisional', '', fmtYes],
+    ],
+  },
+};
+
+async function renderDataset(name) {
+  const cfg = DATASETS[name];
+  const thead = document.querySelector('#masterGridTable thead');
+  const tbody = document.getElementById('masterTableTbody');
+  const pill = document.getElementById('masterRecordsPill');
+  const caption = document.getElementById('datasetCaption');
+  if (!cfg || !thead || !tbody) return;
+
+  thead.innerHTML = `<tr>${cfg.columns.map(([, label, cls]) => `<th class="${cls === 'num' ? 'th-num' : ''}">${escapeHtml(label.toUpperCase())}</th>`).join('')}</tr>`;
+  tbody.innerHTML = `<tr><td colspan="${cfg.columns.length}" class="td-loading">Loading ${escapeHtml(name)}…</td></tr>`;
+  if (caption) caption.innerHTML = `Source: ${escapeHtml(cfg.source)} Read through <code>${cfg.view}</code>.`;
+
+  try {
+    const res = await apiService.getDataset(name);
+    if (activeEntityTab !== `ds-${name}`) return; // another tab was opened meanwhile
+    if (pill) pill.textContent = `${res.count} rows`;
+    tbody.innerHTML = res.data
+      .map((row) => `<tr>${cfg.columns
+        .map(([key, , cls, fmt]) => {
+          const v = row[key];
+          const text = fmt ? fmt(v) : v === null || v === undefined || v === '' ? '—' : v;
+          return `<td class="${cls === 'num' ? 'td-num' : ''}">${escapeHtml(String(text))}</td>`;
+        })
+        .join('')}</tr>`)
+      .join('');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="${cfg.columns.length}" class="td-loading td-error">Could not load ${escapeHtml(name)}: ${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+// ============================================================================
+// 15. Schema view: ER diagram and database objects, read from the live catalog
+// ============================================================================
+// Layout columns (left to right) and the group each table belongs to
+const ER_COLUMNS = [
+  ['production', 'mine_mineral', 'mine', 'mine_alias', 'mine_media'],
+  ['mineral', 'lease', 'location'],
+  ['commodity', 'mining_company', 'state', 'data_source'],
+  ['mineral_product', 'national_production', 'mineral_reserve', 'royalty_rate', 'commodity_mining_lease_stat', 'block_auction_commodity'],
+  ['block_auction', 'state_production_value', 'state_mining_lease_stat', 'state_reporting_mines'],
+  ['app_user', 'user_session', 'pin_reset', 'audit_log', 'row_change_log'],
+];
+const ER_GROUP = {
+  ref: ['commodity', 'mining_company', 'state', 'data_source', 'location'],
+  core: ['production', 'mine_mineral', 'mine', 'mine_alias', 'mine_media', 'mineral', 'lease'],
+  system: ['app_user', 'user_session', 'pin_reset', 'audit_log', 'row_change_log'],
+};
+const erGroupOf = (name) => Object.keys(ER_GROUP).find((g) => ER_GROUP[g].includes(name)) || 'stats';
+const ER = { W: 236, HEAD: 30, ROW: 17, PAD: 8, COL_GAP: 120, ROW_GAP: 30 };
+
+const schemaState = { schema: null, objects: null, loading: null, layout: new Map(), selected: null, view: { x: 0, y: 0, k: 1 } };
+
+function initSchemaView() {
+  document.querySelectorAll('.schema-tab').forEach((tab) => {
+    tab.addEventListener('click', () => switchSchemaTab(tab.dataset.schemaTab));
+  });
+  document.getElementById('erZoomIn')?.addEventListener('click', () => zoomEr(1.25));
+  document.getElementById('erZoomOut')?.addEventListener('click', () => zoomEr(0.8));
+  document.getElementById('erFit')?.addEventListener('click', fitEr);
+
+  const canvas = document.getElementById('erCanvas');
+  if (canvas) {
+    // Drag to pan; a press that barely moves is a click on a table
+    let drag = null;
+    canvas.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0 || e.target.closest('.er-zoom')) return;
+      drag = { x: e.clientX, y: e.clientY, vx: schemaState.view.x, vy: schemaState.view.y, moved: false };
+      canvas.setPointerCapture(e.pointerId);
+    });
+    canvas.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      const dx = e.clientX - drag.x;
+      const dy = e.clientY - drag.y;
+      if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
+      if (drag.moved) {
+        schemaState.view.x = drag.vx + dx;
+        schemaState.view.y = drag.vy + dy;
+        applyErView();
+        canvas.classList.add('panning');
+      }
+    });
+    canvas.addEventListener('pointerup', (e) => {
+      if (drag && !drag.moved) {
+        const hit = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-er-table]');
+        selectErTable(hit ? hit.dataset.erTable : null);
+      }
+      drag = null;
+      canvas.classList.remove('panning');
+    });
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      zoomEr(Math.exp(-e.deltaY * 0.0015), e.clientX - rect.left, e.clientY - rect.top);
+    }, { passive: false });
+  }
+
+  // Links and buttons inside the detail panes
+  document.getElementById('erDetail')?.addEventListener('click', (e) => {
+    const link = e.target.closest('[data-goto-table]');
+    if (link) {
+      selectErTable(link.dataset.gotoTable, true);
+      return;
+    }
+    const browse = e.target.closest('[data-browse]');
+    if (browse) browseRelation(browse.dataset.browse, document.getElementById('erRows'));
+  });
+  document.getElementById('viewList')?.addEventListener('click', (e) => {
+    const item = e.target.closest('[data-view]');
+    if (item) showViewObject(item.dataset.view);
+  });
+  document.getElementById('viewDetail')?.addEventListener('click', (e) => {
+    const run = e.target.closest('[data-browse]');
+    if (run) browseRelation(run.dataset.browse, document.getElementById('viewRows'));
+  });
+  document.getElementById('triggerList')?.addEventListener('click', (e) => {
+    const item = e.target.closest('[data-trigger]');
+    if (item) showTriggerObject(Number(item.dataset.trigger));
+  });
+}
+
+function switchSchemaTab(name) {
+  document.querySelectorAll('.schema-tab').forEach((t) => {
+    const on = t.dataset.schemaTab === name;
+    t.classList.toggle('active', on);
+    t.setAttribute('aria-selected', String(on));
+  });
+  document.querySelectorAll('[data-schema-pane]').forEach((p) => p.classList.toggle('hidden', p.dataset.schemaPane !== name));
+}
+
+/** Load the catalog once per page (the first time the view opens) */
+async function openSchemaView() {
+  if (schemaState.schema || schemaState.loading) return;
+  const sub = document.getElementById('schemaSub');
+  schemaState.loading = Promise.all([apiService.getSchema(), apiService.getSchemaObjects()]);
+  try {
+    const [schema, objects] = await schemaState.loading;
+    schemaState.schema = schema;
+    schemaState.objects = objects;
+  } catch (err) {
+    if (sub) sub.textContent = `Could not read the schema: ${err.message}`;
+    schemaState.loading = null;
+    return;
+  }
+  const { database, relations, constraints, enums } = schemaState.schema;
+  const tables = relations.filter((r) => r.kind === 'table');
+  const fks = constraints.filter((c) => c.type === 'f');
+  if (sub) {
+    sub.textContent = `${database.version} on Supabase · schema ${database.schema} · ${tables.length} tables, ${fks.length} foreign keys, `
+      + `${relations.length - tables.length} views, ${schemaState.objects.triggers.length} triggers, ${schemaState.objects.indexes.length} indexes, `
+      + `${enums.length} enum types · ${database.schemaSize} of data`;
+  }
+  const footer = document.getElementById('footerDb');
+  if (footer) footer.textContent = `${database.version} • Supabase • schema ${database.schema}`;
+  drawEr();
+  fitEr();
+  renderViewObjects();
+  renderTriggerObjects();
+  renderIndexObjects();
+  renderTypeObjects();
+}
+
+const keysOf = (table) => {
+  const cons = schemaState.schema.constraints.filter((c) => c.table_name === table);
+  const pk = new Set(cons.filter((c) => c.type === 'p').flatMap((c) => c.columns));
+  const fk = new Set(cons.filter((c) => c.type === 'f').flatMap((c) => c.columns));
+  return { pk, fk };
+};
+
+function drawEr() {
+  const svg = document.getElementById('erSvg');
+  const { relations, constraints } = schemaState.schema;
+  const byName = new Map(relations.filter((r) => r.kind === 'table').map((r) => [r.name, r]));
+  // Tables missing from the layout (added later) go in an extra column
+  const placed = new Set(ER_COLUMNS.flat());
+  const columns = [...ER_COLUMNS, [...byName.keys()].filter((n) => !placed.has(n))].filter((c) => c.length);
+
+  schemaState.layout.clear();
+  columns.forEach((names, ci) => {
+    let y = 0;
+    names.filter((n) => byName.has(n)).forEach((name) => {
+      const t = byName.get(name);
+      const h = ER.HEAD + t.columns.length * ER.ROW + ER.PAD;
+      const colY = new Map(t.columns.map((c, i) => [c.name, y + ER.HEAD + i * ER.ROW + ER.ROW / 2 + 2]));
+      schemaState.layout.set(name, { x: ci * (ER.W + ER.COL_GAP), y, w: ER.W, h, colY });
+      y += h + ER.ROW_GAP;
+    });
+  });
+
+  const edges = constraints.filter((c) => c.type === 'f' && schemaState.layout.has(c.table_name) && schemaState.layout.has(c.ref_table))
+    .map((c) => {
+      const a = schemaState.layout.get(c.table_name);
+      const b = schemaState.layout.get(c.ref_table);
+      const y1 = a.colY.get(c.columns[0]);
+      const y2 = b.colY.get(c.ref_columns[0]);
+      let x1;
+      let x2;
+      let bend;
+      if (a.x === b.x) {
+        // Same column: loop out on the right
+        x1 = a.x + a.w;
+        x2 = b.x + b.w;
+        bend = `C ${x1 + 60} ${y1}, ${x2 + 60} ${y2}`;
+      } else if (b.x > a.x) {
+        x1 = a.x + a.w;
+        x2 = b.x;
+        const mid = (x1 + x2) / 2;
+        bend = `C ${mid} ${y1}, ${mid} ${y2}`;
+      } else {
+        x1 = a.x;
+        x2 = b.x + b.w;
+        const mid = (x1 + x2) / 2;
+        bend = `C ${mid} ${y1}, ${mid} ${y2}`;
+      }
+      const title = `${c.table_name}.${c.columns.join(', ')} → ${c.ref_table}.${c.ref_columns.join(', ')} (ON DELETE ${c.on_delete})`;
+      return `<path class="er-edge${c.columns.includes('source_id') ? ' er-edge-source' : ''}" data-from="${c.table_name}" data-to="${c.ref_table}"
+        d="M ${x1} ${y1} ${bend} ${x2} ${y2}" marker-start="url(#erMany)" marker-end="url(#erOne)"><title>${escapeHtml(title)}</title></path>`;
+    })
+    .join('');
+
+  const boxes = [...schemaState.layout.entries()].map(([name, L]) => {
+    const t = byName.get(name);
+    const { pk, fk } = keysOf(name);
+    const rows = t.columns.map((col, i) => {
+      const y = ER.HEAD + i * ER.ROW + 13;
+      const key = pk.has(col.name) ? '<tspan class="er-pk">PK</tspan>' : fk.has(col.name) ? '<tspan class="er-fk">FK</tspan>' : '';
+      const type = col.type.replace('character varying', 'varchar').replace('timestamp with time zone', 'timestamptz').replace('double precision', 'float8');
+      return `<text x="8" y="${y}" class="er-col${pk.has(col.name) ? ' is-pk' : ''}">${key ? `${key} ` : ''}${escapeHtml(col.name)}</text>
+        <text x="${ER.W - 8}" y="${y}" class="er-type">${escapeHtml(type)}</text>`;
+    }).join('');
+    // The row count only goes in the header when the name leaves room for it
+    const count = t.rows === null || name.length > 22 ? '' : `${t.rows.toLocaleString('en-IN')} rows`;
+    return `<g class="er-table grp-${erGroupOf(name)}" data-er-table="${name}" transform="translate(${L.x}, ${L.y})">
+      <title>${escapeHtml(`${name}${t.rows === null ? '' : ` (${t.rows} rows)`}: ${t.comment || ''}`)}</title>
+      <rect class="er-box" width="${L.w}" height="${L.h}" rx="8"/>
+      <path class="er-head" d="M0 8 a8 8 0 0 1 8 -8 h${L.w - 16} a8 8 0 0 1 8 8 v${ER.HEAD - 8} h-${L.w} z"/>
+      <text x="10" y="19" class="er-name">${escapeHtml(name)}</text>
+      <text x="${L.w - 10}" y="19" class="er-count">${count}</text>
+      ${rows}
+    </g>`;
+  }).join('');
+
+  svg.innerHTML = `<defs>
+      <marker id="erMany" viewBox="0 0 12 12" refX="1" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse">
+        <path d="M12 6 L1 1 M12 6 L1 6 M12 6 L1 11" class="er-marker"/></marker>
+      <marker id="erOne" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto">
+        <path d="M6 1 L6 11 M9 1 L9 11" class="er-marker"/></marker>
+    </defs>
+    <g id="erRoot"><g class="er-edges">${edges}</g>${boxes}</g>`;
+  applyErView();
+  if (schemaState.selected) highlightEr(schemaState.selected);
+}
+
+function applyErView() {
+  const { x, y, k } = schemaState.view;
+  document.getElementById('erRoot')?.setAttribute('transform', `translate(${x}, ${y}) scale(${k})`);
+}
+
+function zoomEr(factor, cx, cy) {
+  const canvas = document.getElementById('erCanvas');
+  if (!canvas) return;
+  const v = schemaState.view;
+  const px = cx ?? canvas.clientWidth / 2;
+  const py = cy ?? canvas.clientHeight / 2;
+  const k = Math.min(2.5, Math.max(0.15, v.k * factor));
+  // Keep the point under the cursor fixed
+  v.x = px - ((px - v.x) * k) / v.k;
+  v.y = py - ((py - v.y) * k) / v.k;
+  v.k = k;
+  applyErView();
+}
+
+function fitEr(names = null) {
+  const canvas = document.getElementById('erCanvas');
+  const boxes = [...schemaState.layout.entries()].filter(([n]) => !names || names.includes(n)).map(([, b]) => b);
+  if (!canvas || !boxes.length) return;
+  const minX = Math.min(...boxes.map((b) => b.x)) - 40;
+  const minY = Math.min(...boxes.map((b) => b.y)) - 30;
+  const maxX = Math.max(...boxes.map((b) => b.x + b.w)) + 80;
+  const maxY = Math.max(...boxes.map((b) => b.y + b.h)) + 30;
+  const k = Math.min(canvas.clientWidth / (maxX - minX), canvas.clientHeight / (maxY - minY), names ? 1.1 : 1);
+  schemaState.view = { k, x: (canvas.clientWidth - (maxX - minX) * k) / 2 - minX * k, y: (canvas.clientHeight - (maxY - minY) * k) / 2 - minY * k };
+  applyErView();
+}
+
+/** The selected table, its relationships and its neighbours stand out; the rest fades */
+function highlightEr(name) {
+  const svg = document.getElementById('erSvg');
+  if (!svg) return;
+  const near = new Set(name ? [name] : []);
+  svg.querySelectorAll('.er-edge').forEach((e) => {
+    const on = name && (e.dataset.from === name || e.dataset.to === name);
+    e.classList.toggle('on', Boolean(on));
+    if (on) {
+      near.add(e.dataset.from);
+      near.add(e.dataset.to);
+    }
+  });
+  svg.classList.toggle('has-selection', Boolean(name));
+  svg.querySelectorAll('.er-table').forEach((g) => {
+    g.classList.toggle('selected', g.dataset.erTable === name);
+    g.classList.toggle('near', near.has(g.dataset.erTable));
+  });
+}
+
+function selectErTable(name, focus = false) {
+  schemaState.selected = name;
+  highlightEr(name);
+  const panel = document.getElementById('erDetail');
+  if (!panel) return;
+  if (!name) {
+    panel.innerHTML = '<p class="er-hint">Click a table to see its columns, keys, relationships and rows. Drag to move the diagram, scroll to zoom.</p>';
+    return;
+  }
+  if (focus) {
+    const near = [name, ...schemaState.schema.constraints.filter((c) => c.type === 'f' && (c.table_name === name || c.ref_table === name))
+      .flatMap((c) => [c.table_name, c.ref_table])];
+    fitEr([...new Set(near)]);
+  }
+  const t = schemaState.schema.relations.find((r) => r.name === name);
+  const cons = schemaState.schema.constraints.filter((c) => c.table_name === name);
+  const { pk, fk } = keysOf(name);
+  const refs = cons.filter((c) => c.type === 'f');
+  const referencedBy = schemaState.schema.constraints.filter((c) => c.type === 'f' && c.ref_table === name);
+  const checks = cons.filter((c) => c.type === 'c' || c.type === 'u');
+  const triggers = schemaState.objects.triggers.filter((tr) => tr.table_name === name);
+  const indexes = schemaState.objects.indexes.filter((ix) => ix.table_name === name);
+  const tableLink = (n) => `<button type="button" class="er-link" data-goto-table="${n}">${escapeHtml(n)}</button>`;
+  const canBrowse = !t.adminOnly || can('sql');
+
+  panel.innerHTML = `
+    <h2 class="er-detail-name">${escapeHtml(name)}</h2>
+    <p class="er-detail-meta">table · ${t.rows === null ? '' : `${t.rows.toLocaleString('en-IN')} rows · `}${escapeHtml(erGroupLabel(erGroupOf(name)))}</p>
+    ${t.comment ? `<p class="er-detail-comment">${escapeHtml(t.comment)}</p>` : ''}
+    <h3>Columns</h3>
+    <table class="er-cols">
+      ${t.columns.map((c) => `<tr>
+        <td class="er-cols-key">${pk.has(c.name) ? '<b class="er-key pk">PK</b>' : ''}${fk.has(c.name) ? '<b class="er-key fk">FK</b>' : ''}</td>
+        <td class="er-cols-name" title="${escapeHtml(c.comment || '')}">${escapeHtml(c.name)}</td>
+        <td class="er-cols-type">${escapeHtml(c.type)}${c.nullable ? '' : ' <span class="er-nn">NOT NULL</span>'}${c.identity ? ' <span class="er-nn">IDENTITY</span>' : ''}</td>
+      </tr>`).join('')}
+    </table>
+    ${refs.length ? `<h3>References</h3><ul class="er-rel">${refs.map((c) => `<li>${escapeHtml(c.columns.join(', '))} → ${tableLink(c.ref_table)}.${escapeHtml(c.ref_columns.join(', '))} <span class="er-ondelete">on delete ${escapeHtml(c.on_delete.toLowerCase())}</span></li>`).join('')}</ul>` : ''}
+    ${referencedBy.length ? `<h3>Referenced by</h3><ul class="er-rel">${referencedBy.map((c) => `<li>${tableLink(c.table_name)}.${escapeHtml(c.columns.join(', '))} <span class="er-ondelete">on delete ${escapeHtml(c.on_delete.toLowerCase())}</span></li>`).join('')}</ul>` : ''}
+    ${checks.length ? `<h3>Constraints</h3><ul class="er-code-list">${checks.map((c) => `<li><span class="er-con-name">${escapeHtml(c.name)}</span><code>${highlightSql(c.definition)}</code></li>`).join('')}</ul>` : ''}
+    ${triggers.length ? `<h3>Triggers</h3><ul class="er-code-list">${triggers.map((tr) => `<li><code>${highlightSql(tr.definition)}</code></li>`).join('')}</ul>` : ''}
+    ${indexes.length ? `<h3>Indexes</h3><ul class="er-code-list">${indexes.map((ix) => `<li><code>${highlightSql(ix.definition)}</code></li>`).join('')}</ul>` : ''}
+    <div class="er-browse">
+      ${canBrowse ? `<button type="button" class="btn-schema" data-browse="${name}">Show rows</button>` : '<p class="er-hint">Only an administrator can browse account tables.</p>'}
+    </div>
+    <div id="erRows"></div>`;
+}
+
+const erGroupLabel = (g) => ({ ref: 'Reference', core: 'Mines & leases', stats: 'Public statistics', system: 'Accounts & audit' })[g];
+
+/** First rows of a table or view, with the SQL that fetched them */
+async function browseRelation(name, box) {
+  if (!box) return;
+  box.innerHTML = '<p class="er-hint">Running…</p>';
+  try {
+    const res = await apiService.getRelationRows(name, 50);
+    const cols = res.rows.length ? Object.keys(res.rows[0]) : [];
+    const cell = (v) => {
+      if (v === null || v === undefined) return '<span class="null">NULL</span>';
+      const text = typeof v === 'object' ? JSON.stringify(v) : String(v);
+      return escapeHtml(text.length > 120 ? `${text.slice(0, 117)}…` : text);
+    };
+    box.innerHTML = `
+      <p class="rows-meta"><code>${highlightSql(res.sql)}</code> · ${res.rows.length} rows · ${res.ms} ms</p>
+      ${res.rows.length ? `<div class="rows-wrap"><table class="rows-table">
+        <thead><tr>${cols.map((c) => `<th>${escapeHtml(c)}</th>`).join('')}</tr></thead>
+        <tbody>${res.rows.map((r) => `<tr>${cols.map((c) => `<td>${cell(r[c])}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table></div>` : '<p class="er-hint">No rows.</p>'}`;
+  } catch (err) {
+    box.innerHTML = `<p class="er-hint td-error">${escapeHtml(err.message)}</p>`;
+  }
+}
+
+function renderViewObjects() {
+  const list = document.getElementById('viewList');
+  if (!list) return;
+  list.innerHTML = schemaState.objects.views
+    .map((v) => `<li><button type="button" data-view="${v.name}"><b>${escapeHtml(v.name)}</b><span>${escapeHtml(v.comment || '')}</span></button></li>`)
+    .join('');
+  if (schemaState.objects.views.length) showViewObject(schemaState.objects.views[0].name);
+}
+
+function showViewObject(name) {
+  const v = schemaState.objects.views.find((x) => x.name === name);
+  const box = document.getElementById('viewDetail');
+  if (!v || !box) return;
+  document.querySelectorAll('#viewList [data-view]').forEach((b) => b.classList.toggle('active', b.dataset.view === name));
+  box.innerHTML = `
+    <h2 class="er-detail-name">${escapeHtml(v.name)}</h2>
+    ${v.comment ? `<p class="er-detail-comment">${escapeHtml(v.comment)}</p>` : ''}
+    <pre class="sql-block">CREATE VIEW ${escapeHtml(v.name)} AS\n${highlightSql(v.definition.trim())}</pre>
+    <button type="button" class="btn-schema" data-browse="${v.name}">Run view</button>
+    <div id="viewRows"></div>`;
+}
+
+function renderTriggerObjects() {
+  const list = document.getElementById('triggerList');
+  if (!list) return;
+  list.innerHTML = schemaState.objects.triggers
+    .map((t, i) => `<li><button type="button" data-trigger="${i}"><b>${escapeHtml(t.name)}</b><span>on ${escapeHtml(t.table_name)} · ${escapeHtml(t.function_name)}()</span></button></li>`)
+    .join('');
+  if (schemaState.objects.triggers.length) showTriggerObject(0);
+}
+
+function showTriggerObject(i) {
+  const t = schemaState.objects.triggers[i];
+  const box = document.getElementById('triggerDetail');
+  if (!t || !box) return;
+  document.querySelectorAll('#triggerList [data-trigger]').forEach((b) => b.classList.toggle('active', Number(b.dataset.trigger) === i));
+  const sharing = schemaState.objects.triggers.filter((x) => x.function_name === t.function_name).map((x) => x.table_name);
+  box.innerHTML = `
+    <h2 class="er-detail-name">${escapeHtml(t.name)} <span class="er-detail-meta">on ${escapeHtml(t.table_name)}</span></h2>
+    <pre class="sql-block">${highlightSql(t.definition)};</pre>
+    <h3>Function ${escapeHtml(t.function_name)}()${sharing.length > 1 ? ` <span class="er-detail-meta">used on ${sharing.map(escapeHtml).join(', ')}</span>` : ''}</h3>
+    <pre class="sql-block">${highlightSql(t.function_definition.trim())}</pre>`;
+}
+
+function renderIndexObjects() {
+  const box = document.getElementById('indexTable');
+  if (!box) return;
+  box.innerHTML = `<table class="rows-table obj-table">
+    <thead><tr><th>Index</th><th>Table</th><th>Definition</th><th class="th-num">Size</th><th class="th-num">Scans</th></tr></thead>
+    <tbody>${schemaState.objects.indexes.map((ix) => `<tr>
+      <td><b>${escapeHtml(ix.name)}</b></td>
+      <td>${escapeHtml(ix.table_name)}</td>
+      <td><code>${highlightSql(ix.definition.replace(/^CREATE (UNIQUE )?INDEX \S+ ON minerva\.\S+ /, (m, u) => (u ? 'UNIQUE ' : '')))}</code></td>
+      <td class="td-num">${escapeHtml(ix.size)}</td>
+      <td class="td-num">${ix.scans === null ? '—' : ix.scans.toLocaleString('en-IN')}</td>
+    </tr>`).join('')}</tbody></table>
+    <p class="er-hint">Scans: how many times PostgreSQL has used each index since its statistics were last reset.</p>`;
+}
+
+function renderTypeObjects() {
+  const box = document.getElementById('typeTable');
+  if (!box) return;
+  const usedBy = (type) => schemaState.schema.relations
+    .flatMap((r) => r.columns.filter((c) => c.type === type).map((c) => `${r.name}.${c.name}`));
+  box.innerHTML = `<table class="rows-table obj-table">
+    <thead><tr><th>Enum type</th><th>Values</th><th>Used by</th></tr></thead>
+    <tbody>${schemaState.schema.enums.map((e) => `<tr>
+      <td><b>${escapeHtml(e.name)}</b></td>
+      <td>${e.labels.map((l) => `<span class="enum-chip">${escapeHtml(l)}</span>`).join(' ')}</td>
+      <td>${usedBy(e.name).map((u) => `<code>${escapeHtml(u)}</code>`).join(', ')}</td>
+    </tr>`).join('')}</tbody></table>`;
+}
+
+const SQL_KEYWORDS = 'SELECT|FROM|WHERE|JOIN|LEFT|INNER|ON|AND|OR|NOT|AS|GROUP|BY|ORDER|HAVING|CASE|WHEN|THEN|ELSE|END|WITH|CREATE|OR REPLACE|VIEW|TRIGGER|FUNCTION|BEFORE|AFTER|INSERT|UPDATE|DELETE|OF|FOR|EACH|ROW|EXECUTE|RETURNS|LANGUAGE|BEGIN|RETURN|IF|EXISTS|NULL|IS|INTO|VALUES|DECLARE|INDEX|USING|UNIQUE|OVER|DESC|ASC|LIMIT|OFFSET|DISTINCT|PRIMARY|FOREIGN|KEY|REFERENCES|CHECK|BETWEEN|IN|RAISE|EXCEPTION|COALESCE|NULLS|LAST|FIRST|TRUE|FALSE|INTERVAL|DATE|PERFORM|ELSIF|STABLE|IMMUTABLE|VOLATILE|SET';
+const SQL_TOKEN = new RegExp(`(&#39;(?:[^&]|&(?!#39;))*?&#39;)|(--[^\\n]*)|\\b(${SQL_KEYWORDS})\\b`, 'gi');
+
+/** Escaped SQL with keywords, strings and comments marked for colouring */
+function highlightSql(sql) {
+  return escapeHtml(sql).replace(SQL_TOKEN, (m, str, comment, kw) => {
+    if (str) return `<span class="sql-str">${str}</span>`;
+    if (comment) return `<span class="sql-com">${comment}</span>`;
+    return `<span class="sql-kw">${kw}</span>`;
+  });
+}
+
+// ============================================================================
+// 16. SQL log drawer: the statements the backend runs, polled while open
+// ============================================================================
+const sqlLog = { open: false, paused: false, after: 0, timer: null, entries: [] };
+const SQL_LOG_KEEP = 300;
+const isSessionCheck = (e) => /^SELECT s\.token_hash|^UPDATE user_session SET last_seen/.test(e.sql);
+
+function initSqlLog() {
+  document.getElementById('navSqlLogBtn')?.addEventListener('click', () => (sqlLog.open ? closeSqlLog() : openSqlLog()));
+  document.getElementById('sqlLogClose')?.addEventListener('click', () => closeSqlLog());
+  document.getElementById('sqlLogClear')?.addEventListener('click', () => {
+    sqlLog.entries = [];
+    renderSqlLog();
+  });
+  document.getElementById('sqlLogPause')?.addEventListener('click', (e) => {
+    sqlLog.paused = !sqlLog.paused;
+    e.currentTarget.textContent = sqlLog.paused ? 'Resume' : 'Pause';
+    if (!sqlLog.paused) pollSqlLog();
+  });
+  document.getElementById('sqlLogHideAuth')?.addEventListener('change', renderSqlLog);
+  document.getElementById('sqlLogList')?.addEventListener('click', (e) => {
+    e.target.closest('.sql-log-item')?.classList.toggle('expanded');
+  });
+}
+
+function openSqlLog() {
+  if (!currentUser) return;
+  sqlLog.open = true;
+  document.getElementById('sqlLogDrawer')?.classList.remove('hidden');
+  document.getElementById('navSqlLogBtn')?.setAttribute('aria-expanded', 'true');
+  document.body.classList.add('sql-log-open');
+  renderSqlLog();
+  pollSqlLog();
+}
+
+/** reset: forget the entries too (on sign-out) */
+function closeSqlLog(reset = false) {
+  sqlLog.open = false;
+  clearTimeout(sqlLog.timer);
+  document.getElementById('sqlLogDrawer')?.classList.add('hidden');
+  document.getElementById('navSqlLogBtn')?.setAttribute('aria-expanded', 'false');
+  document.body.classList.remove('sql-log-open');
+  if (reset) {
+    sqlLog.entries = [];
+    sqlLog.after = 0;
+    renderSqlLog();
+  }
+}
+
+async function pollSqlLog() {
+  clearTimeout(sqlLog.timer);
+  if (!sqlLog.open || sqlLog.paused || !currentUser) return;
+  try {
+    const res = await apiService.getSqlLog(sqlLog.after);
+    if (res.entries.length) {
+      sqlLog.after = res.entries[res.entries.length - 1].id;
+      sqlLog.entries = [...res.entries.reverse(), ...sqlLog.entries].slice(0, SQL_LOG_KEEP);
+      renderSqlLog();
+    }
+  } catch {
+    // A 401 is handled globally; otherwise try again on the next tick
+  }
+  sqlLog.timer = setTimeout(pollSqlLog, 1500);
+}
+
+function renderSqlLog() {
+  const list = document.getElementById('sqlLogList');
+  const count = document.getElementById('navSqlLogCount');
+  const hideAuth = document.getElementById('sqlLogHideAuth')?.checked;
+  const shown = sqlLog.entries.filter((e) => !(hideAuth && isSessionCheck(e)));
+  if (count) {
+    count.textContent = sqlLog.entries.length;
+    count.classList.toggle('hidden', !sqlLog.open || sqlLog.entries.length === 0);
+  }
+  if (!list) return;
+  if (!shown.length) {
+    list.innerHTML = '<li class="sql-log-empty">No queries yet. Use the app and the SQL it runs appears here.</li>';
+    return;
+  }
+  list.innerHTML = shown
+    .map((e) => {
+      const time = new Date(e.at).toLocaleTimeString([], { hour12: false }) + `.${String(new Date(e.at).getMilliseconds()).padStart(3, '0')}`;
+      const params = e.params.length ? `<span class="sql-log-params">[${e.params.map((p) => escapeHtml(JSON.stringify(p))).join(', ')}]</span>` : '';
+      return `<li class="sql-log-item${e.error ? ' has-error' : ''}" title="Click to expand">
+        <span class="sql-log-time">${time}</span>
+        <span class="sql-log-ms${e.ms > 200 ? ' slow' : ''}">${e.ms} ms</span>
+        <span class="sql-log-rows">${e.error ? 'error' : `${e.rows} row${e.rows === 1 ? '' : 's'}`}</span>
+        <span class="sql-log-route">${escapeHtml(e.route)}${e.user ? ` · ${escapeHtml(e.user)}` : ''}</span>
+        <code class="sql-log-sql">${highlightSql(e.sql)} ${params}${e.error ? `<span class="sql-log-error">${escapeHtml(e.error)}</span>` : ''}</code>
+      </li>`;
+    })
+    .join('');
 }

@@ -65,6 +65,11 @@
     </button>
 
     <div class="nav-right-actions">
+      <button type="button" class="nav-sqllog-btn" id="navSqlLogBtn" aria-expanded="false" aria-controls="sqlLogDrawer" title="Show the SQL the backend runs">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"></ellipse><path d="M4 5v6c0 1.66 3.58 3 8 3s8-1.34 8-3V5"></path><path d="M4 11v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"></path></svg>
+        <span>SQL log</span>
+        <span class="nav-sqllog-count hidden" id="navSqlLogCount">0</span>
+      </button>
       <div class="nav-user">
         <button type="button" class="nav-user-btn" id="navUserBtn" aria-haspopup="true" aria-expanded="false" title="Account">
           <span id="navUserInitials"></span>
@@ -108,6 +113,17 @@
           <line x1="8" y1="2" x2="8" y2="6"></line>
           <line x1="3" y1="10" x2="21" y2="10"></line>
           <polyline points="12 14 12 17 14 18"></polyline>
+        </svg>
+      </button>
+
+      <!-- 4: Database schema (ER diagram, views, triggers, indexes) -->
+      <button type="button" class="dock-btn" id="dockBtnSchema" title="Database schema" aria-label="Database schema">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="8" height="6" rx="1"></rect>
+          <rect x="14" y="3" width="8" height="6" rx="1"></rect>
+          <rect x="8" y="15" width="8" height="6" rx="1"></rect>
+          <path d="M6 9v3h12V9"></path>
+          <line x1="12" y1="12" x2="12" y2="15"></line>
         </svg>
       </button>
     </div>
@@ -211,7 +227,20 @@
             </svg>
             <span>Production Logs</span>
           </button>
+
         </nav>
+
+        <!-- Public statistics (official publications), read through database views -->
+        <nav class="entity-tabs-row entity-tabs-public" aria-label="Official statistics">
+          <span class="entity-tabs-label">Official statistics</span>
+          <button type="button" class="entity-tab-btn" data-tab="ds-states"><span>States</span></button>
+          <button type="button" class="entity-tab-btn" data-tab="ds-commodities"><span>Commodities</span></button>
+          <button type="button" class="entity-tab-btn" data-tab="ds-auctions"><span>Auctions</span></button>
+          <button type="button" class="entity-tab-btn" data-tab="ds-royalty"><span>Royalty rates</span></button>
+          <button type="button" class="entity-tab-btn" data-tab="ds-reserves"><span>Reserves</span></button>
+          <button type="button" class="entity-tab-btn" data-tab="ds-national-production"><span>National output</span></button>
+        </nav>
+        <p class="dataset-caption hidden" id="datasetCaption"></p>
 
         <!-- High-Density Master Data Table Container -->
         <div class="db-table-card">
@@ -424,6 +453,68 @@
   </main>
 
   <!-- =========================================================================
+       VIEW 4: DATABASE SCHEMA (read from the live PostgreSQL catalog)
+       ========================================================================= -->
+  <main id="schemaView" class="app-view schema-view-wrapper hidden" role="main" aria-labelledby="schemaTitle">
+    <div class="schema-layout">
+      <header class="schema-head">
+        <div>
+          <h1 class="schema-title" id="schemaTitle">Database schema</h1>
+          <p class="schema-sub" id="schemaSub">Reading the catalog…</p>
+        </div>
+        <nav class="schema-tabs" role="tablist" aria-label="Schema objects">
+          <button type="button" class="schema-tab active" role="tab" aria-selected="true" data-schema-tab="er">ER diagram</button>
+          <button type="button" class="schema-tab" role="tab" aria-selected="false" data-schema-tab="views">Views</button>
+          <button type="button" class="schema-tab" role="tab" aria-selected="false" data-schema-tab="triggers">Triggers</button>
+          <button type="button" class="schema-tab" role="tab" aria-selected="false" data-schema-tab="indexes">Indexes</button>
+          <button type="button" class="schema-tab" role="tab" aria-selected="false" data-schema-tab="types">Types</button>
+        </nav>
+      </header>
+
+      <section class="schema-pane" data-schema-pane="er" aria-label="Entity-relationship diagram">
+        <div class="er-canvas" id="erCanvas">
+          <svg id="erSvg" class="er-svg" role="img" aria-label="Entity-relationship diagram of the minerva schema"></svg>
+          <div class="er-legend" aria-hidden="true">
+            <span><b class="er-key pk">PK</b> primary key</span>
+            <span><b class="er-key fk">FK</b> foreign key</span>
+            <span class="er-legend-group"><i class="grp-ref"></i>Reference</span>
+            <span class="er-legend-group"><i class="grp-core"></i>Mines &amp; leases</span>
+            <span class="er-legend-group"><i class="grp-stats"></i>Public statistics</span>
+            <span class="er-legend-group"><i class="grp-system"></i>Accounts &amp; audit</span>
+          </div>
+          <div class="er-zoom">
+            <button type="button" id="erZoomIn" aria-label="Zoom in">+</button>
+            <button type="button" id="erZoomOut" aria-label="Zoom out">&minus;</button>
+            <button type="button" id="erFit" aria-label="Fit diagram">Fit</button>
+          </div>
+        </div>
+        <aside class="er-detail" id="erDetail" aria-live="polite">
+          <p class="er-hint">Click a table to see its columns, keys, relationships and rows. Drag to move the diagram, scroll to zoom.</p>
+        </aside>
+      </section>
+
+      <section class="schema-pane hidden" data-schema-pane="views" aria-label="Views">
+        <div class="obj-layout">
+          <ul class="obj-list" id="viewList"></ul>
+          <div class="obj-detail" id="viewDetail"></div>
+        </div>
+      </section>
+      <section class="schema-pane hidden" data-schema-pane="triggers" aria-label="Triggers">
+        <div class="obj-layout">
+          <ul class="obj-list" id="triggerList"></ul>
+          <div class="obj-detail" id="triggerDetail"></div>
+        </div>
+      </section>
+      <section class="schema-pane hidden" data-schema-pane="indexes" aria-label="Indexes">
+        <div class="obj-table-wrap" id="indexTable"></div>
+      </section>
+      <section class="schema-pane hidden" data-schema-pane="types" aria-label="Types">
+        <div class="obj-table-wrap" id="typeTable"></div>
+      </section>
+    </div>
+  </main>
+
+  <!-- =========================================================================
        VIEW 2: GEOSPATIAL SATELLITE MAP VIEW (Synthesized from Image 1 & 2)
        ========================================================================= -->
   <main id="mapView" class="app-view map-view-wrapper active" role="main" aria-label="Geospatial Map Workspace">
@@ -590,9 +681,23 @@
   <!-- =========================================================================
        5. BOTTOM FOOTER STATUS BAR (Fixed at bottom)
        ========================================================================= -->
+  <!-- SQL log: every statement the backend runs, newest first -->
+  <section class="sql-log-drawer hidden" id="sqlLogDrawer" aria-label="SQL log">
+    <div class="sql-log-head">
+      <h2>SQL log <span class="sql-log-sub">every query the backend runs, newest first</span></h2>
+      <div class="sql-log-actions">
+        <label class="sql-log-filter"><input type="checkbox" id="sqlLogHideAuth"> Hide session checks</label>
+        <button type="button" id="sqlLogPause">Pause</button>
+        <button type="button" id="sqlLogClear">Clear</button>
+        <button type="button" id="sqlLogClose" aria-label="Close SQL log">&times;</button>
+      </div>
+    </div>
+    <ol class="sql-log-list" id="sqlLogList"></ol>
+  </section>
+
   <footer class="bottom-status-footer" role="contentinfo">
     <div class="footer-left">MINERVA &bull; Indian Mineral Resource Management Database</div>
-    <div class="footer-right">SQLite &bull; minerva.db</div>
+    <div class="footer-right" id="footerDb">PostgreSQL &bull; Supabase &bull; schema minerva</div>
   </footer>
 
   <!-- =========================================================================
@@ -612,15 +717,18 @@
       </div>
 
       <div class="sql-modal-body">
-        <p class="sql-helper-text">Execute read-only SQL queries against <code>MineralResourceDB</code> (3NF Schema):</p>
+        <p class="sql-helper-text">Read-only queries against the <code>minerva</code> schema on PostgreSQL (one statement, 5 s limit, at most 1,000 rows shown):</p>
         <div class="sql-editor-wrapper">
-          <textarea id="sqlInput" class="sql-textarea" rows="3" spellcheck="false">SELECT m.mine_id, m.mine_name, mn.mineral_name, l.state, c.company_name
-FROM MINE m
-JOIN MINE_MINERAL mm ON mm.mine_id = m.mine_id AND mm.is_primary = 1
-JOIN MINERAL mn ON mn.mineral_id = mm.mineral_id
-JOIN LOCATION l ON l.location_id = m.location_id
-JOIN MINING_COMPANY c ON c.company_id = m.company_id
-LIMIT 5;</textarea>
+          <textarea id="sqlInput" class="sql-textarea" rows="9" spellcheck="false">SELECT s.state_name, COUNT(m.mine_id) AS mines,
+       v.value_rs_crore AS production_value_2022_23_cr
+FROM state s
+LEFT JOIN location l ON l.state_id = s.state_id
+LEFT JOIN mine m ON m.location_id = l.location_id
+LEFT JOIN state_production_value v
+       ON v.state_id = s.state_id AND v.fiscal_year = '2022-23'
+GROUP BY s.state_name, v.value_rs_crore
+ORDER BY v.value_rs_crore DESC NULLS LAST
+LIMIT 10;</textarea>
         </div>
         <div class="sql-actions-bar">
           <button type="button" class="btn-run-sql" id="btnRunSql">Run query</button>

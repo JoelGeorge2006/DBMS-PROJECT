@@ -1,13 +1,14 @@
 {
   "name": "minerva-indian-mineral-database",
   "version": "1.0.0",
-  "description": "MINERVA \u2014 Indian Mineral Resource Management Database Authentication & Control Panel",
+  "description": "MINERVA — Indian Mineral Resource Management Database (PostgreSQL on Supabase)",
   "type": "module",
   "main": "index.html",
   "scripts": {
     "dev": "vite --port 3000",
     "start": "vite --port 3000",
     "preview": "vite preview",
+    "db:setup": "node db/setup.js",
     "import:fetch": "node scripts/import/fetch-osm.js && node scripts/import/fetch-wikidata.js",
     "import:mines": "node scripts/import/normalise.js && node scripts/import/geocode.js && node scripts/import/load.js",
     "reset-pin": "node scripts/reset-pin.js"
@@ -16,8 +17,8 @@
     "vite": "^5.0.0 || ^6.0.0"
   },
   "dependencies": {
-    "better-sqlite3": "^13.0.3",
     "express": "^5.3.0",
-    "leaflet": "^1.9.4"
+    "leaflet": "^1.9.4",
+    "pg": "^8.23.1"
   }
 }

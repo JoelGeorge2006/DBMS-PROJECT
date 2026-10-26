@@ -120,6 +120,32 @@ export const apiService = {
     return apiGet('/api/analytics/lease-compliance');
   },
 
+  /** Public statistics through the database views: states, commodities, auctions, royalty, reserves, national-production */
+  async getDataset(name) {
+    return apiGet(`/api/data/${encodeURIComponent(name)}`);
+  },
+
+  // --- Backend visibility -----------------------------------------------------
+  /** Tables, views, columns, constraints and enum types from the live catalog */
+  async getSchema() {
+    return apiGet('/api/backend/schema');
+  },
+
+  /** View definitions, triggers (with function source) and indexes */
+  async getSchemaObjects() {
+    return apiGet('/api/backend/objects');
+  },
+
+  /** First rows of a table or view */
+  async getRelationRows(name, limit = 50) {
+    return apiGet(`/api/backend/relations/${encodeURIComponent(name)}/rows`, { limit });
+  },
+
+  /** SQL statements run by the backend after entry `after` */
+  async getSqlLog(after = 0) {
+    return apiGet('/api/backend/sql-log', { after });
+  },
+
   // --- Authentication --------------------------------------------------------
   async me() {
     return apiGet('/api/auth/me');
