@@ -1,11 +1,10 @@
 -- ============================================================================
 -- MINERVA — Indian Mineral Resource Management Database
 -- Course: BACSE202 - Database Systems
--- Schema v5: 3NF relational model (DDL, indexes, spatial index, triggers, views, seed DML)
--- DBMS target: SQLite (better-sqlite3). PRAGMA user_version = 5.
+-- Schema v6: 3NF relational model (DDL, indexes, spatial index, triggers, views, seed DML)
+-- DBMS target: SQLite (better-sqlite3). PRAGMA user_version = 6.
 -- v3: application users, sessions, PIN resets and an audit log (server-side sign-in).
--- v4: per-user recent searches.
--- v5: notifications and per-user read state.
+-- v4/v5 added recent searches and notifications; v6 removes them again.
 --
 -- v2: national mine import (OpenStreetMap, Wikidata). Unknown facts are NULL
 -- instead of invented values: an imported mine may have no lease, company or
@@ -376,51 +375,6 @@ CREATE INDEX IF NOT EXISTS idx_audit_user_action ON AUDIT_LOG(user_id, action);
 -- AUTH END
 
 -- ----------------------------------------------------------------------------
--- 6b. RECENT SEARCHES (v4): most recent first, at most 8 per user (LRU list)
--- ----------------------------------------------------------------------------
--- SEARCH BEGIN
-CREATE TABLE IF NOT EXISTS SEARCH_HISTORY (
-    user_id INTEGER NOT NULL,
-    entry_id TEXT NOT NULL,
-    type TEXT NOT NULL,
-    entry_key TEXT NOT NULL,
-    label TEXT NOT NULL,
-    sub TEXT,
-    used_at TEXT NOT NULL,
-    PRIMARY KEY (user_id, entry_id),
-    CONSTRAINT fk_search_user FOREIGN KEY (user_id) REFERENCES APP_USER(user_id) ON DELETE CASCADE
-);
-CREATE INDEX IF NOT EXISTS idx_search_user_time ON SEARCH_HISTORY(user_id, used_at);
--- SEARCH END
-
--- ----------------------------------------------------------------------------
--- 6c. NOTIFICATIONS (v5): raised by rules over the data; user_id NULL = everyone
--- ----------------------------------------------------------------------------
--- NOTIFY BEGIN
-CREATE TABLE IF NOT EXISTS NOTIFICATION (
-    notification_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    dedupe_key TEXT NOT NULL UNIQUE,
-    rule TEXT NOT NULL,
-    priority TEXT NOT NULL CHECK(priority IN ('CRITICAL', 'WARNING', 'INFO')),
-    mine_id TEXT,
-    message TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    CONSTRAINT fk_notification_user FOREIGN KEY (user_id) REFERENCES APP_USER(user_id) ON DELETE CASCADE
-);
-CREATE INDEX IF NOT EXISTS idx_notification_created ON NOTIFICATION(created_at);
-
-CREATE TABLE IF NOT EXISTS NOTIFICATION_READ (
-    notification_id INTEGER NOT NULL,
-    user_id INTEGER NOT NULL,
-    read_at TEXT NOT NULL,
-    PRIMARY KEY (notification_id, user_id),
-    CONSTRAINT fk_nr_notification FOREIGN KEY (notification_id) REFERENCES NOTIFICATION(notification_id) ON DELETE CASCADE,
-    CONSTRAINT fk_nr_user FOREIGN KEY (user_id) REFERENCES APP_USER(user_id) ON DELETE CASCADE
-);
--- NOTIFY END
-
--- ----------------------------------------------------------------------------
 -- 7. SEED DATA (synthetic sample records; national mines come from the import scripts)
 -- ----------------------------------------------------------------------------
 
@@ -549,6 +503,6 @@ INSERT INTO PRODUCTION (mine_id, mineral_id, fiscal_year, quantity_mt, dispatch_
 ('MN-1450', 1, 2023, 6.00, 5.80),
 ('MN-1450', 1, 2024, 6.20, 6.00);
 
-PRAGMA user_version = 5;
+PRAGMA user_version = 6;
 
 -- End of schema.sql

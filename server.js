@@ -7,15 +7,9 @@
 import express from 'express';
 import Database from 'better-sqlite3';
 import path from 'path';
-import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { BinarySearchTree } from './dsa/BinarySearchTree.js';
 import { migrate } from './db/migrate.js';
-import { buildSearchIndex, suggest } from './lib/search.js';
-import { createNotifications } from './lib/notifications.js';
 import { createAuth, readCookie, sessionCookie, clearedCookie, clientIp, SESSION_COOKIE, ROLES } from './lib/auth.js';
-import { buildNearestNeighbourGraph, buildCompleteGraph, dijkstra } from './dsa/Dijkstra.js';
-import { primMST, kruskalMST } from './dsa/MST.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -56,7 +50,6 @@ app.post('/api/auth/login', (req, res) => {
   const r = auth.login(username, pin, ip);
   if (!r.ok) return sendAuthError(res, r);
   res.setHeader('Set-Cookie', sessionCookie(r.token, r.maxAgeMs));
-  if (r.newIp) onNewSignInAddress(r.user, ip);
   res.json({ success: true, user: r.user });
 });
 
@@ -103,26 +96,6 @@ function requirePermission(permission) {
   };
 }
 
-
-
-// ============================================================================
-// Notifications (rules over the data, see lib/notifications.js)
-// ============================================================================
-const notifications = createNotifications(db);
-
-function onNewSignInAddress(user, ip) {
-  notifications.newSignInAddress(user, ip);
-}
-
-app.get('/api/notifications', (req, res) => {
-  res.json({ success: true, ...notifications.list(req.user.id) });
-});
-
-app.post('/api/notifications/read', (req, res) => {
-  const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(Number.isInteger).slice(0, 500) : [];
-  notifications.markRead(req.user.id, ids);
-  res.json({ success: true, ...notifications.list(req.user.id) });
-});
 
 // ============================================================================
 // 3. REST API ENDPOINTS
@@ -386,209 +359,6 @@ app.get('/api/leases', (req, res) => {
 app.get('/api/production', (req, res) => {
   const rows = db.prepare('SELECT * FROM PRODUCTION ORDER BY fiscal_year DESC, quantity_mt DESC').all();
   res.json({ success: true, count: rows.length, data: rows });
-});
-
-// DSA: BST range search over mineral assay values
-const BST_ATTRIBUTES = { fe_pct: 'Fe', sio2_pct: 'SiO2', al2o3_pct: 'Al2O3' };
-
-app.get('/api/dsa/bst/range', (req, res) => {
-  // Own keys only: 'toString' etc. would otherwise pass and reach the SQL
-  const attr = Object.hasOwn(BST_ATTRIBUTES, req.query.attr) ? req.query.attr : 'fe_pct';
-  const min = Number(req.query.min ?? 0);
-  const max = Number(req.query.max ?? 100);
-  if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) {
-    return res.status(400).json({ success: false, error: 'min and max must be numbers with min <= max.' });
-  }
-
-  // Insert in primary-key order, as rows come out of the table
-  // Minerals with no recorded value for this assay are left out, not treated as 0%
-  const minerals = db.prepare(`SELECT * FROM MINERAL WHERE ${attr} IS NOT NULL ORDER BY mineral_id`).all();
-  const tree = new BinarySearchTree();
-  minerals.forEach((m) => tree.insert(m[attr], m));
-
-  const { results, visited } = tree.rangeQuery(min, max);
-  const linear = BinarySearchTree.linearRangeSearch(minerals, min, max, (m) => m[attr]);
-
-  res.json({
-    success: true,
-    attribute: attr,
-    attributeLabel: BST_ATTRIBUTES[attr],
-    min,
-    max,
-    size: tree.size(),
-    height: tree.height(),
-    tree: tree.toJSON((n) => n.data.mineral_name),
-    visited,
-    matches: results.map((n) => ({ id: n.id, key: n.key, mineral: n.data })),
-    bstComparisons: visited.length,
-    linearComparisons: linear.comparisons
-  });
-});
-
-// DSA: mine transport network (each mine linked to its 3 nearest mines)
-const CORRIDOR_NEIGHBOURS = 3;
-
-// The corridor graph and MST results only change when the data does. PRAGMA
-// data_version changes when another connection (e.g. the import script) writes.
-const graphCache = { version: null, value: null, mst: new Map() };
-
-function loadMineGraph() {
-  const version = `${db.pragma('data_version', { simple: true })}:${db.prepare('SELECT COUNT(*) AS n, MAX(rowid) AS r FROM MINE').get().r}`;
-  if (graphCache.version === version) return graphCache.value;
-  const mines = db.prepare(`
-    SELECT m.mine_id AS id, m.mine_name AS name, m.status, l.state, l.district,
-           m.latitude AS lat, m.longitude AS lng
-    FROM MINE m JOIN LOCATION l ON l.location_id = m.location_id
-    ORDER BY m.mine_id
-  `).all();
-  graphCache.version = version;
-  graphCache.value = { mines, graph: buildNearestNeighbourGraph(mines, CORRIDOR_NEIGHBOURS) };
-  graphCache.mst.clear();
-  return graphCache.value;
-}
-
-app.get('/api/dsa/network', (req, res) => {
-  const { mines, graph } = loadMineGraph();
-  res.json({ success: true, neighbours: CORRIDOR_NEIGHBOURS, nodes: mines, edges: graph.edges() });
-});
-
-app.get('/api/dsa/shortest-route', (req, res) => {
-  const { from, to } = req.query;
-  const { mines, graph } = loadMineGraph();
-  const byId = new Map(mines.map((m) => [m.id, m]));
-  if (!byId.has(from) || !byId.has(to)) {
-    return res.status(400).json({ success: false, error: 'from and to must be valid mine IDs.' });
-  }
-
-  const { path, distance, settledOrder } = dijkstra(graph, from, to);
-  if (path.length === 0) {
-    return res.json({ success: true, reachable: false, path: [], hops: [], distanceKm: null });
-  }
-
-  const hops = path.slice(1).map((id, i) => ({
-    from: path[i],
-    to: id,
-    distanceKm: graph.neighbours(path[i]).get(id)
-  }));
-
-  res.json({
-    success: true,
-    reachable: true,
-    path: path.map((id) => byId.get(id)),
-    hops,
-    distanceKm: distance,
-    nodesSettled: settledOrder.length
-  });
-});
-
-// DSA: minimum spanning tree over every pair of mines
-app.get('/api/dsa/mst', (req, res) => {
-  const algorithm = req.query.algorithm === 'kruskal' ? 'kruskal' : 'prim';
-  const { mines } = loadMineGraph();
-  const root = mines.some((m) => m.id === req.query.root) ? req.query.root : mines[0]?.id;
-  const cacheKey = `${algorithm}:${algorithm === 'prim' ? root : ''}`;
-  if (!graphCache.mst.has(cacheKey)) {
-    const complete = buildCompleteGraph(mines);
-    const result = algorithm === 'kruskal' ? kruskalMST(complete) : primMST(complete, root);
-    const edges = complete.edges();
-    graphCache.mst.set(cacheKey, {
-      result,
-      candidateEdges: edges.length,
-      allPairsKm: Math.round(edges.reduce((sum, e) => sum + e.weight, 0) * 10) / 10,
-    });
-  }
-  const { result, candidateEdges, allPairsKm } = graphCache.mst.get(cacheKey);
-
-  res.json({
-    success: true,
-    algorithm,
-    root: algorithm === 'prim' ? root : null,
-    candidateEdges,
-    edges: result.edges,
-    totalKm: result.totalWeight,
-    allPairsKm,
-    cycleEdgesRejected: result.rejected ?? null
-  });
-});
-
-// ============================================================================
-// Search: Trie suggestions and per-user recent searches
-// ============================================================================
-const searchCache = { version: null, index: null, lastQueryMs: null, lastCorrection: null };
-
-function searchIndex() {
-  const version = `${db.pragma('data_version', { simple: true })}:${db.prepare('SELECT COUNT(*) AS n FROM MINE').get().n}`;
-  if (searchCache.version !== version) {
-    searchCache.index = buildSearchIndex(db);
-    searchCache.version = version;
-  }
-  return searchCache.index;
-}
-
-app.get('/api/search/suggest', (req, res) => {
-  const q = String(req.query.q || '').slice(0, 100);
-  const limit = Math.min(Number.parseInt(req.query.limit, 10) || 6, 20);
-  const result = suggest(searchIndex(), q, limit);
-  searchCache.lastQueryMs = result.tookMs;
-  if (result.corrected) searchCache.lastCorrection = { from: q.toLowerCase(), to: result.corrected };
-  res.json({ success: true, query: q, ...result });
-});
-
-const RECENT_LIMIT = 8;
-
-app.get('/api/search/recent', (req, res) => {
-  const rows = db.prepare(`SELECT entry_id AS id, type, entry_key AS key, label, sub FROM SEARCH_HISTORY
-    WHERE user_id = ? ORDER BY used_at DESC LIMIT ?`).all(req.user.id, RECENT_LIMIT);
-  res.json({ success: true, data: rows });
-});
-
-// Most recent first, no duplicates, at most 8: re-using an entry moves it to the front
-app.post('/api/search/recent', (req, res) => {
-  const { id, type, key, label, sub } = req.body || {};
-  if (![id, type, key, label].every((v) => typeof v === 'string' && v.length > 0 && v.length <= 300)) {
-    return res.status(400).json({ success: false, error: 'id, type, key and label are required.' });
-  }
-  db.transaction(() => {
-    db.prepare(`INSERT INTO SEARCH_HISTORY (user_id, entry_id, type, entry_key, label, sub, used_at) VALUES (?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(user_id, entry_id) DO UPDATE SET used_at = excluded.used_at, label = excluded.label, sub = excluded.sub`)
-      .run(req.user.id, id, type, key, label, typeof sub === 'string' ? sub.slice(0, 300) : null, new Date().toISOString());
-    db.prepare(`DELETE FROM SEARCH_HISTORY WHERE user_id = ? AND entry_id NOT IN (
-      SELECT entry_id FROM SEARCH_HISTORY WHERE user_id = ? ORDER BY used_at DESC LIMIT ?)`).run(req.user.id, req.user.id, RECENT_LIMIT);
-  })();
-  res.json({ success: true });
-});
-
-app.delete('/api/search/recent', (req, res) => {
-  db.prepare('DELETE FROM SEARCH_HISTORY WHERE user_id = ?').run(req.user.id);
-  res.json({ success: true });
-});
-
-// DSA: live numbers for the DSA tab (session LRU cache, sign-in limiter)
-app.get('/api/dsa/stats', (req, res) => {
-  const idx = searchIndex();
-  res.json({
-    success: true,
-    ...auth.stats(),
-    search: { entries: idx.entries, trieNodes: idx.nodes, words: idx.words, builtMs: idx.builtMs, lastQueryMs: searchCache.lastQueryMs, lastCorrection: searchCache.lastCorrection },
-  });
-});
-
-// DSA: source of a dsa/ module, for the excerpts on the DSA tab (read-only, dsa/ only)
-const DSA_DIR = path.join(__dirname, 'dsa');
-
-// Files outside dsa/ that the DSA tab may show (whitelist, not a path)
-const EXTRA_SOURCES = { 'auth.js': path.join(__dirname, 'lib', 'auth.js') };
-
-app.get('/api/dsa/source/:file', (req, res) => {
-  const file = req.params.file;
-  if (!/^[A-Za-z]+\.js$/.test(file)) {
-    return res.status(400).json({ success: false, error: 'Invalid file name.' });
-  }
-  const full = Object.hasOwn(EXTRA_SOURCES, file) ? EXTRA_SOURCES[file] : path.join(DSA_DIR, file);
-  if (!fs.existsSync(full)) {
-    return res.status(404).json({ success: false, error: 'No such module.' });
-  }
-  res.type('text/plain').send(fs.readFileSync(full, 'utf8'));
 });
 
 // 9. Analytical Aggregation Routes

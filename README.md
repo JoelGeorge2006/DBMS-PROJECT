@@ -31,7 +31,7 @@ The database contains the following seven tables:
 ## Data
 `minerva.db` holds **468 mines** across 20 states: 440 from OpenStreetMap, 20 from Wikidata and 8 synthetic sample records (marked "sample" in the UI). Imported mines carry their source link, licence and location precision; they have no lease, assay or production rows because public data does not provide them, and the app says so instead of guessing. Only the 8 sample records have leases and production, and those are synthetic, not official statistics.
 
-Refresh the import with `npm run import:fetch` then `npm run import:mines`. Sources, licences and scope: [data/SOURCES.md](data/SOURCES.md); counts per state: [data/processed/report.md](data/processed/report.md). The schema (v2) is in `schema.sql`; older databases are migrated on server start (`db/migrate.js`).
+Refresh the import with `npm run import:fetch` then `npm run import:mines`. Sources, licences and scope: [data/SOURCES.md](data/SOURCES.md); counts per state: [data/processed/report.md](data/processed/report.md). The schema (v6) is in `schema.sql`; older databases are migrated on server start (`db/migrate.js`).
 
 Map data © OpenStreetMap contributors (ODbL 1.0). Wikidata content is CC0.
 
@@ -60,27 +60,8 @@ Demo accounts (PINs are stored as scrypt hashes, never sent to the page):
 Sessions are httpOnly cookies checked by the server on every `/api` call. Five wrong PINs for one account from one address lock that pair for 15 minutes. "Forgot PIN?" is a demo: no e-mail is sent, so the code is shown on screen, and it is refused for administrator accounts; reset those with `npm run reset-pin -- USR-1024 'new-pin'`.
 
 ### Views
-- **Map**: every mine from the `MINE` table on a satellite basemap. Below zoom 9 nearby mines group into numbered clusters coloured by their main mineral; hover a cluster to outline it, click to zoom in. Click a mine for its details. The transport network card finds the shortest route between two mines and builds the minimum network that connects them all.
-- **Database**: mines, minerals, locations, companies, leases and production tables; mine dossier with source and location precision; CSV export (respects the search box); read-only SQL console (administrators only).
-- **Lease expiry** (`#leases`): leases indexed by end date in an AVL tree, with expiry summary, year-range search and add/remove to see rotations. Click a lease to open its mine.
-- **DSA** (`#dsa`): every data structure and algorithm in the project, with where it is used, a "Try it" button, a step-by-step demo, live numbers and the source excerpt. Content comes from `dsa/registry.js`.
-- **Notifications** (bell): raised by rules over the data (leases ending, consent to operate expired or ending, mine status, production drops, sign-ins from a new address). All/Unread, mark read, click to open the mine.
+- **Map**: every mine from the `MINE` table on a satellite basemap, one dot per mine coloured by its main mineral. Click a mine for its details.
+- **Database**: mines, minerals, locations, companies, leases and production tables; mine dossier with source and location precision; CSV export (respects the search box); read-only SQL console (administrators only, Ctrl/⌘+Enter runs the query).
+- **Lease expiry** (`#leases`): every lease by end date, with an expiry summary and year-range search. Click a lease to open its mine.
 
-The search bar suggests mines, minerals, places, companies and leases as you type (a Trie on the server, with typo correction), and shows your recent searches when empty. In the database, lease and DSA views it also filters the open table; the label at its left switches between "this view" and "everything". `/` or Ctrl/⌘K focuses it, Esc clears it.
-
-### Data structures and algorithms (`dsa/`)
-| Module | Where it is used |
-|---|---|
-| `Stack.js`: stack, two-stack undo/redo | SQL console history (Undo / Redo, Ctrl+↑ / Ctrl+↓) |
-| `Queue.js`: O(1) queue, binary-heap priority queue | Alerts: shown one at a time, CRITICAL before WARNING before INFO; recent-alert history is a bounded queue |
-| `BinarySearchTree.js` | Database → Minerals: assay range search (`GET /api/dsa/bst/range`) |
-| `AVLTree.js` | Lease expiry view: range search, next expiry, add/remove with rotations |
-| `Dijkstra.js`: weighted graph, haversine, Dijkstra | Map → Shortest route (`GET /api/dsa/network`, `GET /api/dsa/shortest-route`) |
-| `MST.js`: Prim's, Kruskal's, union-find | Map → Minimum network (`GET /api/dsa/mst`) |
-| `LRUCache.js`: hash map + doubly linked list | Session lookups on every API request |
-| `SlidingWindow.js`: queue per key | Sign-in lockout and PIN-reset limits |
-| `Trie.js`: trie with top-k heaps, Levenshtein distance | Search suggestions and typo correction (`GET /api/search/suggest`) |
-| `ConvexHull.js`: grid clustering, monotone-chain hull | Map clusters and their outlines |
-| `registry.js` | Content of the DSA tab (`GET /api/dsa/source/:file` serves the excerpts, `GET /api/dsa/stats` the live numbers) |
-
-Distances are straight-line (great-circle) kilometres between mine coordinates, not road or rail distances.
+The search bar filters the open table in the database and lease views. On the map, press Enter to fly to the first mine whose name, ID, mineral, place or lessee matches. `/` or Ctrl/⌘K focuses it, Esc clears it.

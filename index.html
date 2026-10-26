@@ -45,15 +45,13 @@
           <circle cx="11" cy="11" r="8"></circle>
           <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
         </svg>
-        <button type="button" class="search-scope" id="searchScope" title="Search this view or everything">Mines</button>
+        <span class="search-scope" id="searchScope">Mines</span>
         <input
           type="search"
           id="globalSearchInput"
           class="search-input"
           placeholder="Search mines by name, mineral, place or lessee"
           aria-label="Search"
-          aria-controls="searchSuggest"
-          aria-autocomplete="list"
           autocomplete="off"
           spellcheck="false"
         />
@@ -61,7 +59,6 @@
         <button type="button" class="search-clear hidden" id="searchClearBtn" aria-label="Clear search">&times;</button>
         <kbd class="search-kbd-badge" id="searchKbd" title="Focus search">Ctrl K</kbd>
       </div>
-      <div class="search-suggest hidden" id="searchSuggest" role="listbox" aria-label="Search suggestions"></div>
     </div>
     <button type="button" class="search-toggle" id="searchToggleBtn" aria-label="Open search" aria-expanded="false">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
@@ -76,23 +73,6 @@
           <p class="nav-user-name" id="navUserName"></p>
           <p class="nav-user-role" id="navUserRole"></p>
           <button type="button" class="nav-user-signout" id="navSignOutBtn" role="menuitem">Sign out</button>
-        </div>
-      </div>
-      <div class="nav-alerts">
-        <button type="button" class="nav-alerts-btn" id="navAlertsBtn" aria-haspopup="true" aria-expanded="false" title="Alerts">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
-          <span class="nav-alerts-count hidden" id="navAlertsCount">0</span>
-        </button>
-        <div class="nav-alerts-panel hidden" id="navAlertsPanel" role="menu">
-          <div class="nav-alerts-head">
-            <span>Notifications</span>
-            <span class="nav-alerts-tools">
-              <button type="button" class="nav-alerts-tab active" data-filter="all">All</button>
-              <button type="button" class="nav-alerts-tab" data-filter="unread">Unread</button>
-              <button type="button" class="btn-link-inline" id="navAlertsReadAll">Mark all read</button>
-            </span>
-          </div>
-          <ul class="nav-alerts-list" id="navAlertsList"></ul>
         </div>
       </div>
     </div>
@@ -120,25 +100,14 @@
         </svg>
       </button>
 
-      <!-- 3: Lease expiry index -->
-      <button type="button" class="dock-btn" id="dockBtnLeases" title="Lease expiry index" aria-label="Lease expiry index">
+      <!-- 3: Lease expiry -->
+      <button type="button" class="dock-btn" id="dockBtnLeases" title="Lease expiry" aria-label="Lease expiry">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="4" width="18" height="18" rx="2"></rect>
           <line x1="16" y1="2" x2="16" y2="6"></line>
           <line x1="8" y1="2" x2="8" y2="6"></line>
           <line x1="3" y1="10" x2="21" y2="10"></line>
           <polyline points="12 14 12 17 14 18"></polyline>
-        </svg>
-      </button>
-
-      <!-- 4: DSA concepts -->
-      <button type="button" class="dock-btn" id="dockBtnDsa" title="Data structures &amp; algorithms" aria-label="Data structures and algorithms">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="5" r="2.5"></circle>
-          <circle cx="6" cy="18" r="2.5"></circle>
-          <circle cx="18" cy="18" r="2.5"></circle>
-          <line x1="10.8" y1="7.2" x2="7.2" y2="15.8"></line>
-          <line x1="13.2" y1="7.2" x2="16.8" y2="15.8"></line>
         </svg>
       </button>
     </div>
@@ -243,33 +212,6 @@
             <span>Production Logs</span>
           </button>
         </nav>
-
-        <!-- Assay range search (binary search tree), shown on the Minerals tab -->
-        <section class="bst-panel hidden" id="bstPanel" aria-label="Assay range search">
-          <form class="bst-query" id="bstQueryForm">
-            <label class="bst-field">
-              <span>Assay</span>
-              <select id="bstAttr">
-                <option value="fe_pct">Fe %</option>
-                <option value="sio2_pct">SiO2 %</option>
-                <option value="al2o3_pct">Al2O3 %</option>
-              </select>
-            </label>
-            <label class="bst-field">
-              <span>From</span>
-              <input type="number" id="bstMin" value="50" min="0" max="100" step="0.1">
-            </label>
-            <label class="bst-field">
-              <span>To</span>
-              <input type="number" id="bstMax" value="70" min="0" max="100" step="0.1">
-            </label>
-            <button type="submit" class="btn-bst-search">Search</button>
-            <p class="bst-stats" id="bstStats"></p>
-          </form>
-          <div class="bst-tree-wrap">
-            <svg class="bst-tree" id="bstTreeSvg" role="img" aria-label="Binary search tree of minerals"></svg>
-          </div>
-        </section>
 
         <!-- High-Density Master Data Table Container -->
         <div class="db-table-card">
@@ -444,67 +386,40 @@
   </main>
 
   <!-- =========================================================================
-       VIEW 3: LEASE EXPIRY INDEX (AVL tree keyed by LEASE.valid_till)
+       VIEW 3: LEASE EXPIRY (leases by LEASE.valid_till)
        ========================================================================= -->
   <main id="leasesView" class="app-view reports-view-wrapper hidden" role="main" aria-labelledby="leasesTitle">
     <div class="reports-container">
       <header class="reports-header">
-        <h1 class="reports-title" id="leasesTitle">Lease expiry index</h1>
-        <p class="reports-subtitle">Every lease in the database, indexed by end date in a self-balancing AVL tree.</p>
+        <h1 class="reports-title" id="leasesTitle">Lease expiry</h1>
+        <p class="reports-subtitle">Every lease in the database, by end date.</p>
       </header>
 
       <div class="lease-summary" id="leaseSummary" aria-label="Lease expiry summary"></div>
 
-      <section class="avl-panel" id="avlPanel" aria-label="Find leases">
-        <form class="avl-query" id="avlQueryForm">
-          <label class="bst-field">
+      <section class="lease-panel" aria-label="Find leases">
+        <form class="lease-query" id="leaseQueryForm">
+          <label class="lease-field">
             <span>Expiring from</span>
-            <input type="number" id="avlFromYear" value="2035" min="2000" max="2100">
+            <input type="number" id="leaseFromYear" value="2035" min="2000" max="2100">
           </label>
-          <label class="bst-field">
+          <label class="lease-field">
             <span>To</span>
-            <input type="number" id="avlToYear" value="2045" min="2000" max="2100">
+            <input type="number" id="leaseToYear" value="2045" min="2000" max="2100">
           </label>
-          <button type="submit" class="btn-bst-search">Find leases</button>
-          <p class="bst-stats" id="avlRangeStats"></p>
+          <button type="submit" class="btn-lease-find">Find leases</button>
+          <p class="lease-stats" id="leaseRangeStats"></p>
         </form>
 
         <div class="lease-table-wrap">
-          <table class="lease-table" id="avlResultsTable">
+          <table class="lease-table" id="leaseResultsTable">
             <thead>
               <tr><th>Lease</th><th>Mine</th><th>Company</th><th>Ends</th><th class="num">Years left</th></tr>
             </thead>
-            <tbody id="avlResults"></tbody>
+            <tbody id="leaseResults"></tbody>
           </table>
         </div>
-
-        <h2 class="avl-title">Index structure</h2>
-        <div class="avl-edit">
-          <label class="bst-field">
-            <span>Lease</span>
-            <select id="avlLeaseSelect"></select>
-          </label>
-          <button type="button" class="btn-sql-history" id="avlToggleBtn">Remove from index</button>
-          <p class="bst-stats" id="avlStats"></p>
-        </div>
-        <div class="bst-tree-wrap">
-          <svg class="bst-tree" id="avlTreeSvg" role="img" aria-label="AVL tree of leases by expiry date"></svg>
-        </div>
       </section>
-    </div>
-  </main>
-
-  <!-- =========================================================================
-       VIEW 4: DATA STRUCTURES & ALGORITHMS GUIDE
-       ========================================================================= -->
-  <main id="dsaView" class="app-view dsa-view-wrapper hidden" role="main" aria-labelledby="dsaTitle">
-    <div class="dsa-container">
-      <aside class="dsa-sidebar">
-        <h1 class="dsa-heading" id="dsaTitle">Data structures &amp; algorithms</h1>
-        <p class="dsa-intro">Every structure and algorithm MINERVA uses, where it runs, and how it behaves.</p>
-        <nav class="dsa-list" id="dsaList" aria-label="Concepts"></nav>
-      </aside>
-      <article class="dsa-detail" id="dsaDetail" aria-live="polite"></article>
     </div>
   </main>
 
@@ -513,60 +428,6 @@
        ========================================================================= -->
   <main id="mapView" class="app-view map-view-wrapper active" role="main" aria-label="Geospatial Map Workspace">
     <div id="map" class="geospatial-map"></div>
-    <div class="map-filter-chip hidden" id="mapFilterChip"><span id="mapFilterText"></span><button type="button" id="mapFilterClear" aria-label="Show all mines">&times;</button></div>
-
-    <!-- Top-left: mine transport network (graph algorithms) -->
-    <section class="intel-card net-card" id="networkCard" aria-labelledby="networkTitle">
-      <h2 class="net-title" id="networkTitle">Transport network</h2>
-      <p class="net-sub" id="networkSub">Mines linked to their nearest neighbours by straight-line corridors.</p>
-
-      <div class="net-tabs" role="tablist">
-        <button type="button" class="net-tab active" role="tab" aria-selected="true" data-net-tab="route">Shortest route</button>
-        <button type="button" class="net-tab" role="tab" aria-selected="false" data-net-tab="mst">Minimum network</button>
-      </div>
-
-      <form class="net-form" id="routeForm" data-net-pane="route">
-        <label class="net-field">
-          <span>From</span>
-          <select id="routeFrom"></select>
-        </label>
-        <label class="net-field">
-          <span>To</span>
-          <select id="routeTo"></select>
-        </label>
-        <div class="net-actions">
-          <button type="submit" class="btn-net-primary">Find shortest route</button>
-          <button type="button" class="btn-net-clear hidden" id="routeClear">Clear</button>
-        </div>
-      </form>
-
-      <div class="net-result hidden" id="routeResult" data-net-pane="route">
-        <ol class="net-hops" id="routeHops"></ol>
-        <p class="net-total" id="routeTotal"></p>
-      </div>
-
-      <form class="net-form hidden" id="mstForm" data-net-pane="mst">
-        <label class="net-field">
-          <span>Algorithm</span>
-          <select id="mstAlgorithm">
-            <option value="prim">Prim's (grow from one mine)</option>
-            <option value="kruskal">Kruskal's (shortest links first)</option>
-          </select>
-        </label>
-        <label class="net-field" id="mstRootField">
-          <span>Start mine</span>
-          <select id="mstRoot"></select>
-        </label>
-        <div class="net-actions">
-          <button type="submit" class="btn-net-primary">Build network</button>
-        </div>
-      </form>
-
-      <div class="net-result hidden" id="mstResult" data-net-pane="mst">
-        <ol class="net-hops net-steps" id="mstSteps"></ol>
-        <p class="net-total" id="mstTotal"></p>
-      </div>
-    </section>
 
     <!-- Top-Right Floating Map Controls -->
     <aside class="map-controls-dock" aria-label="Map Navigation Controls">
@@ -763,15 +624,7 @@ LIMIT 5;</textarea>
         </div>
         <div class="sql-actions-bar">
           <button type="button" class="btn-run-sql" id="btnRunSql">Run query</button>
-          <div class="sql-history-controls">
-            <button type="button" class="btn-sql-history" id="btnSqlUndo" title="Previous query (Ctrl+&uarr;)" disabled>&larr; Undo</button>
-            <button type="button" class="btn-sql-history" id="btnSqlRedo" title="Next query (Ctrl+&darr;)" disabled>Redo &rarr;</button>
-          </div>
           <span class="sql-schema-note">Ctrl+Enter to run</span>
-        </div>
-        <div id="sqlHistory" class="sql-history hidden">
-          <div class="sql-history-title">History <span id="sqlHistoryCount"></span></div>
-          <ol id="sqlHistoryList" class="sql-history-list"></ol>
         </div>
         <div id="sqlResultsBox" class="sql-results-box">
           <div class="sql-results-placeholder">Ready to execute query.</div>

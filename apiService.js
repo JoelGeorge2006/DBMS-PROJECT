@@ -120,41 +120,6 @@ export const apiService = {
     return apiGet('/api/analytics/lease-compliance');
   },
 
-  /** Source text of a dsa/ module (for the DSA tab) */
-  async getDsaSource(file) {
-    return request(`/api/dsa/source/${encodeURIComponent(file)}`);
-  },
-
-  async notifications() {
-    return apiGet('/api/notifications');
-  },
-
-  async markNotificationsRead(ids) {
-    return request('/api/notifications/read', { method: 'POST', body: { ids } });
-  },
-
-  /** Grouped search suggestions (Trie on the server) */
-  async searchSuggest(q, limit = 6) {
-    return apiGet('/api/search/suggest', { q, limit });
-  },
-
-  async recentSearches() {
-    return apiGet('/api/search/recent');
-  },
-
-  async addRecentSearch(entry) {
-    return request('/api/search/recent', { method: 'POST', body: entry });
-  },
-
-  async clearRecentSearches() {
-    return request('/api/search/recent', { method: 'DELETE' });
-  },
-
-  /** Live numbers for the DSA tab: session cache and sign-in limiter */
-  async getDsaStats() {
-    return apiGet('/api/dsa/stats');
-  },
-
   // --- Authentication --------------------------------------------------------
   async me() {
     return apiGet('/api/auth/me');
@@ -174,26 +139,6 @@ export const apiService = {
 
   async confirmPinReset(username, code, pin) {
     return request('/api/auth/reset/confirm', { method: 'POST', body: { username, code, pin } });
-  },
-
-  /** Mine transport network: nodes and corridor edges */
-  async getMineNetwork() {
-    return apiGet('/api/dsa/network');
-  },
-
-  /** Dijkstra shortest route between two mines */
-  async getShortestRoute(from, to) {
-    return apiGet('/api/dsa/shortest-route', { from, to });
-  },
-
-  /** Minimum spanning tree (algorithm: 'prim' | 'kruskal') */
-  async getMst(algorithm, root) {
-    return apiGet('/api/dsa/mst', { algorithm, root });
-  },
-
-  /** BST range search over a mineral assay column */
-  async getBstRange(attr, min, max) {
-    return apiGet('/api/dsa/bst/range', { attr, min, max });
   },
 
   /**

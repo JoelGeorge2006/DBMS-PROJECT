@@ -9,7 +9,6 @@ const PUBLIC_PATHS = [
   /^\/(app|apiService)\.js$/,
   /^\/styles\.css$/,
   /^\/minerva-logo\.(png|svg)$/,
-  /^\/dsa\/[A-Za-z]+\.js$/,
   /^\/api\//,
   /^\/@vite\/(client|env)$/,
   /^\/node_modules\/vite\/dist\/client\/[\w.-]+\.m?js$/,

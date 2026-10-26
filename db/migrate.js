@@ -14,10 +14,9 @@ const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SCHEMA_PATH = path.join(ROOT, 'schema.sql');
 const SEED_MARKER = '-- 7. SEED DATA';
 
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
-/** The users/sessions block of schema.sql (v3), all CREATE ... IF NOT EXISTS */
-/** A marked block of schema.sql (e.g. AUTH, SEARCH), all CREATE ... IF NOT EXISTS */
+/** A marked block of schema.sql (e.g. AUTH), all CREATE ... IF NOT EXISTS */
 function ddlBlock(name) {
   const sql = fs.readFileSync(SCHEMA_PATH, 'utf8');
   const start = sql.indexOf(`-- ${name} BEGIN`);
@@ -26,25 +25,20 @@ function ddlBlock(name) {
   return sql.slice(start, end);
 }
 
-function migrateV3toV4(db) {
-  db.transaction(() => {
-    db.exec(ddlBlock('SEARCH'));
-    db.pragma('user_version = 4');
-  })();
-}
-
-function migrateV4toV5(db) {
-  db.transaction(() => {
-    db.exec(ddlBlock('NOTIFY'));
-    db.pragma('user_version = 5');
-  })();
-}
-
 function migrateV2toV3(db) {
   db.transaction(() => {
     db.exec(ddlBlock('AUTH'));
-    db.exec(ddlBlock('SEARCH'));
-    db.pragma('user_version = 4');
+    db.pragma('user_version = 3');
+  })();
+}
+
+/** v3-v5 -> v6: recent searches (v4) and notifications (v5) were removed */
+function migrateToV6(db) {
+  db.transaction(() => {
+    db.exec(`DROP TABLE IF EXISTS NOTIFICATION_READ;
+      DROP TABLE IF EXISTS NOTIFICATION;
+      DROP TABLE IF EXISTS SEARCH_HISTORY;`);
+    db.pragma('user_version = 6');
   })();
 }
 
@@ -103,7 +97,7 @@ function migrateV1toV2(db) {
 
       const broken = db.pragma('foreign_key_check');
       if (broken.length) throw new Error(`Foreign key check failed after migration: ${JSON.stringify(broken.slice(0, 3))}`);
-      db.pragma('user_version = 5');
+      db.pragma('user_version = 6');
     })();
   } finally {
     db.pragma('foreign_keys = ON');
@@ -150,10 +144,9 @@ function migrateSchema(db) {
   }
   const version = db.pragma('user_version', { simple: true });
   if (version >= SCHEMA_VERSION) return `schema v${version}`;
-  // v1 -> v2 rebuilds every table with the current DDL, which already includes v3 and v4
+  // v1 -> v2 rebuilds every table with the current DDL, which already includes v3
   if (version <= 1) migrateV1toV2(db);
   else if (version === 2) migrateV2toV3(db);
-  else if (version === 3) migrateV3toV4(db);
-  if (db.pragma('user_version', { simple: true }) === 4) migrateV4toV5(db);
+  if (db.pragma('user_version', { simple: true }) < SCHEMA_VERSION) migrateToV6(db);
   return `migrated v${version} -> v${SCHEMA_VERSION}`;
 }
